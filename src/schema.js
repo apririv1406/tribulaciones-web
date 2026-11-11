@@ -86,6 +86,14 @@ export const MIGRATIONS = [
   { v: 9, sql: [
     `CREATE TABLE IF NOT EXISTS documentos(id INTEGER PRIMARY KEY AUTOINCREMENT,clave TEXT NOT NULL UNIQUE,nombre TEXT NOT NULL,mime TEXT NOT NULL,datos TEXT NOT NULL,tamano INTEGER NOT NULL,subido_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')))`,
   ]},
+  { v: 10, sql: [
+    `ALTER TABLE cargos_hermanas ADD COLUMN grupo TEXT NOT NULL DEFAULT 'extraordinaria'`,
+    `UPDATE cargos_hermanas SET grupo='sabados' WHERE source_key LIKE 'sabado:%'`,
+    `ALTER TABLE pagos ADD COLUMN categoria TEXT`,
+    `CREATE TABLE IF NOT EXISTS pagos_aplicaciones(id INTEGER PRIMARY KEY AUTOINCREMENT,pago_id INTEGER NOT NULL REFERENCES pagos(id) ON DELETE CASCADE,cuota_id INTEGER REFERENCES cuotas(id),cargo_id INTEGER REFERENCES cargos_hermanas(id),importe_centimos INTEGER NOT NULL CHECK(importe_centimos>0),CHECK((cuota_id IS NOT NULL) != (cargo_id IS NOT NULL)))`,
+    `CREATE INDEX IF NOT EXISTS ix_pagos_aplicaciones_cuota ON pagos_aplicaciones(cuota_id,pago_id)`,
+    `CREATE INDEX IF NOT EXISTS ix_pagos_aplicaciones_cargo ON pagos_aplicaciones(cargo_id,pago_id)`,
+  ]},
 ]; 
 
 export async function ensureSchema(db) {
