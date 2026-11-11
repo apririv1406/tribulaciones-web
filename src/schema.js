@@ -60,6 +60,10 @@ export const MIGRATIONS = [
     `CREATE TABLE IF NOT EXISTS turnos_cocina_hermanas(id INTEGER PRIMARY KEY AUTOINCREMENT,turno_id INTEGER NOT NULL REFERENCES turnos_cocina(id) ON DELETE CASCADE,hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,asignada TEXT NOT NULL DEFAULT (datetime('now')),UNIQUE(turno_id,hermana_id))`,
     `CREATE INDEX IF NOT EXISTS ix_turnos_cocina_hermanas ON turnos_cocina_hermanas(turno_id)`,
   ]},
+  { v: 6, sql: [
+    `ALTER TABLE tickets ADD COLUMN turno_cocina_id INTEGER REFERENCES turnos_cocina(id) ON DELETE SET NULL`,
+    `CREATE INDEX IF NOT EXISTS ix_tickets_turno_cocina ON tickets(turno_cocina_id)`,
+  ]},
 ]; 
 
 export async function ensureSchema(db) {
