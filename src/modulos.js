@@ -54,8 +54,8 @@ async function syncCargosHermanas(db) {
   const hermanas=await rows(db.prepare("SELECT id FROM hermanas WHERE estado!='Baja'"));
   for(const x of extras.filter(x=>x.tipo==='una_vez' && Number(x.importe_centimos)>=0)) {
     const key='extra:'+String(x.categoria)+':'+String(x.nombre).trim().toLowerCase();
-    for(const h of hermanas) ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key)
-      VALUES(?,?,?,?,?) ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos`)
+    for(const h of hermanas) ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)
+      VALUES(?,?,?,?,?,'extraordinaria') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='extraordinaria'`)
       .bind(h.id,x.categoria,x.nombre,Math.round(Number(x.importe_centimos)||0),key+':'+h.id));
   }
   const porCategoria={};
@@ -67,13 +67,21 @@ async function syncCargosHermanas(db) {
       WHERE s.estado!='cancelado'`));
   for(const a of asistencias) {
     const categoria=['Cuaresma','Semana Santa','Otros'].includes(a.categoria)?a.categoria:'Cuaresma';
-    const importe=cents('sabado_precio_centimos')+Math.max(0,Number(a.acompanantes)||0)*cents('invitada_precio_centimos')+
-      Math.max(0,Number(a.copas)||0)*cents('copa_precio_centimos')+Math.max(0,Number(a.refrescos)||0)*cents('refresco_precio_centimos')+(porCategoria[categoria]||0);
-    const detalle=['Asistencia '+(cents('sabado_precio_centimos')/100).toFixed(2)+' €',Number(a.acompanantes)>0?'Invitadas '+a.acompanantes+' × '+(cents('invitada_precio_centimos')/100).toFixed(2)+' €':'',Number(a.copas)>0?'Copas '+a.copas+' × '+(cents('copa_precio_centimos')/100).toFixed(2)+' €':'',Number(a.refrescos)>0?'Refrescos '+a.refrescos+' × '+(cents('refresco_precio_centimos')/100).toFixed(2)+' €':'',porCategoria[categoria]>0?'Extra '+(porCategoria[categoria]/100).toFixed(2)+' €':''].filter(Boolean).join(' · ');
+    const asistencia=cents('sabado_precio_centimos');
+    const invitadas=Math.max(0,Number(a.acompanantes)||0)*cents('invitada_precio_centimos');
+    const extra=porCategoria[categoria]||0;
+    const importe=asistencia+invitadas+extra;
+    const detalle=['Asistencia '+(asistencia/100).toFixed(2)+' €',Number(a.acompanantes)>0?'Invitadas '+a.acompanantes+' × '+(cents('invitada_precio_centimos')/100).toFixed(2)+' €':'',extra>0?'Extra '+(extra/100).toFixed(2)+' €':''].filter(Boolean).join(' · ');
     const concepto='Sábado · '+a.titulo+' · '+detalle;
-    ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key)
-      VALUES(?,?,?,?,?) ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos`)
+    ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)
+      VALUES(?,?,?,?,?,'sabados') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='sabados'`)
       .bind(a.hermana_id,categoria,concepto,importe,'sabado:'+a.sabado_id+':'+a.hermana_id));
+    const copas=Math.max(0,Number(a.copas)||0),refrescos=Math.max(0,Number(a.refrescos)||0);
+    const importeConsumos=copas*cents('copa_precio_centimos')+refrescos*cents('refresco_precio_centimos');
+    const detalleConsumos=['Copas '+copas+' × '+(cents('copa_precio_centimos')/100).toFixed(2)+' €','Refrescos '+refrescos+' × '+(cents('refresco_precio_centimos')/100).toFixed(2)+' €'].join(' · ');
+    ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)
+      VALUES(?,?,?,?,?,'consumos') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='consumos'`)
+      .bind(a.hermana_id,categoria,detalleConsumos,importeConsumos,'consumo:'+a.sabado_id+':'+a.hermana_id));
   }
   if(ops.length) await db.batch(ops);
 }
