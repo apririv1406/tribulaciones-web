@@ -138,7 +138,9 @@ export async function routeModulos(req, env, me, method, path, body) {
       tes(me)
       ? await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.estado!='Baja' ORDER BY h.nombre"))
       : await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.id=?").bind(me.id)),
-      rows(env.DB.prepare('SELECT id,nombre_archivo,mime,tamano,creado,sabado_id FROM tickets WHERE subido_por=? ORDER BY creado DESC LIMIT 50').bind(me.id)),
+      tes(me)
+        ? rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,h.nombre subido_por_nombre FROM tickets t LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 100`))
+        : rows(env.DB.prepare('SELECT id,nombre_archivo,mime,tamano,creado,sabado_id,turno_cocina_id FROM tickets WHERE subido_por=? ORDER BY creado DESC LIMIT 50').bind(me.id)),
     ]);
     const hermanas = tes(me) ? await rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado='Activa' ORDER BY nombre")) : [];
     const asignaciones = await rows(env.DB.prepare(`SELECT tc.turno_id,tc.hermana_id,h.nombre FROM turnos_cocina_hermanas tc JOIN hermanas h ON h.id=tc.hermana_id ORDER BY h.nombre`));
@@ -149,8 +151,10 @@ export async function routeModulos(req, env, me, method, path, body) {
     if (!mdata || mdata[2].length > 1400000) return E('El ticket debe ser JPG, PNG, WEBP o PDF y no superar 1 MB');
     const sabadoId = body.sabado_id ? num(body.sabado_id) : null;
     if (sabadoId && !await env.DB.prepare('SELECT id FROM sabados WHERE id=?').bind(sabadoId).first()) return E('El sábado asociado no existe');
-    const r = await env.DB.prepare('INSERT INTO tickets(sabado_id,nombre_archivo,mime,datos,tamano,subido_por) VALUES(?,?,?,?,?,?)')
-      .bind(sabadoId, txt(body.nombre_archivo, 120) || 'ticket', mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id).run();
+    const turnoId = body.turno_cocina_id ? num(body.turno_cocina_id) : null;
+    if (turnoId && !await env.DB.prepare('SELECT id FROM turnos_cocina WHERE id=?').bind(turnoId).first()) return E('El turno de cocina asociado no existe');
+    const r = await env.DB.prepare('INSERT INTO tickets(sabado_id,turno_cocina_id,nombre_archivo,mime,datos,tamano,subido_por) VALUES(?,?,?,?,?,?,?)')
+      .bind(sabadoId, turnoId, txt(body.nombre_archivo, 120) || 'ticket', mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id).run();
     return J({ ok: true, id: r.meta.last_row_id });
   }
   if ((m = path.match(/^\/api\/modulos\/cocina\/tickets\/(\d+)$/)) && method === 'GET') {
@@ -214,7 +218,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         rows(env.DB.prepare(`SELECT p.*,h.nombre hermana,c.periodo FROM pagos p JOIN hermanas h ON h.id=p.hermana_id LEFT JOIN cuotas c ON c.id=p.cuota_id WHERE p.estado='pendiente' ORDER BY p.fecha_pago,p.id`)),
         rows(env.DB.prepare('SELECT * FROM gastos_fijos ORDER BY activo DESC,id')),
         rows(env.DB.prepare(`SELECT c.periodo,c.estado,COUNT(*) cantidad,SUM(c.importe_centimos) total FROM cuotas c GROUP BY c.periodo,c.estado ORDER BY c.periodo DESC LIMIT 24`)),
-        rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.movimiento_id,t.sabado_id,m.concepto FROM tickets t LEFT JOIN movimientos m ON m.id=t.movimiento_id ORDER BY t.creado DESC LIMIT 200`)),
+        rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.movimiento_id,t.sabado_id,t.turno_cocina_id,m.concepto,tc.turno turno_cocina,tc.fecha fecha_turno FROM tickets t LEFT JOIN movimientos m ON m.id=t.movimiento_id LEFT JOIN turnos_cocina tc ON tc.id=t.turno_cocina_id ORDER BY t.creado DESC LIMIT 200`)),
         rows(env.DB.prepare(`SELECT c.id,c.periodo,c.importe_centimos,c.estado,h.nombre,MAX(0,c.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')) restante_centimos FROM cuotas c JOIN hermanas h ON h.id=c.hermana_id WHERE c.estado!='pagada' ORDER BY c.periodo DESC,h.nombre`)),
         rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos FROM movimientos GROUP BY strftime('%Y',fecha) ORDER BY anio DESC`)),
         env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos`).first(),
@@ -305,8 +309,10 @@ export async function routeModulos(req, env, me, method, path, body) {
       if (movimientoId && !await env.DB.prepare('SELECT id FROM movimientos WHERE id=?').bind(movimientoId).first()) return E('El gasto asociado no existe');
       const sabadoId = body.sabado_id ? num(body.sabado_id) : null;
       if (sabadoId && !await env.DB.prepare('SELECT id FROM sabados WHERE id=?').bind(sabadoId).first()) return E('El sábado asociado no existe');
-      const r = await env.DB.prepare('INSERT INTO tickets(movimiento_id,sabado_id,nombre_archivo,mime,datos,tamano,subido_por) VALUES(?,?,?,?,?,?,?)')
-        .bind(movimientoId, sabadoId, nombre, mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id).run();
+      const turnoId = body.turno_cocina_id ? num(body.turno_cocina_id) : null;
+      if (turnoId && !await env.DB.prepare('SELECT id FROM turnos_cocina WHERE id=?').bind(turnoId).first()) return E('El turno de cocina asociado no existe');
+      const r = await env.DB.prepare('INSERT INTO tickets(movimiento_id,sabado_id,turno_cocina_id,nombre_archivo,mime,datos,tamano,subido_por) VALUES(?,?,?,?,?,?,?,?)')
+        .bind(movimientoId, sabadoId, turnoId, nombre, mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id).run();
       return J({ ok: true, id: r.meta.last_row_id });
     }
     return E('Ruta de tesorería no encontrada', 404);
