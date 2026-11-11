@@ -83,6 +83,9 @@ export const MIGRATIONS = [
     `ALTER TABLE tickets ADD COLUMN cuenta TEXT NOT NULL DEFAULT 'Banco'`,
     `ALTER TABLE tickets ADD COLUMN estado TEXT NOT NULL DEFAULT 'pendiente'`,
   ]},
+  { v: 9, sql: [
+    `CREATE TABLE IF NOT EXISTS documentos(id INTEGER PRIMARY KEY AUTOINCREMENT,clave TEXT NOT NULL UNIQUE,nombre TEXT NOT NULL,mime TEXT NOT NULL,datos TEXT NOT NULL,tamano INTEGER NOT NULL,subido_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')))`,
+  ]},
 ]; 
 
 export async function ensureSchema(db) {
