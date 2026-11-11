@@ -1,0 +1,8 @@
+Pon aquí las fotos de la web pública, con estos nombres exactos (JPG, mejor de menos de 400 KB):
+
+  historia-1.jpg   foto grande junto a la historia
+  historia-2.jpg   foto pequeña junto a la línea de tiempo
+  hermandad.jpg    foto de la sección Hermandad
+  cuaresma-1.jpg, cuaresma-2.jpg, cuaresma-3.jpg   las tres fotos de Nuestra Cuaresma
+
+Mientras una foto no exista, se ve un recuadro de relleno.
