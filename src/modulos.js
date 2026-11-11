@@ -359,8 +359,8 @@ export async function routeModulos(req, env, me, method, path, body) {
           SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,
           SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos
           FROM movimientos WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL GROUP BY strftime('%Y-%m',fecha) ORDER BY periodo`)),
-        rows(env.DB.prepare(`SELECT tipo,categoria,SUM(importe_centimos) total FROM movimientos
-          WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL GROUP BY tipo,categoria ORDER BY tipo,total DESC`))
+        rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,tipo,categoria,SUM(importe_centimos) total FROM movimientos
+          WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL GROUP BY strftime('%Y',fecha),tipo,categoria ORDER BY anio,tipo,total DESC`))
       ]);
       const hermanas = await rows(env.DB.prepare('SELECT id,nombre FROM hermanas ORDER BY nombre'));
       const cargos_pendientes = await rows(env.DB.prepare(`SELECT x.id,x.hermana_id,h.nombre,x.categoria,x.concepto,x.importe_centimos,
@@ -372,12 +372,18 @@ export async function routeModulos(req, env, me, method, path, body) {
       const saldoCfg=await rows(env.DB.prepare("SELECT clave,valor FROM config WHERE clave IN ('saldo_inicial_fecha','saldo_inicial_banco_centimos','saldo_inicial_caja_centimos')"));
       const saldosCfg=Object.fromEntries(saldoCfg.map(x=>[x.clave,x.valor]));
       const saldoInicial={fecha:saldosCfg.saldo_inicial_fecha||'2026-01-01',banco_centimos:Number(saldosCfg.saldo_inicial_banco_centimos||0),caja_centimos:Number(saldosCfg.saldo_inicial_caja_centimos||0)};
+      const cocina_informe=await rows(env.DB.prepare(`SELECT tc.id,tc.fecha,tc.turno,tc.responsable,
+        (COALESCE((SELECT CAST(valor AS INTEGER) FROM config WHERE clave='cocina_precio_persona_centimos'),0)*
+          ((SELECT COUNT(*) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1)+
+           (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1))) presupuesto_centimos,
+        COALESCE((SELECT SUM(t.importe_centimos) FROM tickets t WHERE t.turno_cocina_id=tc.id AND t.estado='incluido'),0) gastado_centimos
+        FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC`));
       const saldos=await rows(env.DB.prepare(`SELECT cuenta,
         SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE -importe_centimos END) neto
         FROM movimientos WHERE fecha>=? GROUP BY cuenta`).bind(saldoInicial.fecha));
       const banco=saldoInicial.banco_centimos+Number(saldos.find(x=>x.cuenta==='Banco')?.neto||0);
       const caja=saldoInicial.caja_centimos+Number(saldos.find(x=>x.cuenta==='Caja fuerte')?.neto||0);
-      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, hermanas, cuotas_pendientes: pendientes, cargos_pendientes, informes, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco+caja}, saldo_inicial:saldoInicial, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
+      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, hermanas, cuotas_pendientes: pendientes, cargos_pendientes, informes, cocina_informe, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco+caja}, saldo_inicial:saldoInicial, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
     }
     if (path === '/api/modulos/tesoreria/config' && method === 'PUT') {
       const campos = {
