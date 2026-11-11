@@ -88,11 +88,94 @@ async function vAdmin(tab) {
   if (tab === 'whatsapp') {
     return shell(adm(tab, `<div class="card" style="max-width:720px"><h3>Bienvenida y contraseñas por WhatsApp</h3><p class="mu">Desde la ficha de cada hermana puedes preparar un mensaje de WhatsApp con su enlace personal para crear la contraseña.</p><ul class="mu" style="padding-left:20px;line-height:1.8"><li>Añade su número de teléfono, preferiblemente con prefijo internacional.</li><li>Pulsa <b>Enviar bienvenida por WhatsApp</b> para abrir la conversación con el mensaje preparado.</li><li>Revisa el mensaje y pulsa Enviar en WhatsApp. No se envía automáticamente.</li><li>Para una contraseña nueva, utiliza <b>Restablecer contraseña</b>. El enlace caduca en 24 horas.</li></ul><p class="mu" style="font-size:13px;margin-bottom:0">Los enlaces son personales y de un solo uso. La bienvenida caduca en 7 días. No compartas el enlace con otras personas.</p></div>`));
   }
-  if (tab === 'noticias') {
-    const d = await api('GET', '/public');
-    return shell(adm(tab, `<div class="card"><h3>Nueva noticia</h3><form data-f="noticia-new">${campo('titulo', 'Título', 'required maxlength="150" placeholder="Ej.: Sábado de Pan y Peces"')}<label class="fl" style="text-align:left">Texto</label><textarea class="t" name="texto" rows="6" required maxlength="6000" placeholder="Cuenta cómo fue el sábado…"></textarea><label class="fl" style="text-align:left">Foto (opcional)</label><input type="file" name="foto" accept="image/*"><p style="margin:18px 0 0"><button class="btn">Publicar en la web</button></p></form></div>
-<div class="card" style="margin-top:16px"><h3>Publicadas</h3>${d.noticias.length ? d.noticias.map(n => `<div class="mv">${n.imagen ? `<img src="/media/${n.imagen}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:10px">` : ''}<div class="x"><b>${esc(n.titulo)}</b><br><small class="mu">${esc(n.fecha)} · ${esc(n.texto.slice(0, 70))}…</small></div><button class="chip" data-a="noticia-del" data-id="${n.id}">Eliminar</button></div>`).join('') : '<p class="mu" style="margin:0">Todavía no hay noticias.</p>'}</div>`));
-  }
+if (tab === 'noticias') {
+  const ns = await api('GET', '/admin/noticias');
+  const hoy = new Date();
+  const fechaHoy = [
+    hoy.getFullYear(),
+    String(hoy.getMonth() + 1).padStart(2, '0'),
+    String(hoy.getDate()).padStart(2, '0')
+  ].join('-');
+
+  return shell(adm(tab, `
+    <div class="card">
+      <h3>Nueva noticia</h3>
+      <form data-f="noticia-new">
+        ${campo('titulo', 'Título', 'required maxlength="150" placeholder="Ej.: Sábado de Romanos"')}
+
+        <label class="fl" style="text-align:left">Fecha de publicación</label>
+        <input class="t" type="date" name="fecha" value="${fechaHoy}" required>
+
+        <label class="fl" style="text-align:left">Texto</label>
+        <textarea class="t" name="texto" rows="6" required maxlength="6000"></textarea>
+
+        <label class="fl" style="text-align:left">Fotografía (opcional)</label>
+        <input type="file" name="foto" accept="image/*">
+
+        <p style="margin:14px 0">
+          <label class="mu">
+            <input type="checkbox" name="visible_web" checked>
+            Mostrar noticia en la web pública
+          </label>
+        </p>
+
+        <button class="btn">Publicar noticia</button>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3>Noticias publicadas y guardadas</h3>
+      ${ns.length ? ns.map(n => `
+        <form class="mv" data-f="noticia-save" data-id="${n.id}"
+          style="display:block;border-bottom:1px solid var(--bd,#eee);padding:16px 0">
+
+          <div class="row" style="align-items:center;justify-content:space-between">
+            <b>${esc(n.titulo)}</b>
+            <span class="pill ${n.visible_web ? 'ok' : ''}">
+              ${n.visible_web ? 'Visible en la web' : 'Oculta'}
+            </span>
+          </div>
+
+          ${campo('titulo', 'Título', `value="${esc(n.titulo)}" required maxlength="150"`)}
+
+          <label class="fl" style="text-align:left">Fecha de publicación</label>
+          <input class="t" type="date" name="fecha" value="${esc(n.fecha)}" required>
+
+          <label class="fl" style="text-align:left">Texto</label>
+          <textarea class="t" name="texto" rows="5" required maxlength="6000">${esc(n.texto)}</textarea>
+
+          ${n.imagen ? `
+            <div style="margin:10px 0">
+              <img src="/media/${n.imagen}" alt=""
+                style="max-width:180px;max-height:120px;object-fit:cover;border-radius:10px">
+              <label class="mu" style="display:block;margin-top:6px">
+                <input type="checkbox" name="quitar_imagen">
+                Quitar fotografía actual
+              </label>
+            </div>
+          ` : ''}
+
+          <label class="fl" style="text-align:left">Cambiar fotografía (opcional)</label>
+          <input type="file" name="foto" accept="image/*">
+
+          <p style="margin:12px 0">
+            <label class="mu">
+              <input type="checkbox" name="visible_web" ${n.visible_web ? 'checked' : ''}>
+              Mostrar noticia en la web pública
+            </label>
+          </p>
+
+          <div class="row" style="margin-top:12px">
+            <button class="btn" style="padding:9px 20px">Guardar cambios</button>
+            <button type="button" class="chip" data-a="noticia-del" data-id="${n.id}">
+              Eliminar noticia
+            </button>
+          </div>
+        </form>
+      `).join('') : '<p class="mu">Todavía no hay noticias.</p>'}
+    </div>
+  `));
+}
   if (tab === 'historia') {
     const d = await api('GET', '/public');
     return shell(adm(tab, `<div class="card"><h3>Línea de tiempo de la historia</h3><p class="mu">Cada hito aparece en la web pública, junto a la historia del cuartel.</p><form data-f="historia"><div id="hitos">${d.hitos.map(hitoRow).join('')}</div><p style="margin:14px 0 0"><button type="button" class="chip" data-a="hito-add">Añadir hito</button> <button class="btn">Guardar</button></p></form></div>`));
@@ -121,8 +204,38 @@ const FORM = {
     await api('PUT', '/admin/hermanas/' + f.dataset.id, b); toast('Guardado'); render();
   },
   async 'cargo-new'(f, d) { await api('POST', '/admin/cargos', { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Cargo creado'); render(); },
-  async 'cargo-save'(f, d) { await api('PUT', '/admin/cargos/' + f.dataset.id, { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Guardado'); render(); },
-  async 'noticia-new'(f, d) { const b = { titulo: d.get('titulo'), texto: d.get('texto') }; const fl = d.get('foto'); if (fl && fl.size) b.imagen = await reducir(fl, 1400, 0.8); await api('POST', '/admin/noticias', b); toast('Noticia publicada. Ya aparece en la web.'); render(); },
+  async 'noticia-new'(f, d) {
+  const b = {
+    titulo: d.get('titulo'),
+    texto: d.get('texto'),
+    fecha: d.get('fecha'),
+    visible_web: d.get('visible_web') === 'on'
+  };
+
+  const fl = d.get('foto');
+  if (fl && fl.size) b.imagen = await reducir(fl, 1400, 0.8);
+
+  await api('POST', '/admin/noticias', b);
+  toast('Noticia guardada correctamente');
+  render();
+},
+
+async 'noticia-save'(f, d) {
+  const b = {
+    titulo: d.get('titulo'),
+    texto: d.get('texto'),
+    fecha: d.get('fecha'),
+    visible_web: d.get('visible_web') === 'on',
+    quitar_imagen: d.get('quitar_imagen') === 'on'
+  };
+
+  const fl = d.get('foto');
+  if (fl && fl.size) b.imagen = await reducir(fl, 1400, 0.8);
+
+  await api('PUT', '/admin/noticias/' + f.dataset.id, b);
+  toast('Noticia actualizada');
+  render();
+},
   async historia(f) { const hitos = [...f.querySelectorAll('#hitos .row')].map(r => ({ anio: r.querySelector('[name=anio]').value, texto: r.querySelector('[name=texto]').value })); const r = await api('PUT', '/admin/hitos', { hitos }); toast(`Guardado (${r.total} hitos)`); render(); },
 };
 async function abrirWhatsApp(el, tipo) {
