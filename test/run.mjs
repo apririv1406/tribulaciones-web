@@ -86,7 +86,7 @@ for (let i = 0; i < 8; i++) await call('POST', '/api/auth/login', { email: 'bloq
 r = await call('POST', '/api/auth/login', { email: 'bloqueo@ejemplo.com', password: 'x' }); assert.equal(r.status, 429); ok('bloqueo tras demasiados intentos');
 // 15 sin correo configurado
 const e2 = { ...env, RESEND_API_KEY: undefined };
-const w = await worker.fetch(new Request('https://ejemplo.es/api/admin/hermanas/' + lid + '/invitar', { method: 'POST', headers: { 'X-Requested-With': 'fetch', cookie: adm, 'Content-Type': 'application/json' } }), e2);
+const w = await worker.fetch(new Request('https://ejemplo.es/api/admin/hermanas/' + aid + '/invitar', { method: 'POST', headers: { 'X-Requested-With': 'fetch', cookie: adm, 'Content-Type': 'application/json' } }), e2);
 console.log('  ·', w.status, 'sin Resend:', (await w.json()).error ?? 'responde con aviso');
 // 16 parámetros configurables, sorteo equilibrado y presupuesto automático de cocina
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com' }, adm); assert.equal(r.status, 200);
