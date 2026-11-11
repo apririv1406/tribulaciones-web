@@ -45,12 +45,44 @@ export async function generarGastosFijos(db, fecha = new Date()) {
   return { generados };
 }
 
+async function syncCargosHermanas(db) {
+  const cfgRows = await rows(db.prepare("SELECT clave,valor FROM config WHERE clave IN ('sabado_precio_centimos','invitada_precio_centimos','copa_precio_centimos','refresco_precio_centimos','cuotas_extraordinarias_json')"));
+  const cfg = Object.fromEntries(cfgRows.map(x=>[x.clave,x.valor]));
+  const cents = k => Math.max(0,Number(cfg[k]||0));
+  let extras=[]; try { extras=JSON.parse(cfg.cuotas_extraordinarias_json||'[]'); } catch { extras=[]; }
+  const ops=[];
+  const hermanas=await rows(db.prepare("SELECT id FROM hermanas WHERE estado!='Baja'"));
+  for(const x of extras.filter(x=>x.tipo==='una_vez' && Number(x.importe_centimos)>=0)) {
+    const key='extra:'+String(x.categoria)+':'+String(x.nombre).trim().toLowerCase();
+    for(const h of hermanas) ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key)
+      VALUES(?,?,?,?,?) ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos`)
+      .bind(h.id,x.categoria,x.nombre,Math.round(Number(x.importe_centimos)||0),key+':'+h.id));
+  }
+  const porCategoria={};
+  for(const x of extras.filter(x=>x.tipo==='por_sabado')) porCategoria[x.categoria]=(porCategoria[x.categoria]||0)+Math.max(0,Number(x.importe_centimos)||0);
+  const asistencias=await rows(db.prepare(`SELECT s.id sabado_id,s.fecha,s.titulo,s.categoria,a.hermana_id,a.acompanantes,
+      COALESCE(c.copas,0) copas,COALESCE(c.refrescos,0) refrescos
+      FROM sabados s JOIN asistencias_sabado a ON a.sabado_id=s.id AND a.asiste=1
+      LEFT JOIN consumos_sabado c ON c.sabado_id=s.id AND c.hermana_id=a.hermana_id
+      WHERE s.estado!='cancelado'`));
+  for(const a of asistencias) {
+    const categoria=['Cuaresma','Semana Santa','Otros'].includes(a.categoria)?a.categoria:'Cuaresma';
+    const importe=cents('sabado_precio_centimos')+Math.max(0,Number(a.acompanantes)||0)*cents('invitada_precio_centimos')+
+      Math.max(0,Number(a.copas)||0)*cents('copa_precio_centimos')+Math.max(0,Number(a.refrescos)||0)*cents('refresco_precio_centimos')+(porCategoria[categoria]||0);
+    const concepto='Sábado · '+a.titulo;
+    ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key)
+      VALUES(?,?,?,?,?) ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos`)
+      .bind(a.hermana_id,categoria,concepto,importe,'sabado:'+a.sabado_id+':'+a.hermana_id));
+  }
+  if(ops.length) await db.batch(ops);
+}
+
 export async function routeModulos(req, env, me, method, path, body) {
   let m;
 
   // SÁBADOS Y ASISTENCIA
   if (path === '/api/modulos/sabados' && method === 'GET') {
-    const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,
+    await syncCargosHermanas(env.DB);\n    const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,
       COALESCE(a.alergias,ah.alergias,'') mis_alergias,a.observaciones mi_observaciones,
       COALESCE(c.copas,0) mis_copas,COALESCE(c.refrescos,0) mis_refrescos,
       (SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1) confirmadas
@@ -63,8 +95,9 @@ export async function routeModulos(req, env, me, method, path, body) {
     if (!me.admin && !me.tes) return E('No tienes permiso para crear sábados', 403);
     const fecha = txt(body.fecha, 10), titulo = txt(body.titulo, 120);
     if (!isoDate(fecha) || titulo.length < 2) return E('Indica una fecha y un título');
-    const r = await env.DB.prepare('INSERT INTO sabados(fecha,hora,titulo,descripcion,creado_por) VALUES(?,?,?,?,?)')
-      .bind(fecha, txt(body.hora, 10) || null, titulo, txt(body.descripcion, 2000) || null, me.id).run();
+    const categoria=['Cuaresma','Semana Santa','Otros'].includes(body.categoria)?body.categoria:'Cuaresma';
+    const r = await env.DB.prepare('INSERT INTO sabados(fecha,hora,titulo,descripcion,categoria,creado_por) VALUES(?,?,?,?,?,?)')
+      .bind(fecha, txt(body.hora, 10) || null, titulo, txt(body.descripcion, 2000) || null, categoria, me.id).run();
     return J({ ok: true, id: r.meta.last_row_id });
   }
   if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)$/)) && (method === 'PUT' || method === 'DELETE')) {
@@ -75,9 +108,11 @@ export async function routeModulos(req, env, me, method, path, body) {
     if (!s) return E('Sábado no encontrado', 404);
     const fecha = body.fecha !== undefined ? txt(body.fecha, 10) : s.fecha;
     if (!isoDate(fecha)) return E('La fecha no es válida');
-    await env.DB.prepare('UPDATE sabados SET fecha=?,hora=?,titulo=?,descripcion=?,estado=? WHERE id=?')
+    await env.DB.prepare('UPDATE sabados SET fecha=?,hora=?,titulo=?,descripcion=?,categoria=?,estado=? WHERE id=?')
       .bind(fecha, txt(body.hora ?? s.hora, 10) || null, txt(body.titulo ?? s.titulo, 120), txt(body.descripcion ?? s.descripcion, 2000) || null,
+        ['Cuaresma','Semana Santa','Otros'].includes(body.categoria)?body.categoria:s.categoria||'Cuaresma',
         ['abierto','cerrado','cancelado'].includes(body.estado) ? body.estado : s.estado, id).run();
+    await syncCargosHermanas(env.DB);
     return J({ ok: true });
   }
   if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/asistencia$/)) && method === 'POST') {
@@ -90,6 +125,7 @@ export async function routeModulos(req, env, me, method, path, body) {
       VALUES(?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(sabado_id,hermana_id) DO UPDATE SET asiste=excluded.asiste,acompanantes=excluded.acompanantes,
       detalle_acompanantes=excluded.detalle_acompanantes,alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`)
       .bind(id, me.id, asiste, acomp, txt(body.detalle_acompanantes, 1000) || null, txt(body.alergias, 1000) || null, txt(body.observaciones, 1000) || null).run();
+    await syncCargosHermanas(env.DB);
     return J({ ok: true });
   }
   if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/asistencias$/)) && method === 'GET') {
@@ -109,6 +145,7 @@ export async function routeModulos(req, env, me, method, path, body) {
     await env.DB.prepare(`INSERT INTO consumos_sabado(sabado_id,hermana_id,copas,refrescos,actualizado) VALUES(?,?,?,?,datetime('now'))
       ON CONFLICT(sabado_id,hermana_id) DO UPDATE SET copas=excluded.copas,refrescos=excluded.refrescos,actualizado=datetime('now')`)
       .bind(id,me.id,copas,refrescos).run();
+    await syncCargosHermanas(env.DB);
     return J({ ok: true });
   }
 
