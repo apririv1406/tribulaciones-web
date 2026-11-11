@@ -283,7 +283,13 @@ export async function routeModulos(req, env, me, method, path, body) {
       return J({ ok: true });
     }
     if ((m = path.match(/^\/api\/modulos\/tesoreria\/pagos\/(\d+)\/rechazar$/)) && method === 'POST') {
-      await env.DB.prepare("UPDATE pagos SET estado='rechazado',confirmado_por=? WHERE id=? AND estado='pendiente'").bind(me.id, +m[1]).run();
+      const pagoId = +m[1];
+      const resultado = await env.DB.prepare("UPDATE pagos SET estado='rechazado',confirmado_por=? WHERE id=? AND estado='pendiente'").bind(me.id, pagoId).run();
+      if (!resultado.meta?.changes) {
+        const existe = await env.DB.prepare('SELECT id,estado FROM pagos WHERE id=?').bind(pagoId).first();
+        if (!existe) return E('Pago no encontrado', 404);
+        return E('Este pago ya está revisado', 409);
+      }
       return J({ ok: true });
     }
     if ((m = path.match(/^\/api\/modulos\/tesoreria\/tickets\/(\d+)$/)) && method === 'GET') {
