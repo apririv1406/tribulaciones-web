@@ -3,7 +3,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(''));
 const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.600 2.400 30.200 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.800 6.100C12.300 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.500 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.700c-.6 3-2.300 5.500-4.800 7.200l7.500 5.800c4.400-4.100 7.100-10.100 7.100-17.500z"/><path fill="#FBBC05" d="M10.400 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.9-4.700l-7.800-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.800-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.700-4.100-13.600-9.800l-7.800 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
-let ME = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_YEAR = '2026', TES_IMPORT_FILE = '', ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'' };
+let ME = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REPORT_YEAR = '2026', TES_IMPORT_FILE = '', ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'' };
 
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
@@ -121,7 +121,6 @@ async function vCuenta() {
   const alergiasActuales=String(d.alergias?.alergias||'').split(/[,;\\n]/).map(x=>x.trim()).filter(Boolean);
   const mes=p=>{const [y,m]=String(p||'').split('-');return m?new Date(Number(y),Number(m)-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'}):p;};
   const estado=p=>p.estado==='confirmado'?'<span class="pill ok">Confirmado</span>':p.estado==='rechazado'?'<span class="pill">Rechazado</span>':'<span class="pill warn">Pendiente</span>';
-  const pagosCargo=cargos.filter(x=>x.restante_centimos>0);
   let contenido='';
   if(CUENTA_TAB==='deb') {
     const filasCuotas=pendientes.map(c=>`<div class="mv"><div class="x"><b>${esc(mes(c.periodo))}</b><br><small>${Number(c.importe_centimos/100).toFixed(0)} € de cuota mensual</small></div><div class="amt">${euros(c.restante_centimos)}</div></div>`).join('');
@@ -190,7 +189,6 @@ function extraRow(x={}) { return `<div class="extra-row card" style="margin:10px
 async function vTesoreria() {
   const d = await api('GET', '/modulos/tesoreria');
   const ingresos=d.totales.ingresos, gastos=d.totales.gastos, saldo=Number(d.totales.saldo_centimos||0);
-  const totalPendiente=d.cuotas_pendientes.reduce((a,c)=>a+Number(c.restante_centimos||0),0);
   const movimientosVisibles=d.movimientos.filter(x=>(TES_FILTRO.tipo==='todos'||x.tipo===TES_FILTRO.tipo)&&(!TES_FILTRO.cuenta||x.cuenta===TES_FILTRO.cuenta)&&(!TES_FILTRO.desde||x.fecha>=TES_FILTRO.desde)&&(!TES_FILTRO.hasta||x.fecha<=TES_FILTRO.hasta)&&(!TES_FILTRO.texto||(x.concepto+' '+(x.categoria||'')+' '+(x.hermana||'')).toLowerCase().includes(TES_FILTRO.texto.toLowerCase())));
   const moneyParam=k=>Number(d.parametros?.[k]||0)/100;
   const mensual=d.estadisticas?.mensuales||[], maxMes=Math.max(1,...mensual.flatMap(x=>[Number(x.ingresos||0),Number(x.gastos||0)]));
@@ -359,7 +357,6 @@ const FORM = {
   async 'tes-movimiento'(f,d) { await api('POST','/modulos/tesoreria/movimientos',{tipo:d.get('tipo'),fecha:d.get('fecha'),concepto:d.get('concepto'),categoria:d.get('categoria'),cuenta:d.get('cuenta'),importe:d.get('importe')}); toast('Movimiento registrado'); render(); },
   async 'tes-traspaso'(f,d) { await api('POST','/modulos/tesoreria/traspasos',{fecha:d.get('fecha'),importe:d.get('importe'),origen:d.get('origen'),destino:d.get('destino')}); toast('Traspaso registrado'); render(); },
   async 'tes-saldos'(f,d) { await api('PUT','/modulos/tesoreria/config',{saldo_inicial:{fecha:d.get('fecha'),banco:d.get('banco'),caja:d.get('caja')}}); toast('Saldos iniciales guardados'); render(); },
-  async 'tes-traspaso'(f,d) { await api('POST','/modulos/tesoreria/traspasos',{fecha:d.get('fecha'),importe:d.get('importe'),origen:d.get('origen'),destino:d.get('destino')}); toast('Traspaso registrado'); render(); },
   async 'tes-fijo'(f,d) { await api('POST','/modulos/tesoreria/gastos-fijos',{concepto:d.get('concepto'),categoria:d.get('categoria'),importe:d.get('importe'),periodicidad:d.get('periodicidad'),dia:d.get('dia')}); toast('Gasto fijo añadido'); render(); },
   async 'tes-fijo-edit'(f,d) { await api('PUT','/modulos/tesoreria/gastos-fijos/'+f.dataset.id,{concepto:d.get('concepto'),categoria:d.get('categoria'),importe:d.get('importe'),periodicidad:d.get('periodicidad'),dia:d.get('dia'),activo:d.has('activo')}); toast('Gasto fijo actualizado'); render(); },
   async 'tes-ticket'(f,d) { const file=d.get('ticket'); if(!file || !file.size) throw new Error('Selecciona un ticket'); if(file.size>1024*1024) throw new Error('El archivo no puede superar 1 MB'); const datos=await readFileData(file); await api('POST','/modulos/tesoreria/tickets',{movimiento_id:d.get('movimiento_id')||null,sabado_id:d.get('sabado_id')||null,nombre_archivo:file.name,datos}); toast('Ticket guardado'); render(); },
@@ -369,7 +366,7 @@ const FORM = {
 };
 
 const ACT = {
-  'module-tab'(el) { const k=el.dataset.tab; if(el.dataset.module==='cuenta') CUENTA_TAB=k; if(el.dataset.module==='cocina') COCINA_TAB=k; if(el.dataset.module==='tesoreria') TES_TAB=k; if(el.dataset.module==='tescfg') TES_CFG_TAB=k; if(el.dataset.module==='tesrec') TES_REC_TAB=k; if(el.dataset.module==='adminher') ADMIN_HERM_TAB=k; if(el.dataset.module==='actas') ACTAS_TAB=k; render(); },
+  'module-tab'(el) { const k=el.dataset.tab; if(el.dataset.module==='cuenta') CUENTA_TAB=k; if(el.dataset.module==='cocina') COCINA_TAB=k; if(el.dataset.module==='tesoreria') TES_TAB=k; if(el.dataset.module==='tescfg') TES_CFG_TAB=k; if(el.dataset.module==='adminher') ADMIN_HERM_TAB=k; if(el.dataset.module==='actas') ACTAS_TAB=k; render(); },
   'extra-add'() { $('#tes-extras-rows').insertAdjacentHTML('beforeend',extraRow({})); },
   'extra-del'(el) { el.closest('.extra-row').remove(); },
 
