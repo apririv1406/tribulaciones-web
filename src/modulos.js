@@ -60,7 +60,7 @@ async function syncCargosHermanas(db) {
   }
   const porCategoria={};
   for(const x of extras.filter(x=>x.tipo==='por_sabado')) porCategoria[x.categoria]=(porCategoria[x.categoria]||0)+Math.max(0,Number(x.importe_centimos)||0);
-  const asistencias=await rows(db.prepare(`SELECT s.id sabado_id,s.fecha,s.titulo,s.categoria,a.hermana_id,a.acompanantes,
+  const asistencias=await rows(db.prepare(`SELECT s.id sabado_id,s.fecha,s.titulo,s.categoria,a.hermana_id,a.asiste,a.acompanantes,
       COALESCE(c.copas,0) copas,COALESCE(c.refrescos,0) refrescos
       FROM sabados s JOIN asistencias_sabado a ON a.sabado_id=s.id
       LEFT JOIN consumos_sabado c ON c.sabado_id=s.id AND c.hermana_id=a.hermana_id
