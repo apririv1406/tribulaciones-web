@@ -148,7 +148,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC LIMIT 100`)),
       actas(me)
       ? await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.estado!='Baja' ORDER BY h.nombre"))
-      : await rows(env.DB.prepare(`SELECT a.hermana_id,h.nombre,COALESCE(asb.alergias,a.alergias) alergias,COALESCE(asb.observaciones,a.observaciones) observaciones
+      : await rows(env.DB.prepare(`SELECT a.hermana_id,h.nombre,tc.fecha fecha,COALESCE(asb.alergias,a.alergias) alergias,COALESCE(asb.observaciones,a.observaciones) observaciones
           FROM turnos_cocina_hermanas mine JOIN turnos_cocina tc ON tc.id=mine.turno_id
           JOIN sabados s ON s.fecha=tc.fecha JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND asb.asiste=1
           JOIN hermanas h ON h.id=asb.hermana_id LEFT JOIN alergias_hermanas a ON a.hermana_id=h.id
