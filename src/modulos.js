@@ -203,12 +203,12 @@ export async function routeModulos(req, env, me, method, path, body) {
            (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado'))) presupuesto_calculado_centimos
         FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC LIMIT 100`)),
       actas(me)
-      ? await rows(env.DB.prepare(`SELECT asb.hermana_id,h.nombre,tc.fecha fecha,COALESCE(NULLIF(asb.alergias,''),a.alergias,'') alergias,COALESCE(NULLIF(asb.observaciones,''),a.observaciones,'') observaciones
+      ? await rows(env.DB.prepare(`SELECT DISTINCT asb.hermana_id,h.nombre,tc.fecha fecha,COALESCE(NULLIF(asb.alergias,''),a.alergias,'') alergias,COALESCE(NULLIF(asb.observaciones,''),a.observaciones,'') observaciones
           FROM turnos_cocina tc JOIN sabados s ON s.fecha=tc.fecha
           JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND asb.asiste=1
           JOIN hermanas h ON h.id=asb.hermana_id LEFT JOIN alergias_hermanas a ON a.hermana_id=h.id
           WHERE h.estado!='Baja' ORDER BY tc.fecha,h.nombre`))
-      : await rows(env.DB.prepare(`SELECT asb.hermana_id,h.nombre,tc.fecha fecha,COALESCE(NULLIF(asb.alergias,''),a.alergias,'') alergias,COALESCE(NULLIF(asb.observaciones,''),a.observaciones,'') observaciones
+      : await rows(env.DB.prepare(`SELECT DISTINCT asb.hermana_id,h.nombre,tc.fecha fecha,COALESCE(NULLIF(asb.alergias,''),a.alergias,'') alergias,COALESCE(NULLIF(asb.observaciones,''),a.observaciones,'') observaciones
           FROM turnos_cocina_hermanas mine JOIN turnos_cocina tc ON tc.id=mine.turno_id
           JOIN sabados s ON s.fecha=tc.fecha JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND asb.asiste=1
           JOIN hermanas h ON h.id=asb.hermana_id LEFT JOIN alergias_hermanas a ON a.hermana_id=h.id
