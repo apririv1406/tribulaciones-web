@@ -90,7 +90,7 @@ async function syncCargosHermanas(db) {
       AND EXISTS(SELECT 1 FROM sabados s WHERE s.fecha>=date('now')
         AND (cargos_hermanas.source_key LIKE 'sabado:'||s.id||':%' OR cargos_hermanas.source_key LIKE 'consumo:'||s.id||':%')
         AND (s.estado='cancelado' OR NOT EXISTS(
-          SELECT 1 FROM asistencias_sabado a WHERE a.sabado_id=s.id AND a.hermana_id=CAST(substr(cargos_hermanas.source_key,instr(cargos_hermanas.source_key,':',instr(cargos_hermanas.source_key,':')+1)+1) AS INTEGER) AND a.asiste=1
+          SELECT 1 FROM asistencias_sabado a WHERE a.sabado_id=s.id AND a.hermana_id=CAST(REPLACE(REPLACE(cargos_hermanas.source_key,'sabado:'||s.id||':',''),'consumo:'||s.id||':','') AS INTEGER) AND a.asiste=1
         )))`).run();
 }
 
