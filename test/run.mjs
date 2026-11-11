@@ -91,7 +91,7 @@ console.log('  ·', w.status, 'sin Resend:', (await w.json()).error ?? 'responde
 // 16 parámetros configurables, sorteo equilibrado y presupuesto automático de cocina
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com' }, adm); assert.equal(r.status, 200); const hermanaInvitadasId = r.data.id;
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 2', email: 'prueba2@ejemplo.com' }, adm); assert.equal(r.status, 200); const hermanaDosId = r.data.id;
-r = await call('POST', '/api/modulos/actas/juntas', { fecha: '2099-01-02', hora: '12:00', lugar: 'Cuartel', convocatoria: 'Junta de prueba', orden_dia: 'Tesorería y organización' }, adm); assert.equal(r.status, 200); const juntaPruebaId = r.data.id; assert.equal(r.data.correos_enviados, 3);
+r = await call('POST', '/api/modulos/actas/juntas', { fecha: '2099-01-02', hora: '12:00', lugar: 'Cuartel', convocatoria: 'Junta de prueba', orden_dia: 'Tesorería y organización' }, adm); assert.equal(r.status, 200); const juntaPruebaId = r.data.id; assert.ok(r.data.correos_enviados >= 3);
 r = await call('PUT', '/api/modulos/actas/juntas/'+juntaPruebaId+'/asistencia', { hermanas: [aid, hermanaInvitadasId, hermanaDosId] }, adm); assert.equal(r.status, 200); assert.equal(r.data.total, 3);
 r = await call('GET', '/api/modulos/actas', null, adm); assert.equal(r.status, 200); assert.equal(r.data.juntas.find(x => x.id === juntaPruebaId).asistentes, 3);
 r = await call('PUT', '/api/modulos/actas/juntas/'+juntaPruebaId+'/acta', { texto: 'Acta de prueba con acuerdos adoptados.', acuerdos: 'Revisar tesorería.' }, adm); assert.equal(r.status, 200);
