@@ -584,9 +584,21 @@ export async function routeModulos(req, env, me, method, path, body) {
     if (path === '/api/modulos/actas/juntas' && method === 'POST') {
       const fecha = txt(body.fecha, 10);
       if (!isoDate(fecha)) return E('Indica una fecha válida');
+      const hora=txt(body.hora,10),lugar=txt(body.lugar,180),convocatoria=txt(body.convocatoria,2000),orden=txt(body.orden_dia,4000);
       const r = await env.DB.prepare('INSERT INTO juntas(fecha,hora,lugar,convocatoria,orden_dia,creado_por) VALUES(?,?,?,?,?,?)')
-        .bind(fecha, txt(body.hora, 10) || null, txt(body.lugar, 180) || null, txt(body.convocatoria, 2000) || null, txt(body.orden_dia, 4000) || null, me.id).run();
-      return J({ ok: true, id: r.meta.last_row_id });
+        .bind(fecha,hora||null,lugar||null,convocatoria||null,orden||null,me.id).run();
+      let correos_enviados=0,correo_aviso='';
+      if(env.RESEND_API_KEY&&env.MAIL_FROM) {
+        const destinatarias=await rows(env.DB.prepare("SELECT nombre,email FROM hermanas WHERE estado='Activa' AND email IS NOT NULL AND email!=''"));
+        const safe=x=>String(x||'').replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+        for(const h of destinatarias) {
+          try {
+            const resp=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:env.MAIL_FROM,to:[h.email],subject:'Convocatoria de junta · '+fecha,html:`<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#33261a"><h2>Las Tribulaciones de Sara</h2><h3>Convocatoria de junta</h3><p>Hola, ${safe(h.nombre)}.</p><p>Se convoca junta para el <b>${safe(fecha)}</b> a las <b>${safe(hora||'hora por confirmar')}</b>.</p><p>Lugar: ${safe(lugar||'Por confirmar')}</p><p><b>Orden del día</b><br>${safe(orden).replace(/\\n/g,'<br>')}</p><p>${safe(convocatoria)}</p><p>Un saludo.</p></div>`})});
+            if(resp.ok) correos_enviados++; else correo_aviso='La junta se ha creado, pero algún correo no se ha podido enviar.';
+          } catch { correo_aviso='La junta se ha creado, pero algún correo no se ha podido enviar.'; }
+        }
+      } else correo_aviso='Junta creada. El correo no está configurado todavía.';
+      return J({ ok:true,id:r.meta.last_row_id,correos_enviados,correo_aviso });
     }
     if ((m = path.match(/^\/api\/modulos\/actas\/juntas\/(\d+)$/)) && (method === 'PUT' || method === 'DELETE')) {
       const id = +m[1];
