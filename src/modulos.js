@@ -140,7 +140,9 @@ export async function routeModulos(req, env, me, method, path, body) {
       : await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.id=?").bind(me.id)),
       rows(env.DB.prepare('SELECT id,nombre_archivo,mime,tamano,creado,sabado_id FROM tickets WHERE subido_por=? ORDER BY creado DESC LIMIT 50').bind(me.id)),
     ]);
-    return J({ turnos, alergias, tickets });
+    const hermanas = tes(me) ? await rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado='Activa' ORDER BY nombre")) : [];
+    const asignaciones = tes(me) ? await rows(env.DB.prepare(`SELECT tc.turno_id,tc.hermana_id,h.nombre FROM turnos_cocina_hermanas tc JOIN hermanas h ON h.id=tc.hermana_id ORDER BY h.nombre`)) : [];
+    return J({ turnos, alergias, tickets, hermanas, asignaciones });
   }
   if (path === '/api/modulos/cocina/tickets' && method === 'POST') {
     const mdata = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos || ''));
@@ -167,6 +169,20 @@ export async function routeModulos(req, env, me, method, path, body) {
       .bind(fecha, txt(body.turno, 80) || null, txt(body.menu, 1500) || null, txt(body.responsable, 120) || null,
         Number.isInteger(presupuesto) ? presupuesto : null, txt(body.observaciones, 1000) || null, me.id).run();
     return J({ ok: true, id: r.meta.last_row_id });
+  }
+  if ((m = path.match(/^\/api\/modulos\/cocina\/(\d+)\/asignacion$/)) && method === 'PUT') {
+    if (!tes(me)) return E('No tienes permiso para asignar turnos', 403);
+    const id = +m[1];
+    if (!await env.DB.prepare('SELECT id FROM turnos_cocina WHERE id=?').bind(id).first()) return E('Turno no encontrado', 404);
+    const ids = Array.isArray(body.hermanas) ? [...new Set(body.hermanas.map(num))] : [];
+    if (ids.some(x => !Number.isInteger(x) || x <= 0)) return E('La selección de hermanas no es válida');
+    if (ids.length) {
+      const validas = await rows(env.DB.prepare(`SELECT id FROM hermanas WHERE estado='Activa' AND id IN (${ids.map(() => '?').join(',')})`).bind(...ids));
+      if (validas.length !== ids.length) return E('Solo puedes asignar hermanas activas');
+    }
+    const ops = [env.DB.prepare('DELETE FROM turnos_cocina_hermanas WHERE turno_id=?').bind(id), ...ids.map(hid => env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(id,hid))];
+    await env.DB.batch(ops);
+    return J({ ok: true, asignadas: ids.length });
   }
   if ((m = path.match(/^\/api\/modulos\/cocina\/(\d+)$/)) && (method === 'PUT' || method === 'DELETE')) {
     if (!tes(me)) return E('No tienes permiso para modificar cocina', 403);
