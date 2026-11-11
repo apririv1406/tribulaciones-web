@@ -92,10 +92,12 @@ console.log('  ·', w.status, 'sin Resend:', (await w.json()).error ?? 'responde
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com' }, adm); assert.equal(r.status, 200);
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 2', email: 'prueba2@ejemplo.com' }, adm); assert.equal(r.status, 200);
 r = await call('PUT', '/api/modulos/tesoreria/config', { cuota_mensual: 35, sabado_precio: 10, invitada_precio: 10, copa_precio: 2, refresco_precio: 1, cocina_precio_persona: 12.5, personas_por_turno: 2, cuotas_extraordinarias: [{ nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' }] }, adm); assert.equal(r.status, 200);
+r = await call('POST', '/api/modulos/tesoreria/gastos-fijos', { concepto: 'Alquiler de prueba', categoria: 'Local', importe: 25, periodicidad: 'mensual', dia: 1 }, adm); assert.equal(r.status, 200);
 let tareaProgramada;
 await worker.scheduled({ scheduledTime: Date.UTC(2099, 0, 1, 1, 0, 0) }, env, { waitUntil: p => { tareaProgramada=p; } });
 await tareaProgramada;
 r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.status, 200); assert.ok(r.data.cuotas.some(x => x.periodo === '2099-01' && x.importe_centimos === 3500));
+r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); assert.equal(r.data.movimientos.filter(x => x.concepto === 'Alquiler de prueba').length, 1);
 
 r = await call('POST', '/api/modulos/sabados', { fecha: '2099-01-03', titulo: 'Sábado de prueba' }, adm); assert.equal(r.status, 200); const sid = r.data.id;
 r = await call('POST', `/api/modulos/sabados/${sid}/asistencia`, { asiste: true, acompanantes: 1, alergias: 'Sin gluten (celiaquía)' }, adm); assert.equal(r.status, 200);
