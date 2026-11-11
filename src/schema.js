@@ -1,3 +1,4 @@
+
 // Migraciones de la base de datos. Cada migración se aplica una sola vez, en orden.
 // Para añadir tablas o columnas en una fase futura, se añade una migración nueva.
 export const MIGRATIONS = [
@@ -17,6 +18,9 @@ export const MIGRATIONS = [
   ]},
   { v: 2, sql: [
     `ALTER TABLE hermanas ADD COLUMN telefono TEXT`,
+  ]},
+  { v: 3, sql: [
+    `ALTER TABLE noticias ADD COLUMN visible_web INTEGER NOT NULL DEFAULT 1`,
   ]},
 ];
 
