@@ -414,7 +414,11 @@ export async function routeModulos(req, env, me, method, path, body) {
       const resultado = await env.DB.batch([
         env.DB.prepare("UPDATE pagos SET estado='confirmado',confirmado_por=? WHERE id=? AND estado='pendiente'").bind(me.id, pagoId),
         env.DB.prepare(`INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,hermana_id,cuota_id,pago_id,creado_por)
-          SELECT 'ingreso',fecha_pago,'Pago de cuota','Cuotas',importe_centimos,hermana_id,cuota_id,id,? FROM pagos WHERE id=? AND estado='confirmado'`).bind(me.id, pagoId),
+          SELECT 'ingreso',p.fecha_pago,
+            COALESCE(NULLIF(p.concepto,''),CASE WHEN p.cuota_id IS NOT NULL THEN 'Pago de cuota' ELSE COALESCE(x.concepto,'Pago registrado') END),
+            CASE WHEN p.cuota_id IS NOT NULL THEN 'Cuotas mensuales' WHEN p.cargo_id IS NOT NULL THEN x.categoria ELSE 'Otros' END,
+            p.importe_centimos,p.hermana_id,p.cuota_id,p.id,?
+          FROM pagos p LEFT JOIN cargos_hermanas x ON x.id=p.cargo_id WHERE p.id=? AND p.estado='confirmado'`).bind(me.id, pagoId),
       ]);
       if (!resultado[0]?.meta?.changes) return E('Este pago ya está revisado', 409);
       if (p.cuota_id) {
