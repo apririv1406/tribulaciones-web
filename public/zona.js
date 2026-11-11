@@ -400,7 +400,7 @@ const ACT = {
   async 'pago-reject'(el) { if(!confirm('¿Rechazar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/rechazar'); toast('Pago rechazado'); render(); },
   async 'tes-filtro-reset'() { TES_FILTRO={tipo:'todos',texto:'',desde:'',hasta:'',cuenta:''}; render(); },
   async 'fijo-del'(el) { if(!confirm('¿Desactivar este gasto fijo? Se conservará su historial.')) return; await api('DELETE','/modulos/tesoreria/gastos-fijos/'+el.dataset.id); render(); },
-  async 'fijo-registrar-todos'() { const forms=[...document.querySelectorAll('form[data-f=tes-fijo-registrar]')]; let n=0; for(const f of forms){const d=new FormData(f); await api('POST','/modulos/tesoreria/gastos-fijos/'+f.dataset.id+'/registrar',{periodo:d.get('periodo'),importe:d.get('importe')}); n++;} toast(n+' gasto(s) fijo(s) registrado(s)'); render(); },
+  async 'fijo-registrar-todos'() { const forms=[...document.querySelectorAll('form[data-f=tes-fijo-registrar]')]; let n=0; for(const f of forms){if(!f.reportValidity()) return; const d=new FormData(f); await api('POST','/modulos/tesoreria/gastos-fijos/'+f.dataset.id+'/registrar',{periodo:d.get('periodo'),importe:d.get('importe')}); n++;} toast(n+' gasto(s) fijo(s) registrado(s)'); render(); },
 
   async 'tes-ticket-reject'(el) { if(!confirm('¿Rechazar este ticket?')) return; await api('PUT','/modulos/tesoreria/tickets/'+el.dataset.id,{estado:'rechazado'}); toast('Ticket rechazado'); render(); },
   'tes-report-year'(el) { TES_REPORT_YEAR=el.dataset.year; render(); },
