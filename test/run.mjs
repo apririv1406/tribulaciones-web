@@ -88,4 +88,15 @@ r = await call('POST', '/api/auth/login', { email: 'bloqueo@ejemplo.com', passwo
 const e2 = { ...env, RESEND_API_KEY: undefined };
 const w = await worker.fetch(new Request('https://ejemplo.es/api/admin/hermanas/' + lid + '/invitar', { method: 'POST', headers: { 'X-Requested-With': 'fetch', cookie: adm, 'Content-Type': 'application/json' } }), e2);
 console.log('  ·', w.status, 'sin Resend:', (await w.json()).error ?? 'responde con aviso');
+// 16 parámetros configurables, sorteo equilibrado y presupuesto automático de cocina
+r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com' }, adm); assert.equal(r.status, 200);
+r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 2', email: 'prueba2@ejemplo.com' }, adm); assert.equal(r.status, 200);
+r = await call('PUT', '/api/modulos/tesoreria/config', { cuota_mensual: 35, sabado_precio: 10, invitada_precio: 10, copa_precio: 2, refresco_precio: 1, cocina_precio_persona: 12.5, personas_por_turno: 2 }, adm); assert.equal(r.status, 200);
+r = await call('POST', '/api/modulos/sabados', { fecha: '2099-01-03', titulo: 'Sábado de prueba' }, adm); assert.equal(r.status, 200); const sid = r.data.id;
+r = await call('POST', `/api/modulos/sabados/${sid}/asistencia`, { asiste: true, acompanantes: 1, alergias: 'Sin gluten (celiaquía)' }, adm); assert.equal(r.status, 200);
+r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 2 }, adm); assert.equal(r.status, 200); assert.equal(r.data.turnos_sorteados, 1); assert.equal(r.data.asignaciones[0].hermana_ids.length, 2);
+r = await call('GET', '/api/modulos/cocina', null, adm); assert.equal(r.status, 200);
+const turnoPrueba = r.data.turnos.find(t => t.fecha === '2099-01-03'); assert.ok(turnoPrueba); assert.equal(turnoPrueba.confirmadas, 1); assert.equal(turnoPrueba.invitadas, 1); assert.equal(turnoPrueba.presupuesto_calculado_centimos, 2500);
+r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); assert.equal(r.data.parametros.cocina_precio_persona_centimos, 1250); assert.ok(Array.isArray(r.data.estadisticas.mensuales));
+ok('tesorería: parámetros configurables, sorteo de 2/3 personas y presupuesto por comensal calculado');
 console.log('\nTODO CORRECTO');
