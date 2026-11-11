@@ -206,7 +206,8 @@ export async function routeModulos(req, env, me, method, path, body) {
           WHERE mine.hermana_id=? ORDER BY h.nombre`).bind(me.id)),
       tes(me)
         ? rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado,h.nombre subido_por_nombre FROM tickets t LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 100`))
-        : rows(env.DB.prepare('SELECT id,nombre_archivo,mime,tamano,creado,sabado_id,turno_cocina_id,comercio,importe_centimos,forma_pago,categoria,cuenta,estado FROM tickets WHERE subido_por=? ORDER BY creado DESC LIMIT 50').bind(me.id)),
+        : rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado
+          FROM tickets t WHERE t.subido_por=? OR t.turno_cocina_id IN (SELECT turno_id FROM turnos_cocina_hermanas WHERE hermana_id=?) ORDER BY t.creado DESC LIMIT 50`).bind(me.id,me.id)),
     ]);
     const hermanas = tes(me) ? await rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado='Activa' ORDER BY nombre")) : [];
     const asignaciones = await rows(env.DB.prepare(`SELECT tc.turno_id,tc.hermana_id,h.nombre FROM turnos_cocina_hermanas tc JOIN hermanas h ON h.id=tc.hermana_id ORDER BY h.nombre`));
@@ -257,8 +258,9 @@ export async function routeModulos(req, env, me, method, path, body) {
     return J({ ok: true, id: r.meta.last_row_id });
   }
   if ((m = path.match(/^\/api\/modulos\/cocina\/tickets\/(\d+)$/)) && method === 'GET') {
-    const t = await env.DB.prepare('SELECT nombre_archivo,mime,datos,subido_por FROM tickets WHERE id=?').bind(+m[1]).first();
-    if (!t || (t.subido_por !== me.id && !tes(me))) return E('Ticket no encontrado', 404);
+    const t = await env.DB.prepare('SELECT nombre_archivo,mime,datos,subido_por,turno_cocina_id FROM tickets WHERE id=?').bind(+m[1]).first();
+    const asignada=t?.turno_cocina_id?await env.DB.prepare('SELECT id FROM turnos_cocina_hermanas WHERE turno_id=? AND hermana_id=?').bind(t.turno_cocina_id,me.id).first():null;
+    if (!t || (t.subido_por !== me.id && !tes(me) && !actas(me) && !asignada)) return E('Ticket no encontrado', 404);
     const bytes = Uint8Array.from(atob(t.datos), c => c.charCodeAt(0));
     const nombre = txt(t.nombre_archivo, 120).replace(/[\r\n"\\]/g, '_');
     return new Response(bytes, { headers: { 'Content-Type': t.mime, 'Content-Disposition': `inline; filename="${nombre}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
