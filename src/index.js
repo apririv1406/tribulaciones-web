@@ -1,5 +1,5 @@
 import { ensureSchema } from './schema.js';
-import { routeModulos, generarCuotasMensuales, generarGastosFijos } from './modulos.js';
+import { routeModulos, generarCuotasMensuales } from './modulos.js';
 
 /* ---------- utilidades ---------- */
 const te = new TextEncoder();
@@ -48,8 +48,7 @@ export default {
       await init(env);
       const fecha = new Date(controller.scheduledTime);
       const cuotas = await generarCuotasMensuales(env.DB, fecha);
-      const gastos = await generarGastosFijos(env.DB, fecha);
-      console.log('Tareas programadas:', { cuotas, gastos });
+      console.log('Cuotas programadas:', cuotas);
     })());
   },
   async fetch(req, env) {
