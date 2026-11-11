@@ -152,23 +152,37 @@ export async function routeModulos(req, env, me, method, path, body) {
 
   // MI CUENTA: cada hermana solo puede consultar y registrar sus propios pagos.
   if (path === '/api/modulos/cuenta' && method === 'GET') {
+    await syncCargosHermanas(env.DB);
     const cuotas = await rows(env.DB.prepare(`SELECT c.*,(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado') pagado_centimos,MAX(0,c.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')) restante_centimos FROM cuotas c WHERE c.hermana_id=? ORDER BY c.periodo DESC`).bind(me.id));
-    const pagos = await rows(env.DB.prepare('SELECT p.*,c.periodo FROM pagos p LEFT JOIN cuotas c ON c.id=p.cuota_id WHERE p.hermana_id=? ORDER BY p.fecha_pago DESC,p.id DESC').bind(me.id));
+    const cargos = await rows(env.DB.prepare(`SELECT x.*,
+      (SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado') pagado_centimos,
+      MAX(0,x.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')) restante_centimos
+      FROM cargos_hermanas x WHERE x.hermana_id=? ORDER BY CASE x.categoria WHEN 'Cuaresma' THEN 1 WHEN 'Semana Santa' THEN 2 ELSE 3 END,x.id`).bind(me.id));
+    const pagos = await rows(env.DB.prepare('SELECT p.*,c.periodo,x.concepto cargo_concepto FROM pagos p LEFT JOIN cuotas c ON c.id=p.cuota_id LEFT JOIN cargos_hermanas x ON x.id=p.cargo_id WHERE p.hermana_id=? ORDER BY p.fecha_pago DESC,p.id DESC').bind(me.id));
     const alergias = await env.DB.prepare('SELECT alergias,observaciones FROM alergias_hermanas WHERE hermana_id=?').bind(me.id).first();
-    return J({ cuotas, pagos, alergias: alergias || { alergias: '', observaciones: '' } });
+    return J({ cuotas, cargos, pagos, alergias: alergias || { alergias: '', observaciones: '' } });
   }
   if (path === '/api/modulos/cuenta/pagos' && method === 'POST') {
     const importe = money(body.importe);
     if (!Number.isInteger(importe)) return E('Indica un importe válido');
     const cuotaId = body.cuota_id ? num(body.cuota_id) : null;
+    const cargoId = body.cargo_id ? num(body.cargo_id) : null;
+    if (cuotaId && cargoId) return E('Selecciona una cuota o un cargo, no ambos');
     if (cuotaId) {
-      const c = await env.DB.prepare('SELECT id,estado FROM cuotas WHERE id=? AND hermana_id=?').bind(cuotaId, me.id).first();
-      if (!c) return E('La cuota seleccionada no pertenece a tu cuenta', 403);
-      if (c.estado === 'pagada') return E('Esa cuota ya figura como pagada', 409);
+      const q = await env.DB.prepare('SELECT id,estado FROM cuotas WHERE id=? AND hermana_id=?').bind(cuotaId, me.id).first();
+      if (!q) return E('La cuota seleccionada no pertenece a tu cuenta', 403);
+      if (q.estado === 'pagada') return E('Esa cuota ya figura como pagada', 409);
+    }
+    if (cargoId) {
+      const x = await env.DB.prepare(`SELECT x.id,MAX(0,x.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')) restante
+        FROM cargos_hermanas x WHERE x.id=? AND x.hermana_id=?`).bind(cargoId,me.id).first();
+      if (!x) return E('El concepto seleccionado no pertenece a tu cuenta',403);
+      if (x.restante<=0) return E('Ese concepto ya figura como pagado',409);
+      if (importe>x.restante) return E('El importe supera lo pendiente de ese concepto');
     }
     const fecha = isoDate(body.fecha_pago) ? body.fecha_pago : new Date().toISOString().slice(0, 10);
-    const r = await env.DB.prepare(`INSERT INTO pagos(hermana_id,cuota_id,importe_centimos,fecha_pago,metodo,concepto,registrado_por)
-      VALUES(?,?,?,?,?,?,?)`).bind(me.id, cuotaId, importe, fecha, txt(body.metodo, 50) || null, txt(body.concepto, 300) || null, me.id).run();
+    const r = await env.DB.prepare(`INSERT INTO pagos(hermana_id,cuota_id,cargo_id,importe_centimos,fecha_pago,metodo,concepto,registrado_por)
+      VALUES(?,?,?,?,?,?,?,?)`).bind(me.id, cuotaId, cargoId, importe, fecha, txt(body.metodo, 50) || null, txt(body.concepto, 300) || null, me.id).run();
     return J({ ok: true, id: r.meta.last_row_id, estado: 'pendiente' });
   }
 
