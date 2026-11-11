@@ -134,7 +134,14 @@ export async function routeModulos(req, env, me, method, path, body) {
   // COCINA: lectura para hermanas; edición solo para tesorería/administración.
   if (path === '/api/modulos/cocina' && method === 'GET') {
     const [turnos, alergias, tickets] = await Promise.all([
-      rows(env.DB.prepare('SELECT * FROM turnos_cocina ORDER BY fecha DESC,id DESC LIMIT 100')),
+      rows(env.DB.prepare(`SELECT tc.*,
+        (SELECT COUNT(*) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1) confirmadas,
+        (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1) invitadas,
+        COALESCE((SELECT CAST(valor AS INTEGER) FROM config WHERE clave='cocina_precio_persona_centimos'),0) precio_persona_centimos,
+        (COALESCE((SELECT CAST(valor AS INTEGER) FROM config WHERE clave='cocina_precio_persona_centimos'),0) *
+          ((SELECT COUNT(*) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1) +
+           (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1))) presupuesto_calculado_centimos
+        FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC LIMIT 100`)),
       tes(me)
       ? await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.estado!='Baja' ORDER BY h.nombre"))
       : await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.id=?").bind(me.id)),
@@ -145,6 +152,36 @@ export async function routeModulos(req, env, me, method, path, body) {
     const hermanas = tes(me) ? await rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado='Activa' ORDER BY nombre")) : [];
     const asignaciones = await rows(env.DB.prepare(`SELECT tc.turno_id,tc.hermana_id,h.nombre FROM turnos_cocina_hermanas tc JOIN hermanas h ON h.id=tc.hermana_id ORDER BY h.nombre`));
     return J({ turnos, alergias, tickets, hermanas, asignaciones });
+  }
+  if (path === '/api/modulos/cocina/sorteo' && method === 'POST') {
+    if (!tes(me)) return E('No tienes permiso para realizar el sorteo', 403);
+    const personas = num(body.personas_por_turno);
+    if (![2, 3].includes(personas)) return E('El sorteo debe asignar 2 o 3 personas por turno');
+    const hermanas = await rows(env.DB.prepare("SELECT id FROM hermanas WHERE estado='Activa' ORDER BY id"));
+    if (hermanas.length < personas) return E('No hay suficientes hermanas activas para realizar el sorteo');
+    const sabados = await rows(env.DB.prepare("SELECT id,fecha,titulo FROM sabados WHERE estado!='cancelado' AND fecha>=date('now') ORDER BY fecha,id"));
+    if (!sabados.length) return E('No hay sábados futuros publicados para sortear');
+    const carga = Object.fromEntries(hermanas.map(h => [h.id, 0]));
+    const asignaciones = [];
+    for (const sabado of sabados) {
+      const orden = [...hermanas].sort((a,b) => carga[a.id]-carga[b.id] || Math.random()-0.5);
+      const elegidas = orden.slice(0, personas);
+      elegidas.forEach(h => carga[h.id]++);
+      let turno = await env.DB.prepare('SELECT id FROM turnos_cocina WHERE fecha=? ORDER BY id LIMIT 1').bind(sabado.fecha).first();
+      if (!turno) {
+        const creado = await env.DB.prepare("INSERT INTO turnos_cocina(fecha,turno,responsable,creado_por) VALUES(?,'Cocina','Turno sorteado',?)").bind(sabado.fecha,me.id).run();
+        turno = { id: creado.meta.last_row_id };
+      }
+      asignaciones.push({ turno_id: turno.id, hermana_ids: elegidas.map(h => h.id) });
+    }
+    const ops = [];
+    for (const a of asignaciones) {
+      ops.push(env.DB.prepare('DELETE FROM turnos_cocina_hermanas WHERE turno_id=?').bind(a.turno_id));
+      for (const id of a.hermana_ids) ops.push(env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(a.turno_id,id));
+    }
+    ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cocina_personas_por_turno',?)").bind(String(personas)));
+    await env.DB.batch(ops);
+    return J({ ok: true, personas_por_turno: personas, turnos_sorteados: asignaciones.length, asignaciones: asignaciones.map(a => ({ turno_id:a.turno_id, hermanas:a.hermana_ids })) });
   }
   if (path === '/api/modulos/cocina/tickets' && method === 'POST') {
     const mdata = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos || ''));
@@ -224,13 +261,44 @@ export async function routeModulos(req, env, me, method, path, body) {
         env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos`).first(),
         env.DB.prepare("SELECT valor FROM config WHERE clave='cuota_mensual_centimos'").first(),
       ]);
-      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, cuotas_pendientes: pendientes, informes, totales, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null });
+      const parametrosRows = await rows(env.DB.prepare("SELECT clave,valor FROM config WHERE clave IN ('cocina_precio_persona_centimos','sabado_precio_centimos','invitada_precio_centimos','copa_precio_centimos','refresco_precio_centimos','cocina_personas_por_turno')"));
+      const parametros = Object.fromEntries(parametrosRows.map(x => [x.clave, Number(x.valor)]));
+      const [estadisticasMensuales, estadisticasCategorias] = await Promise.all([
+        rows(env.DB.prepare(`SELECT strftime('%Y-%m',fecha) periodo,
+          SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,
+          SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos
+          FROM movimientos WHERE tipo IN ('ingreso','gasto') GROUP BY strftime('%Y-%m',fecha) ORDER BY periodo`)),
+        rows(env.DB.prepare(`SELECT tipo,categoria,SUM(importe_centimos) total FROM movimientos
+          WHERE tipo IN ('ingreso','gasto') GROUP BY tipo,categoria ORDER BY tipo,total DESC`))
+      ]);
+      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, cuotas_pendientes: pendientes, informes, totales, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
     }
     if (path === '/api/modulos/tesoreria/config' && method === 'PUT') {
-      const importe = money(body.cuota_mensual);
-      if (!Number.isInteger(importe)) return E('Indica una cuota mensual válida');
-      await env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cuota_mensual_centimos',?)").bind(String(importe)).run();
-      return J({ ok: true, cuota_mensual: importe / 100 });
+      const campos = {
+        cuota_mensual: 'cuota_mensual_centimos',
+        cocina_precio_persona: 'cocina_precio_persona_centimos',
+        sabado_precio: 'sabado_precio_centimos',
+        invitada_precio: 'invitada_precio_centimos',
+        copa_precio: 'copa_precio_centimos',
+        refresco_precio: 'refresco_precio_centimos'
+      };
+      const ops = [];
+      for (const [campo, clave] of Object.entries(campos)) {
+        if (body[campo] === undefined || body[campo] === '') {
+          if (campo !== 'cuota_mensual') continue;
+          return E('Indica una cuota mensual válida');
+        }
+        const importe = money(body[campo]);
+        if (!Number.isInteger(importe) || importe < 0 || (campo === 'cuota_mensual' && importe === 0)) return E('Revisa los importes de configuración');
+        ops.push(env.DB.prepare('INSERT OR REPLACE INTO config(clave,valor) VALUES(?,?)').bind(clave,String(importe)));
+      }
+      if (body.personas_por_turno !== undefined) {
+        const personas = num(body.personas_por_turno);
+        if (![2,3].includes(personas)) return E('El sorteo debe asignar 2 o 3 personas por turno');
+        ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cocina_personas_por_turno',?)").bind(String(personas)));
+      }
+      await env.DB.batch(ops);
+      return J({ ok: true });
     }
     if (path === '/api/modulos/tesoreria/movimientos' && method === 'POST') {
       const tipo = body.tipo === 'ingreso' ? 'ingreso' : body.tipo === 'gasto' ? 'gasto' : null;
