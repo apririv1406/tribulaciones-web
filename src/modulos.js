@@ -199,12 +199,16 @@ export async function routeModulos(req, env, me, method, path, body) {
            (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1))) presupuesto_calculado_centimos
         FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC LIMIT 100`)),
       actas(me)
-      ? await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.estado!='Baja' ORDER BY h.nombre"))
-      : await rows(env.DB.prepare(`SELECT a.hermana_id,h.nombre,tc.fecha fecha,COALESCE(asb.alergias,a.alergias) alergias,COALESCE(asb.observaciones,a.observaciones) observaciones
+      ? await rows(env.DB.prepare(`SELECT asb.hermana_id,h.nombre,tc.fecha fecha,COALESCE(NULLIF(asb.alergias,''),a.alergias,'') alergias,COALESCE(NULLIF(asb.observaciones,''),a.observaciones,'') observaciones
+          FROM turnos_cocina tc JOIN sabados s ON s.fecha=tc.fecha
+          JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND asb.asiste=1
+          JOIN hermanas h ON h.id=asb.hermana_id LEFT JOIN alergias_hermanas a ON a.hermana_id=h.id
+          WHERE h.estado!='Baja' ORDER BY tc.fecha,h.nombre`)
+      : await rows(env.DB.prepare(`SELECT asb.hermana_id,h.nombre,tc.fecha fecha,COALESCE(NULLIF(asb.alergias,''),a.alergias,'') alergias,COALESCE(NULLIF(asb.observaciones,''),a.observaciones,'') observaciones
           FROM turnos_cocina_hermanas mine JOIN turnos_cocina tc ON tc.id=mine.turno_id
           JOIN sabados s ON s.fecha=tc.fecha JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND asb.asiste=1
           JOIN hermanas h ON h.id=asb.hermana_id LEFT JOIN alergias_hermanas a ON a.hermana_id=h.id
-          WHERE mine.hermana_id=? ORDER BY h.nombre`).bind(me.id)),
+          WHERE mine.hermana_id=? ORDER BY tc.fecha,h.nombre`).bind(me.id)),
       tes(me)
         ? rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado,h.nombre subido_por_nombre FROM tickets t LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 100`))
         : rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado
