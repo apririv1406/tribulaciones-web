@@ -312,14 +312,14 @@ export async function routeModulos(req, env, me, method, path, body) {
     if (path === '/api/modulos/tesoreria' && method === 'GET') {
       await syncCargosHermanas(env.DB);
       const [movimientos, pagos, gastosFijos, cuotas, tickets, pendientes, informes, totales, cfg] = await Promise.all([
-        rows(env.DB.prepare(`SELECT m.*,h.nombre hermana,(SELECT GROUP_CONCAT(t.id) FROM tickets t WHERE t.movimiento_id=m.id) tickets FROM movimientos m LEFT JOIN hermanas h ON h.id=m.hermana_id ORDER BY m.fecha DESC,m.id DESC LIMIT 250`)),
+        rows(env.DB.prepare(`SELECT m.*,h.nombre hermana,(SELECT GROUP_CONCAT(t.id) FROM tickets t WHERE t.movimiento_id=m.id) tickets FROM movimientos m LEFT JOIN hermanas h ON h.id=m.hermana_id ORDER BY m.fecha DESC,m.id DESC`)),
         rows(env.DB.prepare(`SELECT p.*,h.nombre hermana,c.periodo FROM pagos p JOIN hermanas h ON h.id=p.hermana_id LEFT JOIN cuotas c ON c.id=p.cuota_id WHERE p.estado='pendiente' ORDER BY p.fecha_pago,p.id`)),
         rows(env.DB.prepare('SELECT * FROM gastos_fijos ORDER BY activo DESC,id')),
         rows(env.DB.prepare(`SELECT c.periodo,c.estado,COUNT(*) cantidad,SUM(c.importe_centimos) total FROM cuotas c GROUP BY c.periodo,c.estado ORDER BY c.periodo DESC LIMIT 24`)),
         rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.movimiento_id,t.sabado_id,t.turno_cocina_id,m.concepto,tc.turno turno_cocina,tc.fecha fecha_turno FROM tickets t LEFT JOIN movimientos m ON m.id=t.movimiento_id LEFT JOIN turnos_cocina tc ON tc.id=t.turno_cocina_id ORDER BY t.creado DESC LIMIT 200`)),
         rows(env.DB.prepare(`SELECT c.id,c.periodo,c.importe_centimos,c.estado,h.nombre,MAX(0,c.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')) restante_centimos FROM cuotas c JOIN hermanas h ON h.id=c.hermana_id WHERE c.estado!='pagada' ORDER BY c.periodo DESC,h.nombre`)),
-        rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos FROM movimientos GROUP BY strftime('%Y',fecha) ORDER BY anio DESC`)),
-        env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos`).first(),
+        rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos FROM movimientos WHERE traspaso_id IS NULL GROUP BY strftime('%Y',fecha) ORDER BY anio DESC`)),
+        env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos WHERE traspaso_id IS NULL`).first(),
         env.DB.prepare("SELECT valor FROM config WHERE clave='cuota_mensual_centimos'").first(),
       ]);
       const parametrosRows = await rows(env.DB.prepare("SELECT clave,valor FROM config WHERE clave IN ('cocina_precio_persona_centimos','sabado_precio_centimos','invitada_precio_centimos','copa_precio_centimos','refresco_precio_centimos','cocina_personas_por_turno')"));
