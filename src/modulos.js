@@ -79,7 +79,7 @@ async function syncCargosHermanas(db) {
     const copas=Math.max(0,Number(a.copas)||0),refrescos=Math.max(0,Number(a.refrescos)||0);
     const importeConsumos=copas*cents('copa_precio_centimos')+refrescos*cents('refresco_precio_centimos');
     const detalleConsumos=['Copas '+copas+' × '+(cents('copa_precio_centimos')/100).toFixed(2)+' €','Refrescos '+refrescos+' × '+(cents('refresco_precio_centimos')/100).toFixed(2)+' €'].join(' · ');
-    ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)
+    if(importeConsumos>0) ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)
       VALUES(?,?,?,?,?,'consumos') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='consumos' WHERE (SELECT fecha FROM sabados WHERE id=?)>=date('now')`)
       .bind(a.hermana_id,categoria,detalleConsumos,importeConsumos,'consumo:'+a.sabado_id+':'+a.hermana_id,a.sabado_id));
   }
