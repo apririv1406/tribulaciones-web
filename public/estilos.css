@@ -37,3 +37,12 @@ select,option,input,textarea{color:var(--tx);background-color:#fff}select{cursor
 
 /* Ajustes de formularios en Mi cuenta y Tesorería */
 @media(max-width:640px){.formgrid{grid-template-columns:1fr!important}.formgrid>div{min-width:0}}
+
+/* Elementos de estructura de la maqueta original */
+.sec{padding:36px 0}
+.cta2{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin-top:34px;padding:24px 28px;border-radius:20px;background:var(--gs);border:1px solid var(--go)}
+.cta2>div{flex:1 1 220px}
+.cta2 span{display:block;color:var(--mu);font-size:14px;margin-top:4px}
+.av{width:84px;height:84px;border-radius:50%;margin:0 auto 10px;background:linear-gradient(135deg,var(--gs),var(--go));display:grid;place-items:center;font:700 26px "Cormorant Garamond",Georgia,serif;color:var(--dk);overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+@media(max-width:640px){.cta2{padding:18px}.cta2 .btn{width:100%;text-align:center}}
