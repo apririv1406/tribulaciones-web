@@ -95,7 +95,7 @@ async function syncCargosHermanas(db) {
           )) OR
           (cargos_hermanas.grupo='consumos' AND NOT EXISTS(
             SELECT 1 FROM consumos_sabado c WHERE c.sabado_id=s.id AND c.hermana_id=CAST(REPLACE(REPLACE(cargos_hermanas.source_key,'sabado:'||s.id||':',''),'consumo:'||s.id||':','') AS INTEGER) AND (c.copas>0 OR c.refrescos>0)
-          )))`).run();
+          ))))`).run();
 }
 
 export async function routeModulos(req, env, me, method, path, body) {
