@@ -12,7 +12,7 @@ function d1() {
     run: async () => { const r = db.prepare(sql).run(...args); return { meta: { last_row_id: Number(r.lastInsertRowid), changes: r.changes } }; },
     _run: () => db.prepare(sql).run(...args),
   });
-  return { prepare: s => stm(s), batch: async a => a.map(s => s._run()) };
+  return { prepare: s => stm(s), batch: async a => a.map(s => { const r=s._run(); return { meta: { last_row_id: Number(r.lastInsertRowid), changes: r.changes }, changes: r.changes }; }) };
 }
 const correos = [];
 globalThis.fetch = async (url, opt) => { if (String(url).includes('resend')) { correos.push({ ...JSON.parse(opt.body) }); return new Response('{}', { status: 200 }); } throw new Error('fetch inesperado ' + url); };
