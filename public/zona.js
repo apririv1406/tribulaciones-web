@@ -362,11 +362,17 @@ const FORM = {
   async 'tes-filtro'(f,d) { TES_FILTRO={tipo:d.get('tipo')||'todos',texto:d.get('texto')||'',desde:d.get('desde')||'',hasta:d.get('hasta')||'',cuenta:d.get('cuenta')||''}; if(TES_FILTRO.desde && TES_FILTRO.hasta && TES_FILTRO.desde>TES_FILTRO.hasta) throw new Error('La fecha inicial no puede ser posterior a la final'); render(); },
   async 'tes-movimiento'(f,d) { await api('POST','/modulos/tesoreria/movimientos',{tipo:d.get('tipo'),fecha:d.get('fecha'),concepto:d.get('concepto'),categoria:d.get('categoria'),cuenta:d.get('cuenta'),importe:d.get('importe')}); toast('Movimiento registrado'); render(); },
   async 'tes-traspaso'(f,d) { await api('POST','/modulos/tesoreria/traspasos',{fecha:d.get('fecha'),importe:d.get('importe'),origen:d.get('origen'),destino:d.get('destino')}); toast('Traspaso registrado'); render(); },
+  async 'tes-saldos'(f,d) { await api('PUT','/modulos/tesoreria/config',{saldo_inicial:{fecha:d.get('fecha'),banco:d.get('banco'),caja:d.get('caja')}}); toast('Saldos iniciales guardados'); render(); },
+  async 'tes-traspaso'(f,d) { await api('POST','/modulos/tesoreria/traspasos',{fecha:d.get('fecha'),importe:d.get('importe'),origen:d.get('origen'),destino:d.get('destino')}); toast('Traspaso registrado'); render(); },
   async 'tes-fijo'(f,d) { await api('POST','/modulos/tesoreria/gastos-fijos',{concepto:d.get('concepto'),categoria:d.get('categoria'),importe:d.get('importe'),periodicidad:d.get('periodicidad'),dia:d.get('dia')}); toast('Gasto fijo añadido'); render(); },
   async 'tes-fijo-edit'(f,d) { await api('PUT','/modulos/tesoreria/gastos-fijos/'+f.dataset.id,{concepto:d.get('concepto'),categoria:d.get('categoria'),importe:d.get('importe'),periodicidad:d.get('periodicidad'),dia:d.get('dia'),activo:d.has('activo')}); toast('Gasto fijo actualizado'); render(); },
   async 'tes-ticket'(f,d) { const file=d.get('ticket'); if(!file || !file.size) throw new Error('Selecciona un ticket'); if(file.size>1024*1024) throw new Error('El archivo no puede superar 1 MB'); const datos=await readFileData(file); await api('POST','/modulos/tesoreria/tickets',{movimiento_id:d.get('movimiento_id')||null,sabado_id:d.get('sabado_id')||null,nombre_archivo:file.name,datos}); toast('Ticket guardado'); render(); },
   async 'tes-ticket-link'(f,d) { await api('PUT','/modulos/tesoreria/tickets/'+f.dataset.id,{movimiento_id:d.get('movimiento_id')||null}); toast('Ticket vinculado al movimiento'); render(); },
   async 'tes-ticket-review'(f,d) { await api('PUT','/modulos/tesoreria/tickets/'+f.dataset.id,{incluir:true,categoria:d.get('categoria'),cuenta:d.get('cuenta'),importe:d.get('importe')}); toast('Gasto incluido en contabilidad'); render(); },
+  async 'tes-import-confirm'() { if(!TES_IMPORT_ROWS.length) throw new Error('No hay movimientos preparados.'); const r=await api('POST','/modulos/tesoreria/importar',{movimientos:TES_IMPORT_ROWS}); toast('Importados: '+r.importados+' · Duplicados: '+r.duplicados); TES_IMPORT_ROWS=[]; TES_IMPORT_FILE=''; render(); },
+  'tes-import-clear'() { TES_IMPORT_ROWS=[]; TES_IMPORT_FILE=''; render(); },
+  'tes-report-year'(el) { TES_REPORT_YEAR=el.dataset.year; render(); },
+  'tes-export'() { window.print(); },
   async historia(f) { const hitos = [...f.querySelectorAll('#hitos .row')].map(r => ({ anio: r.querySelector('[name=anio]').value, texto: r.querySelector('[name=texto]').value })); const r = await api('PUT', '/admin/hitos', { hitos }); toast(`Guardado (${r.total} hitos)`); render(); },
 };
 async function abrirWhatsApp(el, tipo) {
@@ -415,6 +421,12 @@ const ACT = {
   'hito-add'() { $('#hitos').insertAdjacentHTML('beforeend', hitoRow({ anio: '', texto: '' })); },
   'hito-del'(el) { el.closest('.row').remove(); },
 };
+document.addEventListener('change', async e => {
+  const input=e.target.closest('[data-import-csv]'); if(!input) return;
+  const file=input.files?.[0]; if(!file) return;
+  try { TES_IMPORT_ROWS=parseCSV(await file.text()); TES_IMPORT_FILE=file.name; toast('Vista previa preparada. Revisa las filas antes de importar.'); render(); }
+  catch(er) { TES_IMPORT_ROWS=[]; TES_IMPORT_FILE=''; toast(er.message,true); }
+});
 document.addEventListener('submit', async e => {
   const f = e.target.closest('form[data-f]'); if (!f) return;
   e.preventDefault();
