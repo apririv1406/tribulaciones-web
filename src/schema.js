@@ -94,6 +94,14 @@ export const MIGRATIONS = [
     `CREATE INDEX IF NOT EXISTS ix_pagos_aplicaciones_cuota ON pagos_aplicaciones(cuota_id,pago_id)`,
     `CREATE INDEX IF NOT EXISTS ix_pagos_aplicaciones_cargo ON pagos_aplicaciones(cargo_id,pago_id)`,
   ]},
+  { v: 11, sql: [
+    `ALTER TABLE gastos_fijos ADD COLUMN cuenta TEXT NOT NULL DEFAULT 'Banco'`,
+    `ALTER TABLE gastos_fijos ADD COLUMN variable INTEGER NOT NULL DEFAULT 0 CHECK(variable IN(0,1))`,
+    `ALTER TABLE gastos_fijos ADD COLUMN mes INTEGER NOT NULL DEFAULT 1 CHECK(mes BETWEEN 1 AND 12)`,
+    `ALTER TABLE movimientos ADD COLUMN gasto_fijo_id INTEGER REFERENCES gastos_fijos(id)`,
+    `ALTER TABLE movimientos ADD COLUMN periodo_fijo TEXT`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_movimientos_gasto_fijo_periodo ON movimientos(gasto_fijo_id,periodo_fijo) WHERE gasto_fijo_id IS NOT NULL`,
+  ]},
 ]; 
 
 export async function ensureSchema(db) {
