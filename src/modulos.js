@@ -177,22 +177,25 @@ export async function routeModulos(req, env, me, method, path, body) {
     if (!Number.isInteger(importe)) return E('Indica un importe válido');
     const cuotaId = body.cuota_id ? num(body.cuota_id) : null;
     const cargoId = body.cargo_id ? num(body.cargo_id) : null;
+    const categorias=['Cuotas mensuales','Cuotas extraordinarias','Sábados e invitadas','Copas y refrescos','Otros'];
+    const categoria=txt(body.categoria,40);
     if (cuotaId && cargoId) return E('Selecciona una cuota o un cargo, no ambos');
+    if (!cuotaId && !cargoId && !categorias.includes(categoria)) return E('Selecciona qué concepto estás pagando');
     if (cuotaId) {
       const q = await env.DB.prepare('SELECT id,estado FROM cuotas WHERE id=? AND hermana_id=?').bind(cuotaId, me.id).first();
       if (!q) return E('La cuota seleccionada no pertenece a tu cuenta', 403);
       if (q.estado === 'pagada') return E('Esa cuota ya figura como pagada', 409);
     }
     if (cargoId) {
-      const x = await env.DB.prepare(`SELECT x.id,MAX(0,x.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')) restante
+      const x = await env.DB.prepare(`SELECT x.id,MAX(0,x.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado'))) restante
         FROM cargos_hermanas x WHERE x.id=? AND x.hermana_id=?`).bind(cargoId,me.id).first();
       if (!x) return E('El concepto seleccionado no pertenece a tu cuenta',403);
       if (x.restante<=0) return E('Ese concepto ya figura como pagado',409);
       if (importe>x.restante) return E('El importe supera lo pendiente de ese concepto');
     }
     const fecha = isoDate(body.fecha_pago) ? body.fecha_pago : new Date().toISOString().slice(0, 10);
-    const r = await env.DB.prepare(`INSERT INTO pagos(hermana_id,cuota_id,cargo_id,importe_centimos,fecha_pago,metodo,concepto,registrado_por)
-      VALUES(?,?,?,?,?,?,?,?)`).bind(me.id, cuotaId, cargoId, importe, fecha, txt(body.metodo, 50) || null, txt(body.concepto, 300) || null, me.id).run();
+    const r = await env.DB.prepare(`INSERT INTO pagos(hermana_id,cuota_id,cargo_id,importe_centimos,fecha_pago,metodo,concepto,categoria,registrado_por)
+      VALUES(?,?,?,?,?,?,?,?,?)`).bind(me.id, cuotaId, cargoId, importe, fecha, txt(body.metodo, 50) || null, txt(body.concepto, 300) || null, categoria||null, me.id).run();
     return J({ ok: true, id: r.meta.last_row_id, estado: 'pendiente' });
   }
 
@@ -487,21 +490,47 @@ export async function routeModulos(req, env, me, method, path, body) {
       const pagoId = +m[1], p = await env.DB.prepare('SELECT * FROM pagos WHERE id=?').bind(pagoId).first();
       if (!p) return E('Pago no encontrado', 404);
       if (p.estado !== 'pendiente') return E('Este pago ya está revisado', 409);
-      const resultado = await env.DB.batch([
-        env.DB.prepare("UPDATE pagos SET estado='confirmado',confirmado_por=? WHERE id=? AND estado='pendiente'").bind(me.id, pagoId),
-        env.DB.prepare(`INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,hermana_id,cuota_id,pago_id,creado_por)
-          SELECT 'ingreso',p.fecha_pago,
-            COALESCE(NULLIF(p.concepto,''),CASE WHEN p.cuota_id IS NOT NULL THEN 'Pago de cuota' ELSE COALESCE(x.concepto,'Pago registrado') END),
-            CASE WHEN p.cuota_id IS NOT NULL THEN 'Cuotas mensuales' WHEN p.cargo_id IS NOT NULL THEN x.categoria ELSE 'Otros' END,
-            p.importe_centimos,p.hermana_id,p.cuota_id,p.id,?
-          FROM pagos p LEFT JOIN cargos_hermanas x ON x.id=p.cargo_id WHERE p.id=? AND p.estado='confirmado'`).bind(me.id, pagoId),
-      ]);
+      const ops = [env.DB.prepare("UPDATE pagos SET estado='confirmado',confirmado_por=? WHERE id=? AND estado='pendiente'").bind(me.id, pagoId)];
+      const cuotasAplicadas=[];
+      if (!p.cuota_id && !p.cargo_id) {
+        const cat=p.categoria;
+        let deudas=[];
+        if(cat==='Cuotas mensuales') {
+          deudas=await rows(env.DB.prepare(`SELECT c.id,MAX(0,c.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cuota_id=c.id AND p.estado='confirmado'))) restante
+            FROM cuotas c WHERE c.hermana_id=? AND c.estado!='pagada' ORDER BY c.periodo,c.id`).bind(p.hermana_id));
+          deudas=deudas.filter(x=>x.restante>0).map(x=>({...x,tipo:'cuota'}));
+        } else {
+          const filtro=cat==='Cuotas extraordinarias'?"grupo='extraordinaria' AND categoria!='Otros'":cat==='Sábados e invitadas'?"grupo='sabados'":cat==='Copas y refrescos'?"grupo='consumos'": "categoria='Otros'";
+          deudas=await rows(env.DB.prepare(`SELECT x.id,MAX(0,x.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado'))) restante
+            FROM cargos_hermanas x WHERE x.hermana_id=? AND ${filtro} ORDER BY x.id`).bind(p.hermana_id));
+          deudas=deudas.filter(x=>x.restante>0).map(x=>({...x,tipo:'cargo'}));
+        }
+        const disponible=deudas.reduce((n,x)=>n+x.restante,0);
+        if(disponible<p.importe_centimos) return E('El importe supera lo pendiente de ese concepto. Revisa la deuda antes de confirmarlo.',409);
+        let restante=p.importe_centimos;
+        for(const d of deudas) {
+          if(!restante) break;
+          const aplicar=Math.min(restante,d.restante);
+          if(d.tipo==='cuota') { ops.push(env.DB.prepare('INSERT INTO pagos_aplicaciones(pago_id,cuota_id,importe_centimos) VALUES(?,?,?)').bind(pagoId,d.id,aplicar)); cuotasAplicadas.push(d.id); }
+          else ops.push(env.DB.prepare('INSERT INTO pagos_aplicaciones(pago_id,cargo_id,importe_centimos) VALUES(?,?,?)').bind(pagoId,d.id,aplicar));
+          restante-=aplicar;
+        }
+      }
+      ops.push(env.DB.prepare(`INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,hermana_id,cuota_id,pago_id,creado_por)
+        SELECT 'ingreso',p.fecha_pago,
+          COALESCE(NULLIF(p.concepto,''),CASE WHEN p.categoria IS NOT NULL THEN p.categoria WHEN p.cuota_id IS NOT NULL THEN 'Pago de cuota' ELSE COALESCE(x.concepto,'Pago registrado') END),
+          COALESCE(p.categoria,CASE WHEN p.cuota_id IS NOT NULL THEN 'Cuotas mensuales' WHEN p.cargo_id IS NOT NULL THEN x.categoria ELSE 'Otros' END),
+          p.importe_centimos,p.hermana_id,p.cuota_id,p.id,?
+        FROM pagos p LEFT JOIN cargos_hermanas x ON x.id=p.cargo_id WHERE p.id=? AND p.estado='confirmado'`).bind(me.id, pagoId));
+      const resultado=await env.DB.batch(ops);
       if (!resultado[0]?.meta?.changes) return E('Este pago ya está revisado', 409);
-      if (p.cuota_id) {
-        const c = await env.DB.prepare('SELECT importe_centimos FROM cuotas WHERE id=?').bind(p.cuota_id).first();
-        const total = await env.DB.prepare("SELECT COALESCE(SUM(importe_centimos),0) n FROM pagos WHERE cuota_id=? AND estado='confirmado'").bind(p.cuota_id).first();
-        const estado = total.n >= c.importe_centimos ? 'pagada' : 'parcial';
-        await env.DB.prepare('UPDATE cuotas SET estado=? WHERE id=?').bind(estado, p.cuota_id).run();
+      if(p.cuota_id) cuotasAplicadas.push(p.cuota_id);
+      for(const cuotaId of [...new Set(cuotasAplicadas)]) {
+        const c=await env.DB.prepare('SELECT importe_centimos FROM cuotas WHERE id=?').bind(cuotaId).first();
+        const total=await env.DB.prepare(`SELECT
+          (SELECT COALESCE(SUM(importe_centimos),0) FROM pagos WHERE cuota_id=? AND estado='confirmado')+
+          (SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cuota_id=? AND p.estado='confirmado') n`).bind(cuotaId,cuotaId).first();
+        await env.DB.prepare('UPDATE cuotas SET estado=? WHERE id=?').bind(total.n>=c.importe_centimos?'pagada':'parcial',cuotaId).run();
       }
       return J({ ok: true });
     }
