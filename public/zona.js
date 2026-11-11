@@ -3,7 +3,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(''));
 const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.600 2.400 30.200 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.800 6.100C12.300 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.500 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.700c-.6 3-2.300 5.500-4.800 7.200l7.500 5.800c4.400-4.100 7.100-10.100 7.100-17.500z"/><path fill="#FBBC05" d="M10.400 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.9-4.700l-7.800-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.800-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.700-4.100-13.600-9.800l-7.800 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
-let ME = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_YEAR = '2026', TES_IMPORT_ROWS = [], TES_IMPORT_FILE = '', ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'' };
+let ME = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_YEAR = '2026', TES_IMPORT_FILE = '', ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'' };
 
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
@@ -115,8 +115,8 @@ async function vCuenta() {
   const deudaCuotas=pendientes.reduce((a,c)=>a+Number(c.restante_centimos||0),0);
   const deudaCargos=cargos.reduce((a,c)=>a+Number(c.restante_centimos||0),0);
   const totalPendiente=deudaCuotas+deudaCargos;
-  const pagado=d.pagos.filter(p=>p.estado==='confirmado').reduce((a,p)=>a+Number(p.importe_centimos||0),0);
   const pendienteRevision=d.pagos.filter(p=>p.estado==='pendiente').reduce((a,p)=>a+Number(p.importe_centimos||0),0);
+  const deudaTrasRevision=Math.max(0,totalPendiente-pendienteRevision);
   const TAGS=ALERGIAS_TAGS;
   const alergiasActuales=String(d.alergias?.alergias||'').split(/[,;\\n]/).map(x=>x.trim()).filter(Boolean);
   const mes=p=>{const [y,m]=String(p||'').split('-');return m?new Date(Number(y),Number(m)-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'}):p;};
@@ -135,7 +135,7 @@ async function vCuenta() {
   if(CUENTA_TAB==='pag') contenido=`<section class="sec" style="padding-top:0"><div class="row" style="justify-content:space-between;align-items:center"><div><div class="tag">Historial</div><h3>Mis pagos</h3></div><button class="btn" data-a="cuenta-pago-open">Registrar un pago</button></div><div class="card">${d.pagos.length?d.pagos.map(p=>`<div class="mv"><div class="x"><b>${esc(p.concepto||p.cargo_concepto||p.periodo||'Pago')}</b><br><small>${esc(p.metodo||'Método no indicado')} · ${fechaBonita(p.fecha_pago)}</small></div><div style="text-align:right"><b class="amt">${euros(p.importe_centimos)}</b><br>${estado(p)}</div></div>`).join(''):'<p class="mu">Todavía no has registrado ningún pago.</p>'}</div><p class="mu">Los pagos pendientes se descuentan de tu deuda cuando Tesorería los confirma.</p></section>`;
   if(CUENTA_TAB==='al') contenido=`<section class="sec" style="padding-top:0"><div class="tag">Información alimentaria</div><h3>Mis alergias o dietas</h3><div class="card"><p class="mu" style="margin-top:0">Son el punto de partida cada vez que confirmas un sábado. Puedes cambiarlas en cada uno.</p><form data-f="alergias"><div class="wr">${TAGS.map(t=>`<label class="chip ${alergiasActuales.includes(t)?'on':''}" style="display:inline-flex;align-items:center;gap:7px"><input type="checkbox" name="alergia" value="${esc(t)}" ${alergiasActuales.includes(t)?'checked':''}> ${esc(t)}</label>`).join('')}</div><label class="fl">Otras alergias o aclaraciones</label><textarea class="t" name="observaciones" rows="3">${esc(d.alergias?.observaciones||'')}</textarea><button class="btn" style="margin-top:14px">Guardar mis alergias</button></form><p class="mu" style="margin:14px 0 0">Son datos de salud: solo los ve el turno de cocina de cada sábado y la junta.</p></div></section>`;
   return shell(`<div class="top"><div class="tag">Tu situación</div><h2>Mi cuenta</h2></div>
-  <section class="hero2" style="padding:22px"><span style="opacity:.75">Pendiente de pago</span><div class="big">${euros(totalPendiente)}</div>${pendienteRevision?'<div style="opacity:.8;font-size:14px;margin-top:6px">'+euros(pendienteRevision)+' en revisión por Tesorería</div>':''}<p style="margin:16px 0 0"><button class="btn" data-a="cuenta-pago-open">Registrar un pago</button></p></section>
+  <section class="hero2" style="padding:22px"><span style="opacity:.75">Pendiente de pago</span><div class="big">${euros(deudaTrasRevision)}</div>${pendienteRevision?'<div style="opacity:.8;font-size:14px;margin-top:6px">'+euros(pendienteRevision)+' en revisión por Tesorería</div>':''}<p style="margin:16px 0 0"><button class="btn" data-a="cuenta-pago-open">Registrar un pago</button></p></section>
   ${subnav('cuenta',CUENTA_TAB,[['deb','Lo que debo'],['pag','Mis pagos ('+d.pagos.length+')'],['al','Mis alergias']])}
   ${contenido}
   ${PAGO_MODAL?`<div class="ov" data-a="cuenta-pago-close"><div class="sheet" data-a="cuenta-pago-stop" role="dialog" aria-modal="true"><div class="row" style="justify-content:space-between"><h3>Registrar un pago</h3><button class="chip" type="button" data-a="cuenta-pago-close">✕</button></div><p class="mu">Indica el pago que has realizado. Tesorería lo comprobará antes de confirmarlo.</p><form data-f="cuenta-pago"><label class="fl">¿Qué estás pagando?</label><select class="t" name="cuota_id"><option value="">Pago general / varias cuotas</option>${pendientes.map(c=>`<option value="${c.id}">Cuota ${esc(mes(c.periodo))} · ${euros(c.restante_centimos)}</option>`).join('')}</select><select class="t" name="cargo_id" style="margin-top:8px"><option value="">Sin cargo extraordinario asociado</option>${pagosCargo.map(x=>`<option value="${x.id}">${esc(x.categoria)} · ${esc(x.concepto)} · ${euros(x.restante_centimos)}</option>`).join('')}</select>${campo('importe','Importe (€)','type="number" min="0.01" step="0.01" required')}${campo('fecha_pago','Fecha de pago','type="date" required value="'+new Date().toISOString().slice(0,10)+'"')}<label class="fl">¿Cómo has pagado?</label><select class="t" name="metodo"><option>Bizum</option><option>Transferencia</option><option>Efectivo</option></select>${campo('concepto','Nota (opcional)','maxlength="300"')}<button class="btn" style="width:100%;margin-top:18px">Enviar a Tesorería</button></form></div></div>`:''}`);
@@ -186,40 +186,6 @@ async function vActas() {
 
 
 function extraRow(x={}) { return `<div class="extra-row card" style="margin:10px 0;padding:12px"><div class="two formgrid"><div>${campo('nombre','Concepto','required value="'+esc(x.nombre||'')+'"')}</div><div><label class="fl">Categoría</label><select class="t" name="categoria"><option ${x.categoria==='Cuaresma'?'selected':''}>Cuaresma</option><option ${x.categoria==='Semana Santa'?'selected':''}>Semana Santa</option><option ${!x.categoria||x.categoria==='Otros'?'selected':''}>Otros</option></select></div><div>${campo('importe','Importe (€)','type="number" min="0" step="0.01" value="'+(Number(x.importe_centimos||0)/100)+'"')}</div><div><label class="fl">Aplicación</label><select class="t" name="tipo"><option value="una_vez" ${x.tipo==='una_vez'?'selected':''}>Una sola vez</option><option value="por_sabado" ${x.tipo==='por_sabado'?'selected':''}>Cada sábado que asista</option></select></div></div><button type="button" class="chip" data-a="extra-del" style="margin-top:8px">Eliminar concepto</button></div>`; }
-function parseCSV(text) {
-  const first=(text.split(/\r?\n/)[0]||'');
-  const sep=first.includes(';')?';':',';
-  const rows=[];let row=[],cell='',quoted=false;
-  for(let i=0;i<text.length;i++){
-    const ch=text[i];
-    if(ch==='"'&&quoted&&text[i+1]==='"'){cell+='"';i++;}
-    else if(ch==='"') quoted=!quoted;
-    else if(ch===sep&&!quoted){row.push(cell.trim());cell='';}
-    else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell.trim());if(row.some(Boolean))rows.push(row);row=[];cell='';}
-    else cell+=ch;
-  }
-  row.push(cell.trim());if(row.some(Boolean))rows.push(row);
-  if(rows.length<2)throw new Error('El CSV no contiene filas de movimientos.');
-  const norm=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-  const headers=rows.shift().map(norm);
-  const idx=(...names)=>headers.findIndex(h=>names.includes(h));
-  const ix={fecha:idx('fecha','date'),tipo:idx('tipo','type'),categoria:idx('categoria','category'),concepto:idx('concepto','descripcion','description','concept'),cuenta:idx('cuenta','account'),importe:idx('importe','cantidad','amount','total')};
-  if(ix.fecha<0||ix.tipo<0||ix.concepto<0||ix.importe<0)throw new Error('Faltan columnas obligatorias: Fecha, Tipo, Concepto e Importe.');
-  const out=[];
-  rows.forEach((r,i)=>{
-    let fecha=String(r[ix.fecha]||'').trim();
-    const es=fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(es)fecha=es[3]+'-'+es[2].padStart(2,'0')+'-'+es[1].padStart(2,'0');
-    const tipo=/^(ingreso|entrada|income)$/i.test(r[ix.tipo]||'')?'Ingreso':/^(gasto|salida|expense)$/i.test(r[ix.tipo]||'')?'Gasto':'';
-    let importe=String(r[ix.importe]||'').replace(/[€\s]/g,'');
-    if(importe.includes(','))importe=importe.replace(/\./g,'').replace(',','.');
-    const cuenta=ix.cuenta>=0&&/caja/i.test(r[ix.cuenta]||'')?'Caja fuerte':'Banco';
-    const concepto=String(r[ix.concepto]||'').trim();
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)||!tipo||!concepto||!Number.isFinite(Number(importe))||Number(importe)<=0)throw new Error('La fila '+(i+2)+' tiene datos no válidos.');
-    const categoria=ix.categoria>=0?String(r[ix.categoria]||'Otros').trim():'Otros';
-    out.push({fecha,tipo,categoria,concepto,cuenta,importe:String(Number(importe).toFixed(2)),clave:(i+1)+'|'+fecha+'|'+tipo+'|'+concepto+'|'+importe+'|'+cuenta});
-  });
-  return out;
-}
 
 async function vTesoreria() {
   const d = await api('GET', '/modulos/tesoreria');
@@ -259,7 +225,7 @@ async function vTesoreria() {
     if(TES_CFG_TAB==='pre') contenido+=`<div class="card"><div class="tag">Parámetros económicos</div><h3>Precios y cuota</h3><p class="mu">Configura aquí los importes. La web los utiliza para calcular automáticamente los cargos y presupuestos; no hay cantidades fijas en el código.</p><form data-f="tes-config" class="two formgrid"><div>${campo('cuota_mensual','Cuota mensual (€)','type="number" min="0.01" step="0.01" required value="'+(d.cuota_mensual||'')+'"')}</div><div>${campo('sabado_precio','Sábado · asistencia (€)','type="number" min="0" step="0.01" value="'+moneyParam('sabado_precio_centimos')+'"')}</div><div>${campo('invitada_precio','Invitada (€)','type="number" min="0" step="0.01" value="'+moneyParam('invitada_precio_centimos')+'"')}</div><div>${campo('copa_precio','Copa (€)','type="number" min="0" step="0.01" value="'+moneyParam('copa_precio_centimos')+'"')}</div><div>${campo('refresco_precio','Refresco (€)','type="number" min="0" step="0.01" value="'+moneyParam('refresco_precio_centimos')+'"')}</div><div>${campo('cocina_precio_persona','Presupuesto de cocina por comensal (€)','type="number" min="0" step="0.01" value="'+moneyParam('cocina_precio_persona_centimos')+'"')}</div><div><label class="fl">Personas por turno en el sorteo</label><select class="t" name="personas_por_turno"><option value="2" ${Number(d.parametros?.cocina_personas_por_turno||2)===2?'selected':''}>2 personas</option><option value="3" ${Number(d.parametros?.cocina_personas_por_turno||2)===3?'selected':''}>3 personas</option></select></div><button class="btn">Guardar parámetros</button></form></div>`;
     else contenido+=`<div class="card"><div class="tag">Cargos configurables</div><h3>Cuotas extraordinarias de este año</h3><p class="mu">Puedes crear, editar o eliminar los conceptos y sus importes. Elige si se aplican una sola vez o en cada sábado que corresponda.</p><form data-f="tes-extras"><div id="tes-extras-rows">${extras.map(x=>extraRow(x)).join('')}</div><p><button type="button" class="chip" data-a="extra-add">Añadir cuota extraordinaria</button></p><button class="btn">Guardar cuotas extraordinarias</button></form></div>`;
   }
-  if(TES_TAB==='imp') contenido=`<div class="card"><h3>Importar informe de tesorería</h3><p class="mu">Carga un CSV con las columnas Fecha, Tipo, Categoría, Concepto, Cuenta e Importe. Primero verás una vista previa; no se guardará nada hasta que confirmes.</p><label class="fl">Archivo CSV</label><input class="t" type="file" accept=".csv,text/csv" data-import-csv><p class="mu">${esc(TES_IMPORT_FILE)}</p>${TES_IMPORT_ROWS.length?`<p>${TES_IMPORT_ROWS.length} movimientos preparados.</p><div class="wrap"><table class="rt"><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cuenta</th><th class="r">Importe</th></tr></thead><tbody>${TES_IMPORT_ROWS.slice(0,20).map(x=>`<tr><td>${esc(x.fecha)}</td><td>${esc(x.tipo)}</td><td>${esc(x.concepto)}</td><td>${esc(x.cuenta)}</td><td class="r">${esc(x.importe)} €</td></tr>`).join('')}</tbody></table></div><div class="row" style="margin-top:12px"><button class="btn" data-a="tes-import-confirm">Importar movimientos</button><button class="chip" data-a="tes-import-clear">Cancelar</button></div>`:''}</div><div class="card" style="margin-top:14px"><h3>Saldos de partida</h3><p class="mu">Se aplican desde la fecha indicada. Los saldos actuales se calculan sumando los movimientos posteriores.</p><form data-f="tes-saldos" class="two formgrid"><div>${campo('fecha','Fecha del saldo inicial','type="date" required value="'+esc(d.saldo_inicial?.fecha||'2026-01-01')+'"')}</div><div>${campo('banco','Banco (€)','type="number" step="0.01" value="'+(Number(d.saldo_inicial?.banco_centimos||0)/100)+'"')}</div><div>${campo('caja','Caja fuerte (€)','type="number" step="0.01" value="'+(Number(d.saldo_inicial?.caja_centimos||0)/100)+'"')}</div><button class="btn">Guardar saldos iniciales</button></form></div>`;
+  if(TES_TAB==='imp') contenido=`<div class="card"><h3>Importar el último informe</h3><p class="mu">Sube el último informe de tesorería (Excel, CSV o PDF). Antes de aplicarlo debe aparecer una vista previa de saldos, movimientos y cuotas pendientes.</p><label class="fl">Seleccionar informe</label><input class="t" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf" data-import-file><p class="mu">${esc(TES_IMPORT_FILE)}</p><p class="mu">La lectura automática se ajustará al formato real del informe para evitar importar columnas o importes incorrectos. No se aplicará ningún dato sin revisar la vista previa.</p></div><div class="card" style="margin-top:14px"><h3>Saldos de partida</h3><p class="mu">A partir de esta fecha, todos los saldos se calculan desde estos importes.</p><form data-f="tes-saldos" class="two formgrid"><div>${campo('fecha','Fecha','type="date" required value="'+esc(d.saldo_inicial?.fecha||'2026-01-01')+'"')}</div><div>${campo('banco','Banco (€)','type="number" step="0.01" value="'+(Number(d.saldo_inicial?.banco_centimos||0)/100)+'"')}</div><div>${campo('caja','Caja fuerte (€)','type="number" step="0.01" value="'+(Number(d.saldo_inicial?.caja_centimos||0)/100)+'"')}</div><button class="btn">Guardar saldos iniciales</button></form></div>`;
   const tabs=[['res','Estadísticas'],['mov','Movimientos'],['rec','Gastos fijos'],['pun','Por puntear ('+d.pagos_pendientes.length+')'],['gp','Gastos pendientes'],['pen','Cuotas pendientes'],['inf','Informe'],['cfg','Precios y cuota'],['imp','Importar']];
   return shell(`<div class="top"><div class="tag">Gestión económica</div><h2>Tesorería</h2><p class="mu" style="margin:0">Contabilidad, parámetros, pagos e informes del cuartel.</p></div>
   <section class="hero2"><div class="tag" style="color:var(--go)">Total disponible</div><div class="big">${euros(saldo)}</div><div class="two"><div><small>Banco</small><b>${euros(d.totales.banco_centimos)}</b></div><div><small>Caja fuerte</small><b>${euros(d.totales.caja_centimos)}</b></div></div><div class="two" style="margin-top:10px"><div><small>Ingresos</small><b>${euros(ingresos)}</b></div><div><small>Gastos</small><b>${euros(gastos)}</b></div></div></section>
@@ -362,9 +328,7 @@ const FORM = {
   async 'tes-ticket'(f,d) { const file=d.get('ticket'); if(!file || !file.size) throw new Error('Selecciona un ticket'); if(file.size>1024*1024) throw new Error('El archivo no puede superar 1 MB'); const datos=await readFileData(file); await api('POST','/modulos/tesoreria/tickets',{movimiento_id:d.get('movimiento_id')||null,sabado_id:d.get('sabado_id')||null,nombre_archivo:file.name,datos}); toast('Ticket guardado'); render(); },
   async 'tes-ticket-link'(f,d) { await api('PUT','/modulos/tesoreria/tickets/'+f.dataset.id,{movimiento_id:d.get('movimiento_id')||null}); toast('Ticket vinculado al movimiento'); render(); },
   async 'tes-ticket-review'(f,d) { await api('PUT','/modulos/tesoreria/tickets/'+f.dataset.id,{incluir:true,categoria:d.get('categoria'),cuenta:d.get('cuenta'),importe:d.get('importe')}); toast('Gasto incluido en contabilidad'); render(); },
-  async 'tes-import-confirm'() { if(!TES_IMPORT_ROWS.length) throw new Error('No hay movimientos preparados.'); const r=await api('POST','/modulos/tesoreria/importar',{movimientos:TES_IMPORT_ROWS}); toast('Importados: '+r.importados+' · Duplicados: '+r.duplicados); TES_IMPORT_ROWS=[]; TES_IMPORT_FILE=''; render(); },
-  'tes-import-clear'() { TES_IMPORT_ROWS=[]; TES_IMPORT_FILE=''; render(); },
-  'tes-report-year'(el) { TES_REPORT_YEAR=el.dataset.year; render(); },
+    'tes-report-year'(el) { TES_REPORT_YEAR=el.dataset.year; render(); },
   'tes-export'() { window.print(); },
   async historia(f) { const hitos = [...f.querySelectorAll('#hitos .row')].map(r => ({ anio: r.querySelector('[name=anio]').value, texto: r.querySelector('[name=texto]').value })); const r = await api('PUT', '/admin/hitos', { hitos }); toast(`Guardado (${r.total} hitos)`); render(); },
 };
@@ -397,11 +361,12 @@ const ACT = {
   'hito-add'() { $('#hitos').insertAdjacentHTML('beforeend', hitoRow({ anio: '', texto: '' })); },
   'hito-del'(el) { el.closest('.row').remove(); },
 };
-document.addEventListener('change', async e => {
-  const input=e.target.closest('[data-import-csv]'); if(!input) return;
+document.addEventListener('change', e => {
+  const input=e.target.closest('[data-import-file]'); if(!input) return;
   const file=input.files?.[0]; if(!file) return;
-  try { TES_IMPORT_ROWS=parseCSV(await file.text()); TES_IMPORT_FILE=file.name; toast('Vista previa preparada. Revisa las filas antes de importar.'); render(); }
-  catch(er) { TES_IMPORT_ROWS=[]; TES_IMPORT_FILE=''; toast(er.message,true); }
+  TES_IMPORT_FILE=file.name;
+  toast('Informe seleccionado. Para preparar una vista previa fiel necesito adaptar el lector al formato real del archivo.');
+  render();
 });
 document.addEventListener('submit', async e => {
   const f = e.target.closest('form[data-f]'); if (!f) return;
