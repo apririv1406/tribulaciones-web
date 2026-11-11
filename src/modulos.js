@@ -561,7 +561,7 @@ export async function routeModulos(req, env, me, method, path, body) {
   }
   if (path === '/api/modulos/actas/estatutos' && method === 'PUT') {
     if(!actas(me)) return E('No tienes permiso para publicar estatutos',403);
-    const match=/^data:application\\/pdf;base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos||''));
+    const match=/^data:application\/pdf;base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos||''));
     if(!match||match[1].length>1400000) return E('El archivo debe ser un PDF de 1 MB como máximo');
     await env.DB.prepare(`INSERT INTO documentos(clave,nombre,mime,datos,tamano,subido_por) VALUES('estatutos',?,'application/pdf',?,?,?)
       ON CONFLICT(clave) DO UPDATE SET nombre=excluded.nombre,mime=excluded.mime,datos=excluded.datos,tamano=excluded.tamano,subido_por=excluded.subido_por,creado=datetime('now')`)
