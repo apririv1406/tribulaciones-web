@@ -233,14 +233,7 @@ async function enviarEnlace(env, req, h, tipo) {
 
 // Genera un token nuevo y devuelve el enlace para que la administradora
 // lo comparta manualmente por WhatsApp. Nunca se envía ningún mensaje solo.
-async function generarEnlaceWhatsApp(env, req, h, tipo) {
-  const tok = rand(32), horas = tipo === 'reset' ? 24 : 168;
-  await env.DB.prepare('DELETE FROM tokens WHERE hermana_id=?').bind(h.id).run();
-  await env.DB.prepare('INSERT INTO tokens VALUES(?,?,?,?)').bind(await sha(tok), h.id, tipo, Date.now() + horas * 36e5).run();
-  const link = `${origin(env, req)}/zona/#/clave/${tok}`;
-  if (tipo === 'invitacion') await env.DB.prepare("UPDATE hermanas SET invitada=datetime('now') WHERE id=?").bind(h.id).run();
-  return { link, telefono: h.telefono, nombre: h.nombre, tipo };
-}
+
 
 /* ---------- imágenes ---------- */
 async function guardarImagen(env, dataUrl) {
@@ -278,7 +271,7 @@ async function admin(req, env, me, m, p, b) {
   if (m === 'POST' && p === '/api/admin/hermanas') return crearHermana(env, b);
   if (m === 'PUT' && (r = p.match(/^\/api\/admin\/hermanas\/(\d+)$/))) return editarHermana(env, +r[1], b);
   if (m === 'POST' && (r = p.match(/^\/api\/admin\/hermanas\/(\d+)\/(invitar|reset)$/))) return enviarA(env, req, +r[1], r[2]);
-  if (m === 'POST' && p === '/api/admin/invitar-pendientes') return E('Las bienvenidas se preparan individualmente desde cada hermana por WhatsApp.', 400);
+  if (m === 'POST' && p === '/api/admin/invitar-pendientes') return E('Las bienvenidas se envían individualmente desde cada hermana.', 400);
   if (m === 'GET' && p === '/api/admin/cargos') return J((await env.DB.prepare('SELECT c.id,c.nombre,c.permiso,(SELECT COUNT(*) FROM hermanas h WHERE h.cargo_id=c.id) usos FROM cargos c ORDER BY c.orden,c.id').all()).results);
   if (m === 'POST' && p === '/api/admin/cargos') return cargoGuardar(env, null, b);
   if ((m === 'PUT' || m === 'DELETE') && (r = p.match(/^\/api\/admin\/cargos\/(\d+)$/))) return m === 'PUT' ? cargoGuardar(env, +r[1], b) : cargoBorrar(env, +r[1]);
@@ -359,13 +352,14 @@ async function editarHermana(env, id, b) {
   return J({ ok: true, foto });
 }
 async function enviarA(env, req, id, que) {
-  const h = await env.DB.prepare('SELECT id,nombre,telefono,estado FROM hermanas WHERE id=?').bind(id).first();
+  const h = await env.DB.prepare('SELECT id,nombre,email,estado FROM hermanas WHERE id=?').bind(id).first();
   if (!h) return E('No encontrada', 404);
   if (h.estado === 'Baja') return E('Está dada de baja');
-  if (!h.telefono) return E('Añade primero el teléfono de esta hermana');
+  if (!h.email) return E('Añade primero el correo electrónico de esta hermana');
+  if (!env.RESEND_API_KEY || !env.MAIL_FROM) return J({ ok:true,enviado:false,aviso:'El correo todavía no está configurado (faltan RESEND_API_KEY y MAIL_FROM).' });
   const tipo = que === 'reset' ? 'reset' : 'invitacion';
-  const r = await generarEnlaceWhatsApp(env, req, h, tipo);
-  return J({ ok: true, ...r });
+  const res = await enviarEnlace(env, req, h, tipo);
+  return J({ ok:true,enviado:res.ok,aviso:res.aviso||null });
 }
 async function cargoGuardar(env, id, b) {
   const nombre = String(b.nombre || '').trim(), permiso = b.permiso || 'none';
