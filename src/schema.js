@@ -54,10 +54,6 @@ export const MIGRATIONS = [
   ]},
 ]; 
 
-// Reparación v4: vuelve a aplicar la migración v3, que usa CREATE TABLE/INDEX IF NOT EXISTS.
-// Así se recuperan tablas ausentes aunque meta.schema ya indique 3, sin borrar datos.
-MIGRATIONS.push({ v: 4, sql: MIGRATIONS.find(m => m.v === 3).sql });
-
 export async function ensureSchema(db) {
   await db.prepare('CREATE TABLE IF NOT EXISTS meta(clave TEXT PRIMARY KEY,valor TEXT)').run();
   const r = await db.prepare("SELECT valor FROM meta WHERE clave='schema'").first();
