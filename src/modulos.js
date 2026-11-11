@@ -387,16 +387,52 @@ export async function routeModulos(req, env, me, method, path, body) {
         }
         ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cuotas_extraordinarias_json',?)").bind(JSON.stringify(extras)));
       }
+      const saldoInicial = body.saldo_inicial;
+      if (saldoInicial !== undefined) {
+        if (!saldoInicial || !isoDate(saldoInicial.fecha)) return E('La fecha del saldo inicial no es válida');
+        const banco = Number(String(saldoInicial.banco ?? '').replace(',', '.'));
+        const caja = Number(String(saldoInicial.caja ?? '').replace(',', '.'));
+        if (!Number.isFinite(banco) || !Number.isFinite(caja)) return E('Revisa los saldos iniciales');
+        ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('saldo_inicial_fecha',?)").bind(saldoInicial.fecha));
+        ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('saldo_inicial_banco_centimos',?)").bind(String(Math.round(banco*100))));
+        ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('saldo_inicial_caja_centimos',?)").bind(String(Math.round(caja*100))));
+      }
       await env.DB.batch(ops);
+      await syncCargosHermanas(env.DB);
       return J({ ok: true });
     }
     if (path === '/api/modulos/tesoreria/movimientos' && method === 'POST') {
       const tipo = body.tipo === 'ingreso' ? 'ingreso' : body.tipo === 'gasto' ? 'gasto' : null;
       const importe = money(body.importe), fecha = isoDate(body.fecha) ? body.fecha : null, concepto = txt(body.concepto, 180);
+      const cuenta = ['Banco','Caja fuerte'].includes(body.cuenta)?body.cuenta:'Banco';
       if (!tipo || !Number.isInteger(importe) || !fecha || concepto.length < 2) return E('Revisa tipo, fecha, concepto e importe');
-      const r = await env.DB.prepare('INSERT INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,creado_por) VALUES(?,?,?,?,?,?)')
-        .bind(tipo, fecha, concepto, txt(body.categoria, 80) || null, importe, me.id).run();
+      const r = await env.DB.prepare('INSERT INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,cuenta,creado_por) VALUES(?,?,?,?,?,?,?)')
+        .bind(tipo, fecha, concepto, txt(body.categoria, 80) || null, importe, cuenta, me.id).run();
       return J({ ok: true, id: r.meta.last_row_id });
+    }
+    if (path === '/api/modulos/tesoreria/traspasos' && method === 'POST') {
+      const importe=money(body.importe),fecha=isoDate(body.fecha)?body.fecha:null,origen=body.origen,destino=body.destino;
+      if(!Number.isInteger(importe)||!fecha||!['Banco','Caja fuerte'].includes(origen)||!['Banco','Caja fuerte'].includes(destino)||origen===destino) return E('Revisa importe, fecha y cuentas del traspaso');
+      const id=crypto.randomUUID();
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,cuenta,traspaso_id,creado_por) VALUES('gasto',?,'Traspaso entre cuentas','Traspaso',?,?,?,?)").bind(fecha,importe,origen,id,me.id),
+        env.DB.prepare("INSERT INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,cuenta,traspaso_id,creado_por) VALUES('ingreso',?,'Traspaso entre cuentas','Traspaso',?,?,?,?)").bind(fecha,importe,destino,id,me.id)
+      ]);
+      return J({ok:true});
+    }
+    if (path === '/api/modulos/tesoreria/importar' && method === 'POST') {
+      if(!Array.isArray(body.movimientos)||body.movimientos.length<1||body.movimientos.length>500) return E('El archivo debe contener entre 1 y 500 movimientos');
+      const ops=[];let omitidos=0;
+      for(const x of body.movimientos){
+        const tipo=x.tipo==='Ingreso'?'ingreso':x.tipo==='Gasto'?'gasto':null;
+        const fecha=isoDate(x.fecha)?x.fecha:null,importe=money(x.importe),concepto=txt(x.concepto,180),categoria=txt(x.categoria,80)||'Otros',cuenta=['Banco','Caja fuerte'].includes(x.cuenta)?x.cuenta:'Banco';
+        if(!tipo||!fecha||!Number.isInteger(importe)||!concepto) return E('Hay filas con fecha, tipo, concepto o importe no válidos');
+        const key=txt(x.clave,160);
+        if(!key) return E('Cada movimiento importado necesita una clave única');
+        ops.push(env.DB.prepare('INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,cuenta,import_key,creado_por) VALUES(?,?,?,?,?,?,?,?)').bind(tipo,fecha,concepto,categoria,importe,cuenta,key,me.id));
+      }
+      const result=await env.DB.batch(ops);
+      return J({ok:true,importados:result.reduce((n,x)=>n+(x.changes||0),0),duplicados:result.reduce((n,x)=>n+((x.changes||0)?0:1),0)});
     }
     if (path === '/api/modulos/tesoreria/gastos-fijos' && method === 'POST') {
       const importe = money(body.importe), concepto = txt(body.concepto, 180), periodicidad = ['mensual','trimestral','anual'].includes(body.periodicidad) ? body.periodicidad : 'mensual';
