@@ -46,3 +46,56 @@ select,option,input,textarea{color:var(--tx);background-color:#fff}select{cursor
 .av{width:84px;height:84px;border-radius:50%;margin:0 auto 10px;background:linear-gradient(135deg,var(--gs),var(--go));display:grid;place-items:center;font:700 26px "Cormorant Garamond",Georgia,serif;color:var(--dk);overflow:hidden}
 .av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 @media(max-width:640px){.cta2{padding:18px}.cta2 .btn{width:100%;text-align:center}}
+
+
+/* Portada pública LTS: estructura visual de la maqueta */
+.pw{padding:0!important}
+.pw .in{width:min(1160px,100%);margin:0 auto;padding-left:clamp(18px,4vw,56px);padding-right:clamp(18px,4vw,56px)}
+.hd{position:relative;overflow:hidden;background:linear-gradient(120deg,#3b2c1c 0%,#57402a 58%,#725333 100%);color:#fff;padding:clamp(54px,8vw,104px) 0 clamp(48px,7vw,86px)}
+.hd:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 82% 18%,rgba(232,194,58,.2),transparent 34%),linear-gradient(90deg,rgba(31,22,14,.16),transparent 65%);pointer-events:none}
+.hd>.in{position:relative;display:grid;grid-template-columns:minmax(130px,190px) minmax(0,1fr);align-items:center;column-gap:clamp(24px,5vw,64px);row-gap:28px}
+.hd>.in>img{width:100%;max-width:190px;max-height:190px;object-fit:contain;filter:drop-shadow(0 8px 18px rgba(0,0,0,.18))}
+.ht .meta{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#e8c23a;font-weight:600;margin-bottom:14px}
+.ht h1{font-size:clamp(42px,6.5vw,76px);line-height:.98;color:#fff;margin:0 0 16px}
+.ht .lead{font:500 clamp(18px,2vw,23px)/1.45 "Cormorant Garamond",Georgia,serif;color:#f2ead6;margin:0 0 25px}
+.ctas{display:flex;gap:10px;flex-wrap:wrap}.ctas .btn{min-width:145px;text-align:center}
+.hd .btn{background:#e8c23a;color:#3b2c1c}.hd .btn.o{color:#fff;border-color:rgba(255,255,255,.65);background:transparent}
+.vq{grid-column:2;margin:2px 0 0;padding:18px 22px;border-left:2px solid #e8c23a;background:rgba(255,255,255,.07);border-radius:0 14px 14px 0;color:#f7f0df;font:italic 17px/1.55 "Cormorant Garamond",Georgia,serif}
+.vq cite{display:block;margin-top:8px;color:#e8c23a;font:600 11px/1.4 Inter, sans-serif;letter-spacing:.1em;text-transform:uppercase}
+.sc1,.sc2,.dkb{padding:clamp(54px,7vw,88px) 0}
+.sc1{background:#fbf6e9}.sc2{background:#fffdf8}.dkb{background:#3b2c1c;color:#f2ead6}
+.sc1 h2,.sc2 h2,.dkb h2{font-size:clamp(32px,4vw,46px);margin:8px 0 22px}
+.sc1 p,.sc2 p,.dkb p{line-height:1.85;color:inherit}
+.j{max-width:760px}.j p{margin:0 0 16px;text-align:justify}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(24px,5vw,64px);align-items:start;margin-top:0}
+.two>div{padding:0;background:none;border-radius:0}.two.r>div:first-child{order:0}.two.r>div:last-child{order:1}
+.phb{position:relative;min-height:220px;overflow:hidden;border-radius:20px;background:linear-gradient(135deg,#e9dfc9,#d4c3a5);display:grid;place-items:center;color:#8a7a68;font-size:12px;letter-spacing:.08em;text-transform:uppercase;text-align:center}
+.phb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.phb.tall{min-height:340px}.phb.dk2{background:linear-gradient(135deg,#59452f,#2f2419);color:#d8c7a5}
+.tlw{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.tl{border-left:1px solid #d8c69e;margin:8px 0 8px 8px;padding-left:18px}
+.tl>div{position:relative;margin:0 0 18px;color:var(--mu);font-size:14px}
+.tl>div:before{content:"";position:absolute;left:-23px;top:7px;width:8px;height:8px;border-radius:50%;background:var(--go)}
+.tl b{color:var(--dk);font:700 20px "Cormorant Garamond",serif}
+.dkb .tl>div,.dkb .tl b{color:#f2ead6}
+.sw{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
+.sw>div{flex:1 1 130px;padding:13px 15px;border:1px solid rgba(255,255,255,.16);border-radius:14px;background:rgba(255,255,255,.06)}
+.sw i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+.sw b{font-size:14px}.sw span{display:block;margin-top:3px;color:#d8cbb7;font-size:12px}
+.ph3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:22px 0 28px}
+.ph3 .phb{min-height:210px}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:10px 32px;max-width:none}
+.cta2{color:var(--dk)}
+.hg,.ng{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:24px}
+.ng .news{padding:0;overflow:hidden}.news .ph{height:190px;background:#eee3cb;display:grid;place-items:center;color:var(--mu)}.news .ph img{width:100%;height:100%;object-fit:cover}.news .t{padding:18px}
+.ft{padding:38px 0!important}.ft>.in{display:flex;align-items:center;justify-content:space-between;gap:30px}.ft img{width:76px;height:76px;object-fit:contain}
+@media(max-width:760px){
+ .hd{padding:48px 0 42px}.hd>.in{grid-template-columns:1fr;justify-items:center;text-align:center;gap:20px}
+ .hd>.in>img{width:118px;height:118px}.ht h1{font-size:clamp(39px,11vw,58px)}
+ .ctas{justify-content:center}.vq{grid-column:1;text-align:left;font-size:16px}
+ .two{grid-template-columns:1fr;gap:24px}.two.r>div:first-child{order:1}.two.r>div:last-child{order:0}
+ .phb.tall{min-height:260px}.tlw{grid-template-columns:1fr 1fr}
+ .ph3{grid-template-columns:1fr;gap:12px}.ph3 .phb{min-height:190px}
+ .cols2{grid-template-columns:1fr;gap:0}.j p{text-align:left}
+ .ft>.in{align-items:flex-start;flex-direction:column}
+}
