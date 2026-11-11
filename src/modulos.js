@@ -345,6 +345,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         rows(env.DB.prepare(`SELECT tipo,categoria,SUM(importe_centimos) total FROM movimientos
           WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL GROUP BY tipo,categoria ORDER BY tipo,total DESC`))
       ]);
+      const hermanas = await rows(env.DB.prepare('SELECT id,nombre FROM hermanas ORDER BY nombre'));
       const cargos_pendientes = await rows(env.DB.prepare(`SELECT x.id,x.hermana_id,h.nombre,x.categoria,x.concepto,x.importe_centimos,
         (SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado') pagado_centimos,
         MAX(0,x.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')) restante_centimos
@@ -359,7 +360,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         FROM movimientos WHERE fecha>=? GROUP BY cuenta`).bind(saldoInicial.fecha));
       const banco=saldoInicial.banco_centimos+Number(saldos.find(x=>x.cuenta==='Banco')?.neto||0);
       const caja=saldoInicial.caja_centimos+Number(saldos.find(x=>x.cuenta==='Caja fuerte')?.neto||0);
-      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, cuotas_pendientes: pendientes, cargos_pendientes, informes, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco+caja}, saldo_inicial:saldoInicial, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
+      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, hermanas, cuotas_pendientes: pendientes, cargos_pendientes, informes, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco+caja}, saldo_inicial:saldoInicial, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
     }
     if (path === '/api/modulos/tesoreria/config' && method === 'PUT') {
       const campos = {
