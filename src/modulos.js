@@ -272,6 +272,9 @@ export async function routeModulos(req, env, me, method, path, body) {
       ]);
       const parametrosRows = await rows(env.DB.prepare("SELECT clave,valor FROM config WHERE clave IN ('cocina_precio_persona_centimos','sabado_precio_centimos','invitada_precio_centimos','copa_precio_centimos','refresco_precio_centimos','cocina_personas_por_turno')"));
       const parametros = Object.fromEntries(parametrosRows.map(x => [x.clave, Number(x.valor)]));
+      const extrasRow = await env.DB.prepare("SELECT valor FROM config WHERE clave='cuotas_extraordinarias_json'").first();
+      let cuotas_extraordinarias = [];
+      try { cuotas_extraordinarias = JSON.parse(extrasRow?.valor || '[]'); } catch { cuotas_extraordinarias = []; }
       const [estadisticasMensuales, estadisticasCategorias] = await Promise.all([
         rows(env.DB.prepare(`SELECT strftime('%Y-%m',fecha) periodo,
           SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,
@@ -280,7 +283,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         rows(env.DB.prepare(`SELECT tipo,categoria,SUM(importe_centimos) total FROM movimientos
           WHERE tipo IN ('ingreso','gasto') GROUP BY tipo,categoria ORDER BY tipo,total DESC`))
       ]);
-      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, cuotas_pendientes: pendientes, informes, totales, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
+      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, cuotas_pendientes: pendientes, informes, totales, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
     }
     if (path === '/api/modulos/tesoreria/config' && method === 'PUT') {
       const campos = {
@@ -306,6 +309,17 @@ export async function routeModulos(req, env, me, method, path, body) {
         const personas = num(body.personas_por_turno);
         if (![2,3].includes(personas)) return E('El sorteo debe asignar 2 o 3 personas por turno');
         ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cocina_personas_por_turno',?)").bind(String(personas)));
+      }
+      if (body.cuotas_extraordinarias !== undefined) {
+        if (!Array.isArray(body.cuotas_extraordinarias) || body.cuotas_extraordinarias.length > 50) return E('La lista de cuotas extraordinarias no es válida');
+        const extras = [];
+        for (const x of body.cuotas_extraordinarias) {
+          const nombre = txt(x.nombre, 100), categoria = txt(x.categoria, 30), tipo = txt(x.tipo, 20);
+          const importe = Number(String(x.importe ?? '').replace(',', '.'));
+          if (!nombre || !['Cuaresma','Semana Santa','Otros'].includes(categoria) || !['una_vez','por_sabado'].includes(tipo) || !Number.isFinite(importe) || importe < 0) return E('Revisa los conceptos extraordinarios');
+          extras.push({ nombre, categoria, importe_centimos: Math.round(importe*100), tipo });
+        }
+        ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cuotas_extraordinarias_json',?)").bind(JSON.stringify(extras)));
       }
       await env.DB.batch(ops);
       return J({ ok: true });
