@@ -64,6 +64,17 @@ export const MIGRATIONS = [
     `ALTER TABLE tickets ADD COLUMN turno_cocina_id INTEGER REFERENCES turnos_cocina(id) ON DELETE SET NULL`,
     `CREATE INDEX IF NOT EXISTS ix_tickets_turno_cocina ON tickets(turno_cocina_id)`,
   ]},
+  { v: 7, sql: [
+    `ALTER TABLE sabados ADD COLUMN categoria TEXT NOT NULL DEFAULT 'Cuaresma'`,
+    `ALTER TABLE movimientos ADD COLUMN cuenta TEXT NOT NULL DEFAULT 'Banco'`,
+    `ALTER TABLE movimientos ADD COLUMN traspaso_id TEXT`,
+    `ALTER TABLE movimientos ADD COLUMN import_key TEXT`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_movimientos_import_key ON movimientos(import_key) WHERE import_key IS NOT NULL`,
+    `CREATE TABLE IF NOT EXISTS cargos_hermanas(id INTEGER PRIMARY KEY AUTOINCREMENT,hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,categoria TEXT NOT NULL CHECK(categoria IN('Cuaresma','Semana Santa','Otros')),concepto TEXT NOT NULL,importe_centimos INTEGER NOT NULL CHECK(importe_centimos>=0),source_key TEXT NOT NULL UNIQUE,creado TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE INDEX IF NOT EXISTS ix_cargos_hermanas ON cargos_hermanas(hermana_id,categoria)`,
+    `ALTER TABLE pagos ADD COLUMN cargo_id INTEGER REFERENCES cargos_hermanas(id)`,
+    `CREATE INDEX IF NOT EXISTS ix_pagos_cargo ON pagos(cargo_id,estado)`,
+  ]},
 ]; 
 
 export async function ensureSchema(db) {
