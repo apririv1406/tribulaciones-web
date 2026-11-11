@@ -75,6 +75,14 @@ export const MIGRATIONS = [
     `ALTER TABLE pagos ADD COLUMN cargo_id INTEGER REFERENCES cargos_hermanas(id)`,
     `CREATE INDEX IF NOT EXISTS ix_pagos_cargo ON pagos(cargo_id,estado)`,
   ]},
+  { v: 8, sql: [
+    `ALTER TABLE tickets ADD COLUMN comercio TEXT`,
+    `ALTER TABLE tickets ADD COLUMN importe_centimos INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE tickets ADD COLUMN forma_pago TEXT NOT NULL DEFAULT 'tarjeta'`,
+    `ALTER TABLE tickets ADD COLUMN categoria TEXT`,
+    `ALTER TABLE tickets ADD COLUMN cuenta TEXT NOT NULL DEFAULT 'Banco'`,
+    `ALTER TABLE tickets ADD COLUMN estado TEXT NOT NULL DEFAULT 'pendiente'`,
+  ]},
 ]; 
 
 export async function ensureSchema(db) {
