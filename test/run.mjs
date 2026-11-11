@@ -89,7 +89,7 @@ const e2 = { ...env, RESEND_API_KEY: undefined };
 const w = await worker.fetch(new Request('https://ejemplo.es/api/admin/hermanas/' + aid + '/invitar', { method: 'POST', headers: { 'X-Requested-With': 'fetch', cookie: adm, 'Content-Type': 'application/json' } }), e2);
 console.log('  ·', w.status, 'sin Resend:', (await w.json()).error ?? 'responde con aviso');
 // 16 parámetros configurables, sorteo equilibrado y presupuesto automático de cocina
-r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com' }, adm); assert.equal(r.status, 200);
+r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com' }, adm); assert.equal(r.status, 200); const hermanaInvitadasId = r.data.id;
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 2', email: 'prueba2@ejemplo.com' }, adm); assert.equal(r.status, 200);
 r = await call('PUT', '/api/modulos/tesoreria/config', { cuota_mensual: 35, sabado_precio: 10, invitada_precio: 10, copa_precio: 2, refresco_precio: 1, cocina_precio_persona: 12.5, personas_por_turno: 2, cuotas_extraordinarias: [{ nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' }] }, adm); assert.equal(r.status, 200);
 r = await call('PUT', '/api/modulos/tesoreria/config', { cuotas_extraordinarias: [{ nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' }] }, adm); assert.equal(r.status, 200);
@@ -104,12 +104,15 @@ r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.statu
 
 r = await call('POST', '/api/modulos/sabados', { fecha: '2099-01-03', titulo: 'Sábado de prueba' }, adm); assert.equal(r.status, 200); const sid = r.data.id;
 r = await call('POST', `/api/modulos/sabados/${sid}/asistencia`, { asiste: true, acompanantes: 1, alergias: 'Sin gluten (celiaquía)' }, adm); assert.equal(r.status, 200);
+await env.DB.prepare('INSERT INTO asistencias_sabado(sabado_id,hermana_id,asiste,acompanantes) VALUES(?,?,0,2)').bind(sid,hermanaInvitadasId).run();
+r = await call('GET', '/api/modulos/sabados', null, adm); assert.equal(r.status, 200);
 r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 2 }, adm); assert.equal(r.status, 200); assert.equal(r.data.turnos_sorteados, 1); assert.equal(r.data.asignaciones[0].hermana_ids.length, 2);
 r = await call('GET', '/api/modulos/cocina', null, adm); assert.equal(r.status, 200);
-const turnoPrueba = r.data.turnos.find(t => t.fecha === '2099-01-03'); assert.ok(turnoPrueba); assert.equal(turnoPrueba.confirmadas, 1); assert.equal(turnoPrueba.invitadas, 1); assert.equal(turnoPrueba.presupuesto_calculado_centimos, 2500);
+const turnoPrueba = r.data.turnos.find(t => t.fecha === '2099-01-03'); assert.ok(turnoPrueba); assert.equal(turnoPrueba.confirmadas, 1); assert.equal(turnoPrueba.invitadas, 3); assert.equal(turnoPrueba.presupuesto_calculado_centimos, 5000);
 r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 3 }, adm); assert.equal(r.status, 409); // no debe reemplazar asignaciones existentes
 r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.status, 200);
 const cargoSabado = r.data.cargos.find(x => String(x.source_key).startsWith('sabado:'+sid+':')); assert.ok(cargoSabado); assert.equal(cargoSabado.importe_centimos, 2000);
+const cargoInvitadasSinAsistencia = r.data.cargos.find(x => x.hermana_id === hermanaInvitadasId && String(x.source_key).startsWith('sabado:'+sid+':')); assert.ok(cargoInvitadasSinAsistencia); assert.equal(cargoInvitadasSinAsistencia.importe_centimos, 2000);
 r = await call('POST', `/api/modulos/sabados/${sid}/asistencia`, { asiste: false, acompanantes: 0 }, adm); assert.equal(r.status, 200);
 r = await call('GET', '/api/modulos/sabados', null, adm); assert.equal(r.status, 200);
 r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.data.cargos.find(x => x.id === cargoSabado.id).restante_centimos, 0);
