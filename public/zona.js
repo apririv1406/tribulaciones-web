@@ -324,6 +324,7 @@ const FORM = {
   async 'tes-fijo-edit'(f,d) { await api('PUT','/modulos/tesoreria/gastos-fijos/'+f.dataset.id,{concepto:d.get('concepto'),categoria:d.get('categoria'),importe:d.get('importe'),periodicidad:d.get('periodicidad'),dia:d.get('dia'),activo:d.has('activo')}); toast('Gasto fijo actualizado'); render(); },
   async 'tes-ticket'(f,d) { const file=d.get('ticket'); if(!file || !file.size) throw new Error('Selecciona un ticket'); if(file.size>1024*1024) throw new Error('El archivo no puede superar 1 MB'); const datos=await readFileData(file); await api('POST','/modulos/tesoreria/tickets',{movimiento_id:d.get('movimiento_id')||null,sabado_id:d.get('sabado_id')||null,nombre_archivo:file.name,datos}); toast('Ticket guardado'); render(); },
   async 'tes-ticket-link'(f,d) { await api('PUT','/modulos/tesoreria/tickets/'+f.dataset.id,{movimiento_id:d.get('movimiento_id')||null}); toast('Ticket vinculado al movimiento'); render(); },
+  async 'tes-ticket-review'(f,d) { await api('PUT','/modulos/tesoreria/tickets/'+f.dataset.id,{incluir:true,categoria:d.get('categoria'),cuenta:d.get('cuenta'),importe:d.get('importe')}); toast('Gasto incluido en contabilidad'); render(); },
   async historia(f) { const hitos = [...f.querySelectorAll('#hitos .row')].map(r => ({ anio: r.querySelector('[name=anio]').value, texto: r.querySelector('[name=texto]').value })); const r = await api('PUT', '/admin/hitos', { hitos }); toast(`Guardado (${r.total} hitos)`); render(); },
 };
 async function abrirWhatsApp(el, tipo) {
@@ -366,6 +367,7 @@ const ACT = {
   async 'pago-reject'(el) { if(!confirm('¿Rechazar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/rechazar'); toast('Pago rechazado'); render(); },
   async 'tes-filtro-reset'() { TES_FILTRO={tipo:'todos',texto:'',desde:'',hasta:''}; render(); },
   async 'fijo-del'(el) { if(!confirm('¿Eliminar este gasto fijo?')) return; await api('DELETE','/modulos/tesoreria/gastos-fijos/'+el.dataset.id); render(); },
+  async 'tes-ticket-reject'(el) { if(!confirm('¿Rechazar este ticket?')) return; await api('PUT','/modulos/tesoreria/tickets/'+el.dataset.id,{estado:'rechazado'}); toast('Ticket rechazado'); render(); },
   async 'cocina-del'(el) { if(!confirm('¿Eliminar este turno?')) return; await api('DELETE','/modulos/cocina/'+el.dataset.id); render(); },
   async 'junta-del'(el) { if(!confirm('¿Eliminar esta junta y su acta?')) return; await api('DELETE','/modulos/actas/juntas/'+el.dataset.id); render(); },
   'hito-add'() { $('#hitos').insertAdjacentHTML('beforeend', hitoRow({ anio: '', texto: '' })); },
