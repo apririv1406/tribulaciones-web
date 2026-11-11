@@ -56,6 +56,10 @@ export const MIGRATIONS = [
     `CREATE TABLE IF NOT EXISTS consumos_sabado(id INTEGER PRIMARY KEY AUTOINCREMENT,sabado_id INTEGER NOT NULL REFERENCES sabados(id) ON DELETE CASCADE,hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,copas INTEGER NOT NULL DEFAULT 0 CHECK(copas BETWEEN 0 AND 50),refrescos INTEGER NOT NULL DEFAULT 0 CHECK(refrescos BETWEEN 0 AND 50),actualizado TEXT NOT NULL DEFAULT (datetime('now')),UNIQUE(sabado_id,hermana_id))`,
     `CREATE INDEX IF NOT EXISTS ix_consumos_sabado ON consumos_sabado(sabado_id)`,
   ]},
+  { v: 5, sql: [
+    `CREATE TABLE IF NOT EXISTS turnos_cocina_hermanas(id INTEGER PRIMARY KEY AUTOINCREMENT,turno_id INTEGER NOT NULL REFERENCES turnos_cocina(id) ON DELETE CASCADE,hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,asignada TEXT NOT NULL DEFAULT (datetime('now')),UNIQUE(turno_id,hermana_id))`,
+    `CREATE INDEX IF NOT EXISTS ix_turnos_cocina_hermanas ON turnos_cocina_hermanas(turno_id)`,
+  ]},
 ]; 
 
 export async function ensureSchema(db) {
