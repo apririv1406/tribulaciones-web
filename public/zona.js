@@ -19,12 +19,6 @@ function reducir(file, max, q = 0.82) {
     img.onerror = () => rej(new Error('No se puede leer esa imagen')); img.src = u;
   });
 }
-function telefonoWhatsApp(valor) {
-  let n = String(valor || '').replace(/\D/g, '');
-  if (n.startsWith('00')) n = n.slice(2);
-  if (n.length === 9) n = '34' + n;
-  return /^[1-9]\d{7,14}$/.test(n) ? n : '';
-}
 
 /* ---------- estructura ---------- */
 const items = () => !ME ? [] : [['#/', 'Inicio'], ['#/sabados', 'Sábados'], ['#/cuenta', 'Mi cuenta'], ['#/cocina', 'Cocina'], ...(ME.actas ? [['#/actas', 'Actas y juntas']] : []), ...(ME.tes ? [['#/tesoreria', 'Tesorería']] : []), ...(ME.admin ? [['#/admin/hermanas', 'Administración']] : []), ['#/perfil', 'Mi perfil']];
@@ -319,11 +313,11 @@ async function vAdmin(tab) {
 }
 const hitoRow = h => `<div class="row" style="margin-bottom:12px;align-items:flex-start"><input class="t" name="anio" style="width:90px" value="${esc(h.anio)}" placeholder="Año"><textarea class="t" name="texto" rows="2" style="flex:1;min-width:200px" placeholder="Qué pasó">${esc(h.texto)}</textarea><button type="button" class="chip" data-a="hito-del">✕</button></div>`;
 function rowHer(h, cs) {
-  const puedeInvitar = h.estado !== 'Baja' && !!h.telefono;
-  return `<form class="card" data-f="her-save" data-id="${h.id}" style="margin-bottom:12px${h.estado === 'Baja' ? ';opacity:.65' : ''}">
-<div class="row" style="align-items:flex-end"><div style="flex:2 1 190px"><label class="fl">Nombre</label><input class="t" name="nombre" value="${esc(h.nombre)}" required></div><div style="flex:2 1 200px"><label class="fl">Correo</label><input class="t" type="email" name="email" value="${esc(h.email || '')}"></div><div style="flex:2 1 180px"><label class="fl">Teléfono / WhatsApp</label><input class="t" type="tel" name="telefono" value="${esc(h.telefono || '')}" placeholder="+34 600 000 000"></div><div style="flex:1 1 145px"><label class="fl">Cargo</label><select class="t" name="cargo_id">${cs.map(c => `<option value="${c.id}" ${c.id === h.cargo_id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></div><div style="flex:1 1 115px"><label class="fl">Estado</label><select class="t" name="estado">${['Activa', 'Pasiva', 'Baja'].map(e => `<option ${e === h.estado ? 'selected' : ''}>${e}</option>`).join('')}</select></div></div>
-<div class="row" style="align-items:center;margin-top:12px"><div style="flex:0 0 110px"><label class="fl">Año de entrada</label><input class="t" type="number" name="anio_entrada" min="2000" max="2100" value="${h.anio_entrada || ''}"></div><div class="av" style="margin:0;width:56px;height:56px;font-size:18px">${h.foto ? `<img src="/media/${h.foto}" alt="">` : iniciales(h.nombre)}</div><div style="flex:1 1 200px"><label class="fl">Foto</label><input type="file" name="foto" accept="image/*" style="font-size:13px"></div>${h.foto ? `<button type="button" class="chip" data-a="her-quitar-foto" data-id="${h.id}">Quitar foto</button>` : ''}<label class="mu" style="font-size:13px"><input type="checkbox" name="visible_web" ${h.visible_web ? 'checked' : ''}> Aparece en la web</label><label class="mu" style="font-size:13px"><input type="checkbox" name="es_admin" ${h.es_admin ? 'checked' : ''}> Administradora</label></div>
-<div class="row" style="align-items:center;margin-top:14px"><button class="btn" style="padding:9px 20px">Guardar</button><span class="pill ${h.cuenta === 'activa' ? 'ok' : ''}">${CUENTA[h.cuenta]}</span>${puedeInvitar ? (h.cuenta === 'activa' ? `<button type="button" class="chip" data-a="her-reset" data-id="${h.id}">Restablecer contraseña por WhatsApp</button>` : `<button type="button" class="chip" data-a="her-invitar" data-id="${h.id}">${h.cuenta === 'invitada' ? 'Reenviar bienvenida por WhatsApp' : 'Enviar bienvenida por WhatsApp'}</button>`) : (h.estado !== 'Baja' ? '<span class="mu" style="font-size:12px">Añade un teléfono para enviar la bienvenida.</span>' : '')}</div></form>`;
+  const puedeInvitar=h.estado!=='Baja'&&!!h.email;
+  return \`<form class="card" data-f="her-save" data-id="\${h.id}" style="margin-bottom:12px\${h.estado==='Baja'?';opacity:.65':''}">
+  <div class="row" style="align-items:flex-end"><div style="flex:2 1 190px">\${campo('nombre','Nombre','required value="'+esc(h.nombre)+'"')}</div><div style="flex:2 1 200px">\${campo('email','Correo','type="email" value="'+esc(h.email||'')+'"')}</div><div style="flex:1 1 145px"><label class="fl">Cargo</label><select class="t" name="cargo_id">\${cs.map(c=>\`<option value="\${c.id}" \${c.id===h.cargo_id?'selected':''}>\${esc(c.nombre)}</option>\`).join('')}</select></div><div style="flex:1 1 115px"><label class="fl">Estado</label><select class="t" name="estado">\${['Activa','Pasiva','Baja'].map(e=>\`<option \${e===h.estado?'selected':''}>\${e}</option>\`).join('')}</select></div><div style="flex:0 0 110px">\${campo('anio_entrada','Año de entrada','type="number" min="1900" max="2100" value="'+(h.anio_entrada||'')+'"')}</div></div>
+  <div class="row" style="align-items:center;margin-top:12px"><div class="av" style="margin:0;width:56px;height:56px;font-size:18px">\${h.foto?\`<img src="/media/\${h.foto}" alt="">\`:iniciales(h.nombre)}</div><div style="flex:1 1 200px"><label class="fl">Foto</label><input type="file" name="foto" accept="image/*" style="font-size:13px"></div>\${h.foto?\`<button type="button" class="chip" data-a="her-quitar-foto" data-id="\${h.id}">Quitar foto</button>\`:''}<label class="mu" style="font-size:13px"><input type="checkbox" name="visible_web" \${h.visible_web?'checked':''}> Aparece en la web</label><label class="mu" style="font-size:13px"><input type="checkbox" name="es_admin" \${h.es_admin?'checked':''}> Administradora</label></div>
+  <div class="row" style="align-items:center;margin-top:14px"><button class="btn" style="padding:9px 20px">Guardar</button><span class="pill \${h.cuenta==='activa'?'ok':''}">\${CUENTA[h.cuenta]}</span>\${puedeInvitar?(h.cuenta==='activa'?\`<button type="button" class="chip" data-a="her-reset" data-id="\${h.id}">Restablecer contraseña por correo</button>\`:\`<button type="button" class="chip" data-a="her-invitar" data-id="\${h.id}">\${h.cuenta==='invitada'?'Reenviar bienvenida por correo':'Enviar bienvenida por correo'}</button>\`):''}</div></form>\`;
 }
 
 /* ---------- acciones ---------- */
@@ -332,9 +326,9 @@ const FORM = {
   async clave(f, d) { if (d.get('p1') !== d.get('p2')) throw new Error('Las contraseñas no coinciden'); await api('POST', '/auth/password/set', { token: f.dataset.t, password: d.get('p1') }); await entrar(); },
   async setup(f, d) { await api('POST', '/setup', { key: d.get('key'), password: d.get('p1') }); await entrar(); },
   async perfil(f, d) { await api('POST', '/auth/password/change', { actual: d.get('actual'), nueva: d.get('nueva') }); f.reset(); toast('Contraseña cambiada'); },
-  async 'her-new'(f, d) { await api('POST', '/admin/hermanas', { nombre: d.get('nombre'), email: d.get('email'), telefono: d.get('telefono'), cargo_id: +d.get('cargo_id'), anio_entrada: d.get('anio_entrada') || null }); toast('Hermana añadida'); render(); },
+  async 'her-new'(f, d) { await api('POST', '/admin/hermanas', { nombre: d.get('nombre'), email: d.get('email'), cargo_id: +d.get('cargo_id'), anio_entrada: d.get('anio_entrada') || null }); toast('Hermana añadida'); render(); },
   async 'her-save'(f, d) {
-    const b = { nombre: d.get('nombre'), email: d.get('email'), telefono: d.get('telefono'), cargo_id: +d.get('cargo_id'), estado: d.get('estado'), anio_entrada: d.get('anio_entrada') ? +d.get('anio_entrada') : null, visible_web: !!d.get('visible_web'), es_admin: !!d.get('es_admin') };
+    const b = { nombre: d.get('nombre'), email: d.get('email'), cargo_id: +d.get('cargo_id'), estado: d.get('estado'), anio_entrada: d.get('anio_entrada') ? +d.get('anio_entrada') : null, visible_web: !!d.get('visible_web'), es_admin: !!d.get('es_admin') };
     const fl = d.get('foto'); if (fl && fl.size) b.foto = await reducir(fl, 480);
     await api('PUT', '/admin/hermanas/' + f.dataset.id, b); toast('Guardado'); render();
   },
@@ -373,24 +367,7 @@ const FORM = {
   'tes-export'() { window.print(); },
   async historia(f) { const hitos = [...f.querySelectorAll('#hitos .row')].map(r => ({ anio: r.querySelector('[name=anio]').value, texto: r.querySelector('[name=texto]').value })); const r = await api('PUT', '/admin/hitos', { hitos }); toast(`Guardado (${r.total} hitos)`); render(); },
 };
-async function abrirWhatsApp(el, tipo) {
-  // Abrimos la pestaña durante el clic del usuario para evitar bloqueos del navegador.
-  const w = window.open('about:blank', '_blank');
-  if (!w) throw new Error('El navegador ha bloqueado la ventana. Permite las ventanas emergentes para esta web e inténtalo de nuevo.');
-  try {
-    const r = await api('POST', `/admin/hermanas/${el.dataset.id}/${tipo === 'reset' ? 'reset' : 'invitar'}`);
-    const telefono = telefonoWhatsApp(r.telefono);
-    if (!telefono) throw new Error('El teléfono guardado no es válido. Revísalo en la ficha de la hermana.');
-    const msg = tipo === 'reset'
-      ? `Hola, ${r.nombre}. Te envío el enlace para crear una contraseña nueva y acceder a la Zona hermana de Las Tribulaciones de Sara:\n\n${r.link}\n\nEste enlace es personal y caduca en 24 horas. Si no lo has solicitado, puedes ignorar este mensaje.`
-      : `¡Hola, ${r.nombre}! Te damos la bienvenida a la Zona hermana de Las Tribulaciones de Sara.\n\nPara crear tu contraseña y acceder a tu cuenta, abre este enlace:\n\n${r.link}\n\nEl enlace es personal y caduca en 7 días. Cuando hayas creado tu contraseña, podrás entrar con tu correo y contraseña.`;
-    w.location.href = `https://wa.me/${telefono}?text=${encodeURIComponent(msg)}`;
-    toast(tipo === 'reset' ? 'Mensaje de restablecimiento preparado en WhatsApp' : 'Bienvenida preparada en WhatsApp');
-  } catch (er) {
-    w.close();
-    throw er;
-  }
-}
+
 const ACT = {
   'module-tab'(el) { const k=el.dataset.tab; if(el.dataset.module==='cuenta') CUENTA_TAB=k; if(el.dataset.module==='cocina') COCINA_TAB=k; if(el.dataset.module==='tesoreria') TES_TAB=k; if(el.dataset.module==='tescfg') TES_CFG_TAB=k; if(el.dataset.module==='actas') ACTAS_TAB=k; render(); },
   'extra-add'() { $('#tes-extras-rows').insertAdjacentHTML('beforeend',extraRow({})); },
@@ -402,8 +379,8 @@ const ACT = {
   'rsvp-choice'(el) { const f = el.closest('form'); f.querySelector('[name=asiste]').value = el.dataset.value; f.querySelectorAll('[data-a=\"rsvp-choice\"]').forEach(b => b.classList.remove('y','n')); el.classList.add(el.dataset.value === '1' ? 'y' : 'n'); },
   menu() { MENU = !MENU; shell(LAST); },
   async salir() { await api('POST', '/auth/logout').catch(() => {}); ME = null; location.hash = '#/'; render(); },
-  async 'her-invitar'(el) { await abrirWhatsApp(el, 'invitacion'); render(); },
-  async 'her-reset'(el) { await abrirWhatsApp(el, 'reset'); },
+  async 'her-invitar'(el) { const r=await api('POST','/admin/hermanas/'+el.dataset.id+'/invitar'); toast(r.enviado?'Correo de bienvenida enviado':'No se ha podido enviar el correo',!r.enviado); render(); },
+  async 'her-reset'(el) { const r=await api('POST','/admin/hermanas/'+el.dataset.id+'/reset'); toast(r.enviado?'Correo para restablecer contraseña enviado':'No se ha podido enviar el correo',!r.enviado); render(); },
   async 'her-quitar-foto'(el) { await api('PUT', '/admin/hermanas/' + el.dataset.id, { quitar_foto: true }); toast('Foto quitada'); render(); },
   async 'cargo-del'(el) { if (!confirm('¿Borrar este cargo?')) return; await api('DELETE', '/admin/cargos/' + el.dataset.id); render(); },
   async 'noticia-del'(el) { if (!confirm('¿Eliminar esta noticia?')) return; await api('DELETE', '/admin/noticias/' + el.dataset.id); render(); },
