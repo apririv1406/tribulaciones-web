@@ -127,6 +127,14 @@ r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.data.car
 r = await call('POST', '/api/modulos/cuenta/pagos', { categoria: 'Cuotas extraordinarias', importe: 2, fecha_pago: '2099-01-05', metodo: 'Bizum' }, adm); assert.equal(r.status, 200); const pagoExtraId = r.data.id;
 r = await call('POST', '/api/modulos/tesoreria/pagos/'+pagoExtraId+'/confirmar', {}, adm); assert.equal(r.status, 200);
 r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.data.cargos.find(x => x.id === extraCuaresma.id).restante_centimos, 425);
+const fechaConsumo = new Date(Date.now()-86400000).toISOString().slice(0,10);
+r = await call('POST', '/api/modulos/sabados', { fecha: fechaConsumo, titulo: 'Sábado de consumos', categoria: 'Cuaresma' }, adm); assert.equal(r.status, 200); const sidConsumo = r.data.id;
+r = await call('POST', `/api/modulos/sabados/${sidConsumo}/asistencia`, { asiste: true, acompanantes: 0 }, adm); assert.equal(r.status, 200);
+r = await call('POST', `/api/modulos/sabados/${sidConsumo}/consumos`, { copas: 2, refrescos: 1 }, adm); assert.equal(r.status, 200);
+r = await call('GET', '/api/modulos/cuenta', null, adm); const cargoConsumo = r.data.cargos.find(x => String(x.source_key).startsWith('consumo:'+sidConsumo+':')); assert.ok(cargoConsumo); assert.equal(cargoConsumo.importe_centimos, 500);
+r = await call('POST', '/api/modulos/cuenta/pagos', { categoria: 'Copas y refrescos', importe: 2.5, fecha_pago: fechaConsumo, metodo: 'Bizum' }, adm); assert.equal(r.status, 200); const pagoConsumoId = r.data.id;
+r = await call('POST', '/api/modulos/tesoreria/pagos/'+pagoConsumoId+'/confirmar', {}, adm); assert.equal(r.status, 200);
+r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.data.cargos.find(x => x.id === cargoConsumo.id).restante_centimos, 250);
 r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); assert.equal(r.data.parametros.cocina_precio_persona_centimos, 1250); assert.ok(Array.isArray(r.data.estadisticas.mensuales)); assert.ok(Array.isArray(r.data.hermanas)); assert.ok(r.data.cargos_pendientes.some(x => x.id === cargoSabado.id));
 ok('tesorería: cuotas extraordinarias, cargos automáticos, pagos confirmados sin duplicidad, sorteo protegido y presupuesto automático');
 console.log('\nTODO CORRECTO');
