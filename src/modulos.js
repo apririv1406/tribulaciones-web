@@ -1,340 +1,68 @@
-// API de los módulos de la Zona hermana. Las comprobaciones de permisos
-// se realizan aquí en servidor; ocultar enlaces en el navegador no es suficiente.
-const J = (d, status = 200, extra = {}) => new Response(JSON.stringify(d), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra } });
-const E = (msg, status = 400) => J({ error: msg }, status);
-const tes = me => !!(me && (me.admin || me.tes));
-const actas = me => !!(me && (me.admin || me.actas));
-const txt = (v, max = 500) => String(v ?? '').trim().slice(0, max);
-const num = v => Number.isFinite(Number(v)) ? Math.round(Number(v)) : NaN;
-const isoDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
-const money = v => {
-  const n = Number(String(v ?? '').replace(',', '.'));
-  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : NaN;
-};
-const rows = async q => (await q.all()).results || [];
+// Migraciones de la base de datos. Cada migración se aplica una sola vez, en orden.
+// Para añadir tablas o columnas en una fase futura, se añade una migración nueva.
+export const MIGRATIONS = [
+  { v: 1, sql: [
+    `CREATE TABLE IF NOT EXISTS cargos(id INTEGER PRIMARY KEY AUTOINCREMENT,nombre TEXT NOT NULL UNIQUE,permiso TEXT NOT NULL DEFAULT 'none' CHECK(permiso IN('none','tes','actas')),orden INTEGER NOT NULL DEFAULT 0)`,
+    `CREATE TABLE IF NOT EXISTS hermanas(id INTEGER PRIMARY KEY AUTOINCREMENT,nombre TEXT NOT NULL,email TEXT UNIQUE COLLATE NOCASE,cargo_id INTEGER REFERENCES cargos(id),estado TEXT NOT NULL DEFAULT 'Activa' CHECK(estado IN('Activa','Pasiva','Baja')),es_admin INTEGER NOT NULL DEFAULT 0,anio_entrada INTEGER,visible_web INTEGER NOT NULL DEFAULT 0,foto_id INTEGER,pass_hash TEXT,invitada TEXT,ultimo_acceso TEXT,creada TEXT NOT NULL DEFAULT (datetime('now')))` ,
+    `CREATE TABLE IF NOT EXISTS sesiones(id TEXT PRIMARY KEY,hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,expira INTEGER NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS tokens(id TEXT PRIMARY KEY,hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,tipo TEXT NOT NULL,expira INTEGER NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS intentos(clave TEXT NOT NULL,ts INTEGER NOT NULL)`,
+    `CREATE INDEX IF NOT EXISTS ix_intentos ON intentos(clave,ts)`,
+    `CREATE TABLE IF NOT EXISTS imagenes(id INTEGER PRIMARY KEY AUTOINCREMENT,tipo TEXT NOT NULL,datos TEXT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS noticias(id INTEGER PRIMARY KEY AUTOINCREMENT,titulo TEXT NOT NULL,texto TEXT NOT NULL,fecha TEXT NOT NULL DEFAULT (date('now')),imagen_id INTEGER,autor_id INTEGER)`,
+    `CREATE TABLE IF NOT EXISTS hitos(id INTEGER PRIMARY KEY AUTOINCREMENT,anio TEXT NOT NULL,texto TEXT NOT NULL,orden INTEGER NOT NULL DEFAULT 0)`,
+    `CREATE TABLE IF NOT EXISTS config(clave TEXT PRIMARY KEY,valor TEXT NOT NULL)`,
+    `INSERT OR IGNORE INTO cargos(nombre,permiso,orden) VALUES ('Presidenta','none',1),('Vicepresidenta','none',2),('Secretaria','actas',3),('Vicesecretaria','actas',4),('Tesorera','tes',5),('Vicetesorera','tes',6),('Vocal','none',7),('Hermana','none',8)`,
+    `INSERT INTO hitos(anio,texto,orden) VALUES ('2007','El 15 de junio, quince hermanas se reúnen, eligen presidenta y fijan una cuota mínima.',1),('2012','El 21 de septiembre nos convertimos en Primer Grupo de María Stma. de la Victoria.',2)`,
+  ]},
+  { v: 2, sql: [
+    `ALTER TABLE hermanas ADD COLUMN telefono TEXT`,
+  ]},
+  { v: 3, sql: [
+    // Sábados, confirmaciones y alergias. Una respuesta por hermana y sábado.
+    `CREATE TABLE IF NOT EXISTS sabados(id INTEGER PRIMARY KEY AUTOINCREMENT,fecha TEXT NOT NULL,hora TEXT,titulo TEXT NOT NULL,descripcion TEXT,estado TEXT NOT NULL DEFAULT 'abierto' CHECK(estado IN('abierto','cerrado','cancelado')),creado_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')))` ,
+    `CREATE TABLE IF NOT EXISTS asistencias_sabado(id INTEGER PRIMARY KEY AUTOINCREMENT,sabado_id INTEGER NOT NULL REFERENCES sabados(id) ON DELETE CASCADE,hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,asiste INTEGER NOT NULL DEFAULT 1 CHECK(asiste IN(0,1)),acompanantes INTEGER NOT NULL DEFAULT 0,detalle_acompanantes TEXT,alergias TEXT,observaciones TEXT,actualizado TEXT NOT NULL DEFAULT (datetime('now')),UNIQUE(sabado_id,hermana_id))`,
+    `CREATE INDEX IF NOT EXISTS ix_sabados_fecha ON sabados(fecha)`,
+    `CREATE INDEX IF NOT EXISTS ix_asistencias_sabado ON asistencias_sabado(sabado_id)`,
 
-export async function generarCuotasMensuales(db, fecha = new Date()) {
-  if (fecha.getUTCDate() !== 1) return { generadas: 0, configurada: true, omitida: 'No es día 1' };
-  const cfg = await db.prepare("SELECT valor FROM config WHERE clave='cuota_mensual_centimos'").first();
-  const importe = Number(cfg?.valor || 0);
-  if (!Number.isInteger(importe) || importe <= 0) return { generadas: 0, configurada: false };
-  const periodo = `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(2, '0')}`;
-  const r = await db.prepare(`INSERT OR IGNORE INTO cuotas(hermana_id,periodo,importe_centimos)
-    SELECT id,?,? FROM hermanas WHERE estado='Activa'`).bind(periodo, importe).run();
-  return { generadas: r.meta?.changes || 0, configurada: true, periodo };
-}
+    // Cuotas mensuales y pagos. El periodo YYYY-MM evita duplicados por hermana.
+    `CREATE TABLE IF NOT EXISTS cuotas(id INTEGER PRIMARY KEY AUTOINCREMENT,hermana_id INTEGER NOT NULL REFERENCES hermanas(id),periodo TEXT NOT NULL,importe_centimos INTEGER NOT NULL CHECK(importe_centimos>=0),estado TEXT NOT NULL DEFAULT 'pendiente' CHECK(estado IN('pendiente','parcial','pagada')),generada TEXT NOT NULL DEFAULT (datetime('now')),UNIQUE(hermana_id,periodo))`,
+    `CREATE INDEX IF NOT EXISTS ix_cuotas_periodo_estado ON cuotas(periodo,estado)`,
+    `CREATE TABLE IF NOT EXISTS pagos(id INTEGER PRIMARY KEY AUTOINCREMENT,hermana_id INTEGER NOT NULL REFERENCES hermanas(id),cuota_id INTEGER REFERENCES cuotas(id),importe_centimos INTEGER NOT NULL CHECK(importe_centimos>0),fecha_pago TEXT NOT NULL,metodo TEXT,concepto TEXT,estado TEXT NOT NULL DEFAULT 'pendiente' CHECK(estado IN('pendiente','confirmado','rechazado')),registrado_por INTEGER REFERENCES hermanas(id),confirmado_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')))` ,
+    `CREATE INDEX IF NOT EXISTS ix_pagos_cuota ON pagos(cuota_id,estado)`,
 
-export async function generarGastosFijos(db, fecha = new Date()) {
-  const anio = fecha.getUTCFullYear(), mes = fecha.getUTCMonth() + 1, dia = fecha.getUTCDate();
-  const gastos = await rows(db.prepare('SELECT * FROM gastos_fijos WHERE activo=1'));
-  let generados = 0;
-  for (const g of gastos) {
-    let periodo = null, vence = false;
-    if (g.periodicidad === 'mensual') { periodo = `${anio}-${String(mes).padStart(2, '0')}`; vence = dia >= g.dia; }
-    else if (g.periodicidad === 'trimestral' && [1,4,7,10].includes(mes)) { periodo = `${anio}-T${Math.ceil(mes / 3)}`; vence = dia >= g.dia; }
-    else if (g.periodicidad === 'anual' && mes === 1) { periodo = String(anio); vence = dia >= g.dia; }
-    if (!periodo || !vence || g.ultimo_periodo === periodo) continue;
-    const fechaCargo = `${anio}-${String(mes).padStart(2, '0')}-${String(g.dia).padStart(2, '0')}`;
-    await db.batch([
-      db.prepare(`INSERT INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,creado_por) VALUES('gasto',?,?,?,?,?)`)
-        .bind(fechaCargo, g.concepto, g.categoria || 'Gastos fijos', g.importe_centimos, g.creado_por),
-      db.prepare('UPDATE gastos_fijos SET ultimo_periodo=? WHERE id=?').bind(periodo, g.id),
-    ]);
-    generados++;
-  }
-  return { generados };
-}
+    // Caja y gastos recurrentes. Los importes se guardan en céntimos.
+    `CREATE TABLE IF NOT EXISTS movimientos(id INTEGER PRIMARY KEY AUTOINCREMENT,tipo TEXT NOT NULL CHECK(tipo IN('ingreso','gasto')),fecha TEXT NOT NULL,concepto TEXT NOT NULL,categoria TEXT,importe_centimos INTEGER NOT NULL CHECK(importe_centimos>0),hermana_id INTEGER REFERENCES hermanas(id),cuota_id INTEGER REFERENCES cuotas(id),pago_id INTEGER REFERENCES pagos(id),creado_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE INDEX IF NOT EXISTS ix_movimientos_fecha ON movimientos(fecha,tipo)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_movimientos_pago ON movimientos(pago_id) WHERE pago_id IS NOT NULL`,
+    `CREATE TABLE IF NOT EXISTS gastos_fijos(id INTEGER PRIMARY KEY AUTOINCREMENT,concepto TEXT NOT NULL,categoria TEXT,importe_centimos INTEGER NOT NULL CHECK(importe_centimos>0),periodicidad TEXT NOT NULL DEFAULT 'mensual' CHECK(periodicidad IN('mensual','trimestral','anual')),dia INTEGER NOT NULL DEFAULT 1 CHECK(dia BETWEEN 1 AND 28),activo INTEGER NOT NULL DEFAULT 1,ultimo_periodo TEXT,creado_por INTEGER REFERENCES hermanas(id))`,
 
-export async function routeModulos(req, env, me, method, path, body) {
-  let m;
+    // Justificantes de compra: se conserva el archivo y su relación con el gasto.
+    `CREATE TABLE IF NOT EXISTS tickets(id INTEGER PRIMARY KEY AUTOINCREMENT,movimiento_id INTEGER REFERENCES movimientos(id) ON DELETE SET NULL,sabado_id INTEGER REFERENCES sabados(id) ON DELETE SET NULL,nombre_archivo TEXT NOT NULL,mime TEXT NOT NULL,datos TEXT NOT NULL,tamano INTEGER NOT NULL,subido_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')))` ,
+    `CREATE INDEX IF NOT EXISTS ix_tickets_movimiento ON tickets(movimiento_id)`,
 
-  // SÁBADOS Y ASISTENCIA
-  if (path === '/api/modulos/sabados' && method === 'GET') {
-    const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,a.alergias mis_alergias,a.observaciones mi_observaciones,
-      (SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1) confirmadas
-      FROM sabados s LEFT JOIN asistencias_sabado a ON a.sabado_id=s.id AND a.hermana_id=? ORDER BY s.fecha DESC,s.id DESC LIMIT 40`).bind(me.id));
-    return J(data);
-  }
-  if (path === '/api/modulos/sabados' && method === 'POST') {
-    if (!me.admin && !me.tes) return E('No tienes permiso para crear sábados', 403);
-    const fecha = txt(body.fecha, 10), titulo = txt(body.titulo, 120);
-    if (!isoDate(fecha) || titulo.length < 2) return E('Indica una fecha y un título');
-    const r = await env.DB.prepare('INSERT INTO sabados(fecha,hora,titulo,descripcion,creado_por) VALUES(?,?,?,?,?)')
-      .bind(fecha, txt(body.hora, 10) || null, titulo, txt(body.descripcion, 2000) || null, me.id).run();
-    return J({ ok: true, id: r.meta.last_row_id });
-  }
-  if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)$/)) && (method === 'PUT' || method === 'DELETE')) {
-    if (!me.admin && !me.tes) return E('No tienes permiso para modificar sábados', 403);
-    const id = +m[1];
-    if (method === 'DELETE') { await env.DB.prepare('DELETE FROM sabados WHERE id=?').bind(id).run(); return J({ ok: true }); }
-    const s = await env.DB.prepare('SELECT * FROM sabados WHERE id=?').bind(id).first();
-    if (!s) return E('Sábado no encontrado', 404);
-    const fecha = body.fecha !== undefined ? txt(body.fecha, 10) : s.fecha;
-    if (!isoDate(fecha)) return E('La fecha no es válida');
-    await env.DB.prepare('UPDATE sabados SET fecha=?,hora=?,titulo=?,descripcion=?,estado=? WHERE id=?')
-      .bind(fecha, txt(body.hora ?? s.hora, 10) || null, txt(body.titulo ?? s.titulo, 120), txt(body.descripcion ?? s.descripcion, 2000) || null,
-        ['abierto','cerrado','cancelado'].includes(body.estado) ? body.estado : s.estado, id).run();
-    return J({ ok: true });
-  }
-  if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/asistencia$/)) && method === 'POST') {
-    const id = +m[1], s = await env.DB.prepare('SELECT id,estado FROM sabados WHERE id=?').bind(id).first();
-    if (!s) return E('Sábado no encontrado', 404);
-    if (s.estado !== 'abierto') return E('Este sábado ya no admite cambios', 409);
-    const asiste = body.asiste ? 1 : 0, acomp = Math.max(0, Math.min(20, num(body.acompanantes || 0)));
-    if (!Number.isInteger(acomp)) return E('Número de acompañantes no válido');
-    await env.DB.prepare(`INSERT INTO asistencias_sabado(sabado_id,hermana_id,asiste,acompanantes,detalle_acompanantes,alergias,observaciones,actualizado)
-      VALUES(?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(sabado_id,hermana_id) DO UPDATE SET asiste=excluded.asiste,acompanantes=excluded.acompanantes,
-      detalle_acompanantes=excluded.detalle_acompanantes,alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`)
-      .bind(id, me.id, asiste, acomp, txt(body.detalle_acompanantes, 1000) || null, txt(body.alergias, 1000) || null, txt(body.observaciones, 1000) || null).run();
-    return J({ ok: true });
-  }
-  if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/asistencias$/)) && method === 'GET') {
-    if (!tes(me)) return E('Solo tesorería o administración puede consultar el listado', 403);
-    return J(await rows(env.DB.prepare(`SELECT a.*,h.nombre,h.telefono FROM asistencias_sabado a JOIN hermanas h ON h.id=a.hermana_id WHERE a.sabado_id=? ORDER BY h.nombre`).bind(+m[1])));
-  }
+    // Organización de cocina y alergias de las hermanas.
+    `CREATE TABLE IF NOT EXISTS turnos_cocina(id INTEGER PRIMARY KEY AUTOINCREMENT,fecha TEXT NOT NULL,turno TEXT,menu TEXT,responsable TEXT,presupuesto_centimos INTEGER,observaciones TEXT,creado_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE INDEX IF NOT EXISTS ix_turnos_cocina_fecha ON turnos_cocina(fecha)`,
+    `CREATE TABLE IF NOT EXISTS alergias_hermanas(id INTEGER PRIMARY KEY AUTOINCREMENT,hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,alergias TEXT NOT NULL,observaciones TEXT,actualizado TEXT NOT NULL DEFAULT (datetime('now')),UNIQUE(hermana_id))`,
 
-  // MI CUENTA: cada hermana solo puede consultar y registrar sus propios pagos.
-  if (path === '/api/modulos/cuenta' && method === 'GET') {
-    const cuotas = await rows(env.DB.prepare(`SELECT c.*,(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado') pagado_centimos,MAX(0,c.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')) restante_centimos FROM cuotas c WHERE c.hermana_id=? ORDER BY c.periodo DESC`).bind(me.id));
-    const pagos = await rows(env.DB.prepare('SELECT p.*,c.periodo FROM pagos p LEFT JOIN cuotas c ON c.id=p.cuota_id WHERE p.hermana_id=? ORDER BY p.fecha_pago DESC,p.id DESC').bind(me.id));
-    return J({ cuotas, pagos });
-  }
-  if (path === '/api/modulos/cuenta/pagos' && method === 'POST') {
-    const importe = money(body.importe);
-    if (!Number.isInteger(importe)) return E('Indica un importe válido');
-    const cuotaId = body.cuota_id ? num(body.cuota_id) : null;
-    if (cuotaId) {
-      const c = await env.DB.prepare('SELECT id,estado FROM cuotas WHERE id=? AND hermana_id=?').bind(cuotaId, me.id).first();
-      if (!c) return E('La cuota seleccionada no pertenece a tu cuenta', 403);
-      if (c.estado === 'pagada') return E('Esa cuota ya figura como pagada', 409);
-    }
-    const fecha = isoDate(body.fecha_pago) ? body.fecha_pago : new Date().toISOString().slice(0, 10);
-    const r = await env.DB.prepare(`INSERT INTO pagos(hermana_id,cuota_id,importe_centimos,fecha_pago,metodo,concepto,registrado_por)
-      VALUES(?,?,?,?,?,?,?)`).bind(me.id, cuotaId, importe, fecha, txt(body.metodo, 50) || null, txt(body.concepto, 300) || null, me.id).run();
-    return J({ ok: true, id: r.meta.last_row_id, estado: 'pendiente' });
-  }
+    // Juntas, convocatorias, asistencia y actas.
+    `CREATE TABLE IF NOT EXISTS juntas(id INTEGER PRIMARY KEY AUTOINCREMENT,fecha TEXT NOT NULL,hora TEXT,lugar TEXT,convocatoria TEXT,orden_dia TEXT,estado TEXT NOT NULL DEFAULT 'convocada' CHECK(estado IN('convocada','celebrada','cancelada')),creado_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')))` ,
+    `CREATE TABLE IF NOT EXISTS asistencia_junta(id INTEGER PRIMARY KEY AUTOINCREMENT,junta_id INTEGER NOT NULL REFERENCES juntas(id) ON DELETE CASCADE,hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,asiste INTEGER NOT NULL DEFAULT 1 CHECK(asiste IN(0,1)),UNIQUE(junta_id,hermana_id))`,
+    `CREATE TABLE IF NOT EXISTS actas(id INTEGER PRIMARY KEY AUTOINCREMENT,junta_id INTEGER NOT NULL UNIQUE REFERENCES juntas(id) ON DELETE CASCADE,texto TEXT NOT NULL,acuerdos TEXT,redactada_por INTEGER REFERENCES hermanas(id),actualizada TEXT NOT NULL DEFAULT (datetime('now')))` ,
+    `CREATE INDEX IF NOT EXISTS ix_juntas_fecha ON juntas(fecha)`,
+  ]},
+]; 
 
-  // COCINA: lectura para hermanas; edición solo para tesorería/administración.
-  if (path === '/api/modulos/cocina' && method === 'GET') {
-    const [turnos, alergias, tickets] = await Promise.all([
-      rows(env.DB.prepare('SELECT * FROM turnos_cocina ORDER BY fecha DESC,id DESC LIMIT 100')),
-      tes(me)
-      ? await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.estado!='Baja' ORDER BY h.nombre"))
-      : await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.id=?").bind(me.id)),
-      rows(env.DB.prepare('SELECT id,nombre_archivo,mime,tamano,creado,sabado_id FROM tickets WHERE subido_por=? ORDER BY creado DESC LIMIT 50').bind(me.id)),
-    ]);
-    return J({ turnos, alergias, tickets });
+export async function ensureSchema(db) {
+  await db.prepare('CREATE TABLE IF NOT EXISTS meta(clave TEXT PRIMARY KEY,valor TEXT)').run();
+  const r = await db.prepare("SELECT valor FROM meta WHERE clave='schema'").first();
+  let cur = r ? +r.valor : 0;
+  for (const m of MIGRATIONS) {
+    if (m.v > cur) {
+      await db.batch(m.sql.map(s => db.prepare(s)));
+      await db.prepare("INSERT OR REPLACE INTO meta(clave,valor) VALUES('schema',?)").bind(String(m.v)).run();
+      cur = m.v;
+    }
   }
-  if (path === '/api/modulos/cocina/tickets' && method === 'POST') {
-    const mdata = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos || ''));
-    if (!mdata || mdata[2].length > 1400000) return E('El ticket debe ser JPG, PNG, WEBP o PDF y no superar 1 MB');
-    const sabadoId = body.sabado_id ? num(body.sabado_id) : null;
-    if (sabadoId && !await env.DB.prepare('SELECT id FROM sabados WHERE id=?').bind(sabadoId).first()) return E('El sábado asociado no existe');
-    const r = await env.DB.prepare('INSERT INTO tickets(sabado_id,nombre_archivo,mime,datos,tamano,subido_por) VALUES(?,?,?,?,?,?)')
-      .bind(sabadoId, txt(body.nombre_archivo, 120) || 'ticket', mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id).run();
-    return J({ ok: true, id: r.meta.last_row_id });
-  }
-  if ((m = path.match(/^\/api\/modulos\/cocina\/tickets\/(\d+)$/)) && method === 'GET') {
-    const t = await env.DB.prepare('SELECT nombre_archivo,mime,datos,subido_por FROM tickets WHERE id=?').bind(+m[1]).first();
-    if (!t || (t.subido_por !== me.id && !tes(me))) return E('Ticket no encontrado', 404);
-    const bytes = Uint8Array.from(atob(t.datos), c => c.charCodeAt(0));
-    const nombre = txt(t.nombre_archivo, 120).replace(/[\r\n"\\]/g, '_');
-    return new Response(bytes, { headers: { 'Content-Type': t.mime, 'Content-Disposition': `inline; filename="${nombre}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
-  }
-  if (path === '/api/modulos/cocina' && method === 'POST') {
-    if (!tes(me)) return E('No tienes permiso para organizar cocina', 403);
-    const fecha = txt(body.fecha, 10);
-    if (!isoDate(fecha)) return E('Indica una fecha válida');
-    const presupuesto = body.presupuesto ? money(body.presupuesto) : null;
-    const r = await env.DB.prepare('INSERT INTO turnos_cocina(fecha,turno,menu,responsable,presupuesto_centimos,observaciones,creado_por) VALUES(?,?,?,?,?,?,?)')
-      .bind(fecha, txt(body.turno, 80) || null, txt(body.menu, 1500) || null, txt(body.responsable, 120) || null,
-        Number.isInteger(presupuesto) ? presupuesto : null, txt(body.observaciones, 1000) || null, me.id).run();
-    return J({ ok: true, id: r.meta.last_row_id });
-  }
-  if ((m = path.match(/^\/api\/modulos\/cocina\/(\d+)$/)) && (method === 'PUT' || method === 'DELETE')) {
-    if (!tes(me)) return E('No tienes permiso para modificar cocina', 403);
-    const id = +m[1];
-    if (method === 'DELETE') { await env.DB.prepare('DELETE FROM turnos_cocina WHERE id=?').bind(id).run(); return J({ ok: true }); }
-    const cur = await env.DB.prepare('SELECT * FROM turnos_cocina WHERE id=?').bind(id).first();
-    if (!cur) return E('Turno no encontrado', 404);
-    const fecha = body.fecha !== undefined ? txt(body.fecha, 10) : cur.fecha;
-    if (!isoDate(fecha)) return E('La fecha no es válida');
-    const presupuesto = body.presupuesto !== undefined ? (body.presupuesto ? money(body.presupuesto) : null) : cur.presupuesto_centimos;
-    await env.DB.prepare('UPDATE turnos_cocina SET fecha=?,turno=?,menu=?,responsable=?,presupuesto_centimos=?,observaciones=? WHERE id=?')
-      .bind(fecha, txt(body.turno ?? cur.turno, 80) || null, txt(body.menu ?? cur.menu, 1500) || null, txt(body.responsable ?? cur.responsable, 120) || null,
-        Number.isInteger(presupuesto) ? presupuesto : null, txt(body.observaciones ?? cur.observaciones, 1000) || null, id).run();
-    return J({ ok: true });
-  }
-  if (path === '/api/modulos/alergias' && method === 'PUT') {
-    await env.DB.prepare(`INSERT INTO alergias_hermanas(hermana_id,alergias,observaciones,actualizado) VALUES(?,?,?,datetime('now'))
-      ON CONFLICT(hermana_id) DO UPDATE SET alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`)
-      .bind(me.id, txt(body.alergias, 1000), txt(body.observaciones, 1000) || null).run();
-    return J({ ok: true });
-  }
-
-  // TESORERÍA: todo el módulo queda protegido por permiso real del servidor.
-  if (path.startsWith('/api/modulos/tesoreria')) {
-    if (!tes(me)) return E('No tienes permiso para acceder a tesorería', 403);
-    if (path === '/api/modulos/tesoreria' && method === 'GET') {
-      const [movimientos, pagos, gastosFijos, cuotas, tickets, pendientes, informes, totales, cfg] = await Promise.all([
-        rows(env.DB.prepare(`SELECT m.*,h.nombre hermana,(SELECT GROUP_CONCAT(t.id) FROM tickets t WHERE t.movimiento_id=m.id) tickets FROM movimientos m LEFT JOIN hermanas h ON h.id=m.hermana_id ORDER BY m.fecha DESC,m.id DESC LIMIT 250`)),
-        rows(env.DB.prepare(`SELECT p.*,h.nombre hermana,c.periodo FROM pagos p JOIN hermanas h ON h.id=p.hermana_id LEFT JOIN cuotas c ON c.id=p.cuota_id WHERE p.estado='pendiente' ORDER BY p.fecha_pago,p.id`)),
-        rows(env.DB.prepare('SELECT * FROM gastos_fijos ORDER BY activo DESC,id')),
-        rows(env.DB.prepare(`SELECT c.periodo,c.estado,COUNT(*) cantidad,SUM(c.importe_centimos) total FROM cuotas c GROUP BY c.periodo,c.estado ORDER BY c.periodo DESC LIMIT 24`)),
-        rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.movimiento_id,t.sabado_id,m.concepto FROM tickets t LEFT JOIN movimientos m ON m.id=t.movimiento_id ORDER BY t.creado DESC LIMIT 200`)),
-        rows(env.DB.prepare(`SELECT c.id,c.periodo,c.importe_centimos,c.estado,h.nombre,MAX(0,c.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')) restante_centimos FROM cuotas c JOIN hermanas h ON h.id=c.hermana_id WHERE c.estado!='pagada' ORDER BY c.periodo DESC,h.nombre`)),
-        rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos FROM movimientos GROUP BY strftime('%Y',fecha) ORDER BY anio DESC`)),
-        env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos`).first(),
-        env.DB.prepare("SELECT valor FROM config WHERE clave='cuota_mensual_centimos'").first(),
-      ]);
-      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, cuotas_pendientes: pendientes, informes, totales, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null });
-    }
-    if (path === '/api/modulos/tesoreria/config' && method === 'PUT') {
-      const importe = money(body.cuota_mensual);
-      if (!Number.isInteger(importe)) return E('Indica una cuota mensual válida');
-      await env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cuota_mensual_centimos',?)").bind(String(importe)).run();
-      return J({ ok: true, cuota_mensual: importe / 100 });
-    }
-    if (path === '/api/modulos/tesoreria/movimientos' && method === 'POST') {
-      const tipo = body.tipo === 'ingreso' ? 'ingreso' : body.tipo === 'gasto' ? 'gasto' : null;
-      const importe = money(body.importe), fecha = isoDate(body.fecha) ? body.fecha : null, concepto = txt(body.concepto, 180);
-      if (!tipo || !Number.isInteger(importe) || !fecha || concepto.length < 2) return E('Revisa tipo, fecha, concepto e importe');
-      const r = await env.DB.prepare('INSERT INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,creado_por) VALUES(?,?,?,?,?,?)')
-        .bind(tipo, fecha, concepto, txt(body.categoria, 80) || null, importe, me.id).run();
-      return J({ ok: true, id: r.meta.last_row_id });
-    }
-    if (path === '/api/modulos/tesoreria/gastos-fijos' && method === 'POST') {
-      const importe = money(body.importe), concepto = txt(body.concepto, 180), periodicidad = ['mensual','trimestral','anual'].includes(body.periodicidad) ? body.periodicidad : 'mensual';
-      if (!Number.isInteger(importe) || concepto.length < 2) return E('Indica concepto e importe');
-      const dia = num(body.dia || 1);
-      if (!Number.isInteger(dia) || dia < 1 || dia > 28) return E('El día debe estar entre 1 y 28');
-      const r = await env.DB.prepare('INSERT INTO gastos_fijos(concepto,categoria,importe_centimos,periodicidad,dia,creado_por) VALUES(?,?,?,?,?,?)')
-        .bind(concepto, txt(body.categoria, 80) || null, importe, periodicidad, dia, me.id).run();
-      return J({ ok: true, id: r.meta.last_row_id });
-    }
-    if ((m = path.match(/^\/api\/modulos\/tesoreria\/gastos-fijos\/(\d+)$/)) && (method === 'PUT' || method === 'DELETE')) {
-      const id = +m[1];
-      if (method === 'DELETE') { await env.DB.prepare('DELETE FROM gastos_fijos WHERE id=?').bind(id).run(); return J({ ok: true }); }
-      const cur = await env.DB.prepare('SELECT * FROM gastos_fijos WHERE id=?').bind(id).first();
-      if (!cur) return E('Gasto fijo no encontrado', 404);
-      const importe = body.importe !== undefined ? money(body.importe) : cur.importe_centimos;
-      if (!Number.isInteger(importe)) return E('Importe no válido');
-      const dia = num(body.dia ?? cur.dia);
-      if (!Number.isInteger(dia) || dia < 1 || dia > 28) return E('El día debe estar entre 1 y 28');
-      await env.DB.prepare('UPDATE gastos_fijos SET concepto=?,categoria=?,importe_centimos=?,periodicidad=?,dia=?,activo=? WHERE id=?')
-        .bind(txt(body.concepto ?? cur.concepto, 180), txt(body.categoria ?? cur.categoria, 80) || null, importe,
-          ['mensual','trimestral','anual'].includes(body.periodicidad) ? body.periodicidad : cur.periodicidad,
-          dia, body.activo === undefined ? cur.activo : (body.activo ? 1 : 0), id).run();
-      return J({ ok: true });
-    }
-    if ((m = path.match(/^\/api\/modulos\/tesoreria\/pagos\/(\d+)\/confirmar$/)) && method === 'POST') {
-      const pagoId = +m[1], p = await env.DB.prepare('SELECT * FROM pagos WHERE id=?').bind(pagoId).first();
-      if (!p) return E('Pago no encontrado', 404);
-      if (p.estado !== 'pendiente') return E('Este pago ya está revisado', 409);
-      const resultado = await env.DB.batch([
-        env.DB.prepare("UPDATE pagos SET estado='confirmado',confirmado_por=? WHERE id=? AND estado='pendiente'").bind(me.id, pagoId),
-        env.DB.prepare(`INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,hermana_id,cuota_id,pago_id,creado_por)
-          SELECT 'ingreso',fecha_pago,'Pago de cuota','Cuotas',importe_centimos,hermana_id,cuota_id,id,? FROM pagos WHERE id=? AND estado='confirmado'`).bind(me.id, pagoId),
-      ]);
-      if (!resultado[0]?.meta?.changes) return E('Este pago ya está revisado', 409);
-      if (p.cuota_id) {
-        const c = await env.DB.prepare('SELECT importe_centimos FROM cuotas WHERE id=?').bind(p.cuota_id).first();
-        const total = await env.DB.prepare("SELECT COALESCE(SUM(importe_centimos),0) n FROM pagos WHERE cuota_id=? AND estado='confirmado'").bind(p.cuota_id).first();
-        const estado = total.n >= c.importe_centimos ? 'pagada' : 'parcial';
-        await env.DB.prepare('UPDATE cuotas SET estado=? WHERE id=?').bind(estado, p.cuota_id).run();
-      }
-      return J({ ok: true });
-    }
-    if ((m = path.match(/^\/api\/modulos\/tesoreria\/pagos\/(\d+)\/rechazar$/)) && method === 'POST') {
-      await env.DB.prepare("UPDATE pagos SET estado='rechazado',confirmado_por=? WHERE id=? AND estado='pendiente'").bind(me.id, +m[1]).run();
-      return J({ ok: true });
-    }
-    if ((m = path.match(/^\/api\/modulos\/tesoreria\/tickets\/(\d+)$/)) && method === 'GET') {
-      const t = await env.DB.prepare('SELECT nombre_archivo,mime,datos FROM tickets WHERE id=?').bind(+m[1]).first();
-      if (!t) return E('Ticket no encontrado', 404);
-      const bytes = Uint8Array.from(atob(t.datos), c => c.charCodeAt(0));
-      const nombre = txt(t.nombre_archivo, 120).replace(/[\r\n"\\]/g, '_');
-      return new Response(bytes, { headers: { 'Content-Type': t.mime, 'Content-Disposition': `inline; filename="${nombre}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
-    }
-    if ((m = path.match(/^\/api\/modulos\/tesoreria\/tickets\/(\d+)$/)) && method === 'PUT') {
-      const id = +m[1], ticket = await env.DB.prepare('SELECT id FROM tickets WHERE id=?').bind(id).first();
-      if (!ticket) return E('Ticket no encontrado', 404);
-      const movimientoId = body.movimiento_id ? num(body.movimiento_id) : null;
-      if (movimientoId && !await env.DB.prepare('SELECT id FROM movimientos WHERE id=?').bind(movimientoId).first()) return E('El movimiento asociado no existe');
-      await env.DB.prepare('UPDATE tickets SET movimiento_id=? WHERE id=?').bind(movimientoId, id).run();
-      return J({ ok: true });
-    }
-    if (path === '/api/modulos/tesoreria/tickets' && method === 'POST') {
-      const mdata = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos || ''));
-      if (!mdata || mdata[2].length > 1400000) return E('El ticket debe ser JPG, PNG, WEBP o PDF y no superar 1 MB');
-      const nombre = txt(body.nombre_archivo, 120) || 'ticket';
-      const movimientoId = body.movimiento_id ? num(body.movimiento_id) : null;
-      if (movimientoId && !await env.DB.prepare('SELECT id FROM movimientos WHERE id=?').bind(movimientoId).first()) return E('El gasto asociado no existe');
-      const sabadoId = body.sabado_id ? num(body.sabado_id) : null;
-      if (sabadoId && !await env.DB.prepare('SELECT id FROM sabados WHERE id=?').bind(sabadoId).first()) return E('El sábado asociado no existe');
-      const r = await env.DB.prepare('INSERT INTO tickets(movimiento_id,sabado_id,nombre_archivo,mime,datos,tamano,subido_por) VALUES(?,?,?,?,?,?,?)')
-        .bind(movimientoId, sabadoId, nombre, mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id).run();
-      return J({ ok: true, id: r.meta.last_row_id });
-    }
-    return E('Ruta de tesorería no encontrada', 404);
-  }
-
-  // ACTAS Y JUNTAS: permiso actas o administradora.
-  if (path.startsWith('/api/modulos/actas')) {
-    if (!actas(me)) return E('No tienes permiso para acceder a actas y juntas', 403);
-    if (path === '/api/modulos/actas' && method === 'GET') {
-      const [juntas, actasRows, hermanas, asistencias] = await Promise.all([
-        rows(env.DB.prepare(`SELECT j.*,(SELECT COUNT(*) FROM asistencia_junta a WHERE a.junta_id=j.id AND a.asiste=1) asistentes FROM juntas j ORDER BY j.fecha DESC,j.id DESC LIMIT 100`)),
-        rows(env.DB.prepare('SELECT * FROM actas ORDER BY actualizada DESC')),
-        rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado!='Baja' ORDER BY nombre")),
-        rows(env.DB.prepare('SELECT junta_id,hermana_id FROM asistencia_junta WHERE asiste=1')),
-      ]);
-      return J({ juntas, actas: actasRows, hermanas, asistencias });
-    }
-    if (path === '/api/modulos/actas/juntas' && method === 'POST') {
-      const fecha = txt(body.fecha, 10);
-      if (!isoDate(fecha)) return E('Indica una fecha válida');
-      const r = await env.DB.prepare('INSERT INTO juntas(fecha,hora,lugar,convocatoria,orden_dia,creado_por) VALUES(?,?,?,?,?,?)')
-        .bind(fecha, txt(body.hora, 10) || null, txt(body.lugar, 180) || null, txt(body.convocatoria, 2000) || null, txt(body.orden_dia, 4000) || null, me.id).run();
-      return J({ ok: true, id: r.meta.last_row_id });
-    }
-    if ((m = path.match(/^\/api\/modulos\/actas\/juntas\/(\d+)$/)) && (method === 'PUT' || method === 'DELETE')) {
-      const id = +m[1];
-      if (method === 'DELETE') { await env.DB.prepare('DELETE FROM juntas WHERE id=?').bind(id).run(); return J({ ok: true }); }
-      const cur = await env.DB.prepare('SELECT * FROM juntas WHERE id=?').bind(id).first();
-      if (!cur) return E('Junta no encontrada', 404);
-      const fecha = body.fecha !== undefined ? txt(body.fecha, 10) : cur.fecha;
-      if (!isoDate(fecha)) return E('La fecha no es válida');
-      await env.DB.prepare('UPDATE juntas SET fecha=?,hora=?,lugar=?,convocatoria=?,orden_dia=?,estado=? WHERE id=?')
-        .bind(fecha, txt(body.hora ?? cur.hora, 10) || null, txt(body.lugar ?? cur.lugar, 180) || null,
-          txt(body.convocatoria ?? cur.convocatoria, 2000) || null, txt(body.orden_dia ?? cur.orden_dia, 4000) || null,
-          ['convocada','celebrada','cancelada'].includes(body.estado) ? body.estado : cur.estado, id).run();
-      return J({ ok: true });
-    }
-    if ((m = path.match(/^\/api\/modulos\/actas\/juntas\/(\d+)\/acta$/)) && method === 'PUT') {
-      const juntaId = +m[1], texto = txt(body.texto, 12000), acuerdos = txt(body.acuerdos, 6000);
-      if (!await env.DB.prepare('SELECT id FROM juntas WHERE id=?').bind(juntaId).first()) return E('Junta no encontrada', 404);
-      if (texto.length < 5) return E('Escribe el contenido del acta');
-      await env.DB.prepare(`INSERT INTO actas(junta_id,texto,acuerdos,redactada_por,actualizada) VALUES(?,?,?,?,datetime('now'))
-        ON CONFLICT(junta_id) DO UPDATE SET texto=excluded.texto,acuerdos=excluded.acuerdos,redactada_por=excluded.redactada_por,actualizada=datetime('now')`)
-        .bind(juntaId, texto, acuerdos || null, me.id).run();
-      await env.DB.prepare("UPDATE juntas SET estado='celebrada' WHERE id=?").bind(juntaId).run();
-      return J({ ok: true });
-    }
-    if ((m = path.match(/^\/api\/modulos\/actas\/juntas\/(\d+)\/asistencia$/)) && method === 'PUT') {
-      const juntaId = +m[1];
-      if (!await env.DB.prepare('SELECT id FROM juntas WHERE id=?').bind(juntaId).first()) return E('Junta no encontrada', 404);
-      const ids = Array.isArray(body.hermanas) ? [...new Set(body.hermanas.map(Number).filter(Number.isInteger))].slice(0, 300) : [];
-      if (ids.length) {
-        const validas = await env.DB.prepare(`SELECT COUNT(*) n FROM hermanas WHERE id IN (${ids.map(()=>'?').join(',')}) AND estado!='Baja'`).bind(...ids).first();
-        if (validas.n !== ids.length) return E('La lista contiene una hermana no válida');
-      }
-      await env.DB.prepare('DELETE FROM asistencia_junta WHERE junta_id=?').bind(juntaId).run();
-      if (ids.length) await env.DB.batch(ids.map(id => env.DB.prepare('INSERT INTO asistencia_junta(junta_id,hermana_id,asiste) VALUES(?,?,1)').bind(juntaId, id)));
-      return J({ ok: true, total: ids.length });
-    }
-    return E('Ruta de actas no encontrada', 404);
-  }
-
-  return E('Módulo no encontrado', 404);
 }
