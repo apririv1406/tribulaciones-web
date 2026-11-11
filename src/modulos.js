@@ -24,26 +24,6 @@ export async function generarCuotasMensuales(db, fecha = new Date()) {
   return { generadas: r.meta?.changes || 0, configurada: true, periodo };
 }
 
-export async function generarGastosFijos(db, fecha = new Date()) {
-  const anio = fecha.getUTCFullYear(), mes = fecha.getUTCMonth() + 1, dia = fecha.getUTCDate();
-  const gastos = await rows(db.prepare('SELECT * FROM gastos_fijos WHERE activo=1'));
-  let generados = 0;
-  for (const g of gastos) {
-    let periodo = null, vence = false;
-    if (g.periodicidad === 'mensual') { periodo = `${anio}-${String(mes).padStart(2, '0')}`; vence = dia >= g.dia; }
-    else if (g.periodicidad === 'trimestral' && [1,4,7,10].includes(mes)) { periodo = `${anio}-T${Math.ceil(mes / 3)}`; vence = dia >= g.dia; }
-    else if (g.periodicidad === 'anual' && mes === 1) { periodo = String(anio); vence = dia >= g.dia; }
-    if (!periodo || !vence || g.ultimo_periodo === periodo) continue;
-    const fechaCargo = `${anio}-${String(mes).padStart(2, '0')}-${String(g.dia).padStart(2, '0')}`;
-    await db.batch([
-      db.prepare(`INSERT INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,creado_por) VALUES('gasto',?,?,?,?,?)`)
-        .bind(fechaCargo, g.concepto, g.categoria || 'Gastos fijos', g.importe_centimos, g.creado_por),
-      db.prepare('UPDATE gastos_fijos SET ultimo_periodo=? WHERE id=?').bind(periodo, g.id),
-    ]);
-    generados++;
-  }
-  return { generados };
-}
 
 async function syncCargosHermanas(db) {
   const cfgRows = await rows(db.prepare("SELECT clave,valor FROM config WHERE clave IN ('sabado_precio_centimos','invitada_precio_centimos','copa_precio_centimos','refresco_precio_centimos','cuotas_extraordinarias_json')"));
@@ -482,28 +462,52 @@ export async function routeModulos(req, env, me, method, path, body) {
       return J({ok:true,importados:result.reduce((n,x)=>n+(x.changes||0),0),duplicados:result.reduce((n,x)=>n+((x.changes||0)?0:1),0)});
     }
     if (path === '/api/modulos/tesoreria/gastos-fijos' && method === 'POST') {
-      const importe = money(body.importe), concepto = txt(body.concepto, 180), periodicidad = ['mensual','trimestral','anual'].includes(body.periodicidad) ? body.periodicidad : 'mensual';
-      if (!Number.isInteger(importe) || concepto.length < 2) return E('Indica concepto e importe');
-      const dia = num(body.dia || 1);
-      if (!Number.isInteger(dia) || dia < 1 || dia > 28) return E('El día debe estar entre 1 y 28');
-      const r = await env.DB.prepare('INSERT INTO gastos_fijos(concepto,categoria,importe_centimos,periodicidad,dia,creado_por) VALUES(?,?,?,?,?,?)')
-        .bind(concepto, txt(body.categoria, 80) || null, importe, periodicidad, dia, me.id).run();
-      return J({ ok: true, id: r.meta.last_row_id });
+      const importe=money(body.importe),concepto=txt(body.concepto,180);
+      const periodicidad=['mensual','anual'].includes(body.periodicidad)?body.periodicidad:'mensual';
+      const dia=num(body.dia||1),mes=num(body.mes||1),cuenta=['Banco','Caja fuerte'].includes(body.cuenta)?body.cuenta:'Banco';
+      if(!Number.isInteger(importe)||importe<=0||concepto.length<2) return E('Indica concepto e importe');
+      if(!Number.isInteger(dia)||dia<1||dia>28) return E('El día debe estar entre 1 y 28');
+      if(!Number.isInteger(mes)||mes<1||mes>12) return E('Selecciona el mes de cargo');
+      const r=await env.DB.prepare(`INSERT INTO gastos_fijos(concepto,categoria,importe_centimos,periodicidad,dia,activo,creado_por,cuenta,variable,mes)
+        VALUES(?,?,?,?,?,1,?,?,?,?)`).bind(concepto,txt(body.categoria,80)||null,importe,periodicidad,dia,me.id,cuenta,body.variable?1:0,mes).run();
+      return J({ok:true,id:r.meta.last_row_id});
+    }
+    if ((m = path.match(/^\/api\/modulos\/tesoreria\/gastos-fijos\/(\d+)\/registrar$/)) && method === 'POST') {
+      const id=+m[1],g=await env.DB.prepare('SELECT * FROM gastos_fijos WHERE id=? AND activo=1').bind(id).first();
+      if(!g) return E('Gasto fijo no encontrado o inactivo',404);
+      const periodo=txt(body.periodo,7);
+      if(!/^\d{4}-\d{2}$/.test(periodo)||periodo!==new Date().toISOString().slice(0,7)) return E('Solo puedes registrar los gastos del mes actual');
+      const mes=Number(periodo.slice(5,7));
+      if(g.periodicidad==='anual'&&Number(g.mes)!==mes) return E('Este gasto no vence este mes');
+      if(g.ultimo_periodo===periodo) return E('Este gasto ya está registrado este mes',409);
+      const importe=body.importe===undefined?Number(g.importe_centimos):money(body.importe);
+      if(!Number.isInteger(importe)||importe<=0) return E('Revisa el importe del gasto');
+      const fecha=periodo+'-'+String(g.dia).padStart(2,'0');
+      const ops=[
+        env.DB.prepare(`INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,creado_por,cuenta,gasto_fijo_id,periodo_fijo)
+          VALUES('gasto',?,?,?,?,?,?,?,?)`).bind(fecha,g.concepto,g.categoria||'Gastos fijos',importe,me.id,g.cuenta||'Banco',id,periodo),
+        env.DB.prepare(`UPDATE gastos_fijos SET ultimo_periodo=? WHERE id=? AND EXISTS(SELECT 1 FROM movimientos WHERE gasto_fijo_id=? AND periodo_fijo=?)`).bind(periodo,id,id,periodo),
+      ];
+      const res=await env.DB.batch(ops);
+      if(!res[0]?.meta?.changes) return E('Este gasto ya está registrado este mes',409);
+      return J({ok:true,movimiento_id:res[0].meta.last_row_id,fecha,importe_centimos:importe});
     }
     if ((m = path.match(/^\/api\/modulos\/tesoreria\/gastos-fijos\/(\d+)$/)) && (method === 'PUT' || method === 'DELETE')) {
-      const id = +m[1];
-      if (method === 'DELETE') { await env.DB.prepare('DELETE FROM gastos_fijos WHERE id=?').bind(id).run(); return J({ ok: true }); }
-      const cur = await env.DB.prepare('SELECT * FROM gastos_fijos WHERE id=?').bind(id).first();
-      if (!cur) return E('Gasto fijo no encontrado', 404);
-      const importe = body.importe !== undefined ? money(body.importe) : cur.importe_centimos;
-      if (!Number.isInteger(importe)) return E('Importe no válido');
-      const dia = num(body.dia ?? cur.dia);
-      if (!Number.isInteger(dia) || dia < 1 || dia > 28) return E('El día debe estar entre 1 y 28');
-      await env.DB.prepare('UPDATE gastos_fijos SET concepto=?,categoria=?,importe_centimos=?,periodicidad=?,dia=?,activo=? WHERE id=?')
-        .bind(txt(body.concepto ?? cur.concepto, 180), txt(body.categoria ?? cur.categoria, 80) || null, importe,
-          ['mensual','trimestral','anual'].includes(body.periodicidad) ? body.periodicidad : cur.periodicidad,
-          dia, body.activo === undefined ? cur.activo : (body.activo ? 1 : 0), id).run();
-      return J({ ok: true });
+      const id=+m[1];
+      if(method==='DELETE'){await env.DB.prepare('DELETE FROM gastos_fijos WHERE id=?').bind(id).run();return J({ok:true});}
+      const cur=await env.DB.prepare('SELECT * FROM gastos_fijos WHERE id=?').bind(id).first();
+      if(!cur) return E('Gasto fijo no encontrado',404);
+      const importe=body.importe!==undefined?money(body.importe):cur.importe_centimos;
+      const dia=num(body.dia??cur.dia),mes=num(body.mes??cur.mes),periodicidad=body.periodicidad??cur.periodicidad,cuenta=body.cuenta??cur.cuenta;
+      if(!Number.isInteger(importe)||importe<=0) return E('Importe no válido');
+      if(!Number.isInteger(dia)||dia<1||dia>28) return E('El día debe estar entre 1 y 28');
+      if(!Number.isInteger(mes)||mes<1||mes>12) return E('Selecciona el mes de cargo');
+      if(!['mensual','anual'].includes(periodicidad)||!['Banco','Caja fuerte'].includes(cuenta)) return E('Revisa la periodicidad o la cuenta');
+      await env.DB.prepare('UPDATE gastos_fijos SET concepto=?,categoria=?,importe_centimos=?,periodicidad=?,dia=?,activo=?,cuenta=?,variable=?,mes=? WHERE id=?')
+        .bind(txt(body.concepto??cur.concepto,180),txt(body.categoria??cur.categoria,80)||null,importe,periodicidad,dia,
+          body.activo===undefined?cur.activo:(body.activo?1:0),cuenta,
+          body.variable===undefined?cur.variable:(body.variable?1:0),mes,id).run();
+      return J({ok:true});
     }
     if ((m = path.match(/^\/api\/modulos\/tesoreria\/pagos\/(\d+)\/confirmar$/)) && method === 'POST') {
       const pagoId = +m[1], p = await env.DB.prepare('SELECT * FROM pagos WHERE id=?').bind(pagoId).first();
