@@ -83,7 +83,8 @@ export async function routeModulos(req, env, me, method, path, body) {
 
   // SÁBADOS Y ASISTENCIA
   if (path === '/api/modulos/sabados' && method === 'GET') {
-    await syncCargosHermanas(env.DB);\n    const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,
+    await syncCargosHermanas(env.DB);
+    const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,
       COALESCE(a.alergias,ah.alergias,'') mis_alergias,a.observaciones mi_observaciones,
       COALESCE(c.copas,0) mis_copas,COALESCE(c.refrescos,0) mis_refrescos,
       (SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1) confirmadas
@@ -203,7 +204,7 @@ export async function routeModulos(req, env, me, method, path, body) {
           FROM turnos_cocina tc JOIN sabados s ON s.fecha=tc.fecha
           JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND asb.asiste=1
           JOIN hermanas h ON h.id=asb.hermana_id LEFT JOIN alergias_hermanas a ON a.hermana_id=h.id
-          WHERE h.estado!='Baja' ORDER BY tc.fecha,h.nombre`)
+          WHERE h.estado!='Baja' ORDER BY tc.fecha,h.nombre`))
       : await rows(env.DB.prepare(`SELECT asb.hermana_id,h.nombre,tc.fecha fecha,COALESCE(NULLIF(asb.alergias,''),a.alergias,'') alergias,COALESCE(NULLIF(asb.observaciones,''),a.observaciones,'') observaciones
           FROM turnos_cocina_hermanas mine JOIN turnos_cocina tc ON tc.id=mine.turno_id
           JOIN sabados s ON s.fecha=tc.fecha JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND asb.asiste=1
