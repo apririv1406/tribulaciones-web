@@ -229,26 +229,32 @@ export async function routeModulos(req, env, me, method, path, body) {
     const sabados = await rows(env.DB.prepare("SELECT id,fecha,titulo FROM sabados WHERE estado!='cancelado' AND fecha>=date('now') ORDER BY fecha,id"));
     if (!sabados.length) return E('No hay sábados futuros publicados para sortear');
     const carga = Object.fromEntries(hermanas.map(h => [h.id, 0]));
-    const asignaciones = [];
+    const existentes = await rows(env.DB.prepare(`SELECT mine.hermana_id FROM turnos_cocina_hermanas mine
+      JOIN turnos_cocina tc ON tc.id=mine.turno_id WHERE tc.fecha>=date('now')`));
+    existentes.forEach(x => { if (carga[x.hermana_id] !== undefined) carga[x.hermana_id]++; });
+    const asignaciones = [], omitidos = [];
     for (const sabado of sabados) {
-      const orden = [...hermanas].sort((a,b) => carga[a.id]-carga[b.id] || Math.random()-0.5);
-      const elegidas = orden.slice(0, personas);
-      elegidas.forEach(h => carga[h.id]++);
       let turno = await env.DB.prepare('SELECT id FROM turnos_cocina WHERE fecha=? ORDER BY id LIMIT 1').bind(sabado.fecha).first();
-      if (!turno) {
+      if (turno) {
+        const yaAsignadas = await rows(env.DB.prepare('SELECT hermana_id FROM turnos_cocina_hermanas WHERE turno_id=?').bind(turno.id));
+        if (yaAsignadas.length) { omitidos.push({fecha:sabado.fecha,turno_id:turno.id}); continue; }
+      } else {
         const creado = await env.DB.prepare("INSERT INTO turnos_cocina(fecha,turno,responsable,creado_por) VALUES(?,'Cocina','Turno sorteado',?)").bind(sabado.fecha,me.id).run();
         turno = { id: creado.meta.last_row_id };
       }
+      const orden = [...hermanas].sort((a,b) => carga[a.id]-carga[b.id] || Math.random()-0.5);
+      const elegidas = orden.slice(0, personas);
+      elegidas.forEach(h => carga[h.id]++);
       asignaciones.push({ turno_id: turno.id, hermana_ids: elegidas.map(h => h.id) });
     }
+    if (!asignaciones.length) return E('Todos los sábados futuros ya tienen asignaciones. No se ha sobrescrito ningún turno.', 409);
     const ops = [];
-    for (const a of asignaciones) {
-      ops.push(env.DB.prepare('DELETE FROM turnos_cocina_hermanas WHERE turno_id=?').bind(a.turno_id));
-      for (const id of a.hermana_ids) ops.push(env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(a.turno_id,id));
+    for (const a of asignaciones) for (const id of a.hermana_ids) {
+      ops.push(env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(a.turno_id,id));
     }
     ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cocina_personas_por_turno',?)").bind(String(personas)));
     await env.DB.batch(ops);
-    return J({ ok: true, personas_por_turno: personas, turnos_sorteados: asignaciones.length, asignaciones: asignaciones.map(a => ({ turno_id:a.turno_id, hermanas:a.hermana_ids })) });
+    return J({ ok: true, personas_por_turno: personas, turnos_sorteados: asignaciones.length, turnos_omitidos: omitidos.length, asignaciones: asignaciones.map(a => ({ turno_id:a.turno_id, hermanas:a.hermana_ids })) });
   }
   if (path === '/api/modulos/cocina/tickets' && method === 'POST') {
     const mdata = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos || ''));
