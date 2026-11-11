@@ -194,7 +194,7 @@ async function vTesoreria() {
   const mensual=d.estadisticas?.mensuales||[], maxMes=Math.max(1,...mensual.flatMap(x=>[Number(x.ingresos||0),Number(x.gastos||0)]));
   const pal=['#e8c23a','#c9971a','#8b6b45','#b8956a','#6b4f2f','#f0d878','#a07f4f','#d7b98c','#3b2c1c'];
   const donut=tipo=>{
-    const arr=(d.estadisticas?.categorias||[]).filter(x=>x.tipo===tipo&&Number(x.total)>0);
+    const base=(d.estadisticas?.categorias||[]).filter(x=>x.tipo===tipo&&Number(x.total)>0); const arr=Object.values(base.reduce((a,x)=>{const k=x.categoria||'Sin categoría';if(!a[k])a[k]={categoria:k,total:0};a[k].total+=Number(x.total||0);return a;},{}));
     const total=arr.reduce((a,x)=>a+Number(x.total),0);
     if(!total)return '<p class="mu">Todavía no hay datos para este gráfico.</p>';
     let acum=0;const stops=arr.map((x,i)=>{const ini=acum;acum+=Number(x.total)/total*100;return `${pal[i%pal.length]} ${ini}% ${acum}%`;}).join(',');
