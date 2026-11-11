@@ -112,7 +112,7 @@ const turnoPrueba = r.data.turnos.find(t => t.fecha === '2099-01-03'); assert.ok
 r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 3 }, adm); assert.equal(r.status, 409); // no debe reemplazar asignaciones existentes
 r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.status, 200);
 const cargoSabado = r.data.cargos.find(x => String(x.source_key).startsWith('sabado:'+sid+':')); assert.ok(cargoSabado); assert.equal(cargoSabado.importe_centimos, 2000);
-const cargoInvitadasSinAsistencia = r.data.cargos.find(x => x.hermana_id === hermanaInvitadasId && String(x.source_key).startsWith('sabado:'+sid+':')); assert.ok(cargoInvitadasSinAsistencia); assert.equal(cargoInvitadasSinAsistencia.importe_centimos, 2000);
+r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); const cargoInvitadasSinAsistencia = r.data.cargos_pendientes.find(x => x.hermana_id === hermanaInvitadasId && String(x.source_key).startsWith('sabado:'+sid+':')); assert.ok(cargoInvitadasSinAsistencia); assert.equal(cargoInvitadasSinAsistencia.importe_centimos, 2000);
 r = await call('POST', `/api/modulos/sabados/${sid}/asistencia`, { asiste: false, acompanantes: 0 }, adm); assert.equal(r.status, 200);
 r = await call('GET', '/api/modulos/sabados', null, adm); assert.equal(r.status, 200);
 r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.data.cargos.find(x => x.id === cargoSabado.id).restante_centimos, 0);
