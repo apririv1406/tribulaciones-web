@@ -273,12 +273,13 @@ const FORM = {
   async 'cocina-asignar'(f,d) { await api('PUT','/modulos/cocina/'+f.dataset.id+'/asignacion',{hermanas:d.getAll('hermana')}); toast('Asignación de cocina guardada'); render(); },
   async 'cocina-edit'(f,d) { await api('PUT','/modulos/cocina/'+f.dataset.id,{fecha:d.get('fecha'),turno:d.get('turno'),responsable:d.get('responsable'),presupuesto:d.get('presupuesto'),menu:d.get('menu'),observaciones:d.get('observaciones')}); toast('Turno actualizado'); render(); },
   async 'cocina-ticket'(f,d) { const file=d.get('ticket'); if(!file || !file.size) throw new Error('Selecciona un ticket'); if(file.size>1024*1024) throw new Error('El archivo no puede superar 1 MB'); const datos=await readFileData(file); await api('POST','/modulos/cocina/tickets',{turno_cocina_id:d.get('turno_cocina_id')||null,nombre_archivo:file.name,datos}); toast('Ticket guardado'); render(); },
-  async alergias(f,d) { await api('PUT','/modulos/alergias',{alergias:d.get('alergias'),observaciones:d.get('observaciones')}); toast('Información guardada'); render(); },
+  async alergias(f,d) { await api('PUT','/modulos/alergias',{alergias:d.getAll('alergia').concat(d.get('alergias')||'').filter(Boolean).join(', '),observaciones:d.get('observaciones')}); toast('Información guardada'); render(); },
   async 'junta-new'(f,d) { await api('POST','/modulos/actas/juntas',{fecha:d.get('fecha'),hora:d.get('hora'),lugar:d.get('lugar'),convocatoria:d.get('convocatoria'),orden_dia:d.get('orden_dia')}); toast('Junta convocada'); render(); },
   async 'junta-edit'(f,d) { await api('PUT','/modulos/actas/juntas/'+f.dataset.id,{fecha:d.get('fecha'),hora:d.get('hora'),lugar:d.get('lugar'),estado:d.get('estado'),convocatoria:d.get('convocatoria'),orden_dia:d.get('orden_dia')}); toast('Convocatoria actualizada'); render(); },
   async 'acta-save'(f,d) { await api('PUT','/modulos/actas/juntas/'+f.dataset.id+'/acta',{texto:d.get('texto'),acuerdos:d.get('acuerdos')}); toast('Acta guardada'); render(); },
   async 'junta-asistencia'(f,d) { await api('PUT','/modulos/actas/juntas/'+f.dataset.id+'/asistencia',{hermanas:d.getAll('hermana')}); toast('Asistencia actualizada'); render(); },
-  async 'tes-config'(f,d) { await api('PUT','/modulos/tesoreria/config',{cuota_mensual:d.get('cuota_mensual')}); toast('Cuota mensual guardada'); render(); },
+  async 'tes-config'(f,d) { await api('PUT','/modulos/tesoreria/config',{cuota_mensual:d.get('cuota_mensual'),sabado_precio:d.get('sabado_precio'),invitada_precio:d.get('invitada_precio'),copa_precio:d.get('copa_precio'),refresco_precio:d.get('refresco_precio'),cocina_precio_persona:d.get('cocina_precio_persona'),personas_por_turno:d.get('personas_por_turno')}); toast('Parámetros guardados'); render(); },
+  async 'cocina-sorteo'(f,d) { const r=await api('POST','/modulos/cocina/sorteo',{personas_por_turno:d.get('personas_por_turno')}); toast('Sorteo realizado: '+r.turnos_sorteados+' turnos'); COCINA_TAB='cal'; render(); },
   async 'tes-filtro'(f,d) { TES_FILTRO={tipo:d.get('tipo')||'todos',texto:d.get('texto')||'',desde:d.get('desde')||'',hasta:d.get('hasta')||''}; if(TES_FILTRO.desde && TES_FILTRO.hasta && TES_FILTRO.desde>TES_FILTRO.hasta) throw new Error('La fecha inicial no puede ser posterior a la final'); render(); },
   async 'tes-movimiento'(f,d) { await api('POST','/modulos/tesoreria/movimientos',{tipo:d.get('tipo'),fecha:d.get('fecha'),concepto:d.get('concepto'),categoria:d.get('categoria'),importe:d.get('importe')}); toast('Movimiento registrado'); render(); },
   async 'tes-fijo'(f,d) { await api('POST','/modulos/tesoreria/gastos-fijos',{concepto:d.get('concepto'),categoria:d.get('categoria'),importe:d.get('importe'),periodicidad:d.get('periodicidad'),dia:d.get('dia')}); toast('Gasto fijo añadido'); render(); },
@@ -306,6 +307,8 @@ async function abrirWhatsApp(el, tipo) {
   }
 }
 const ACT = {
+  'module-tab'(el) { const k=el.dataset.tab; if(el.dataset.module==='cuenta') CUENTA_TAB=k; if(el.dataset.module==='cocina') COCINA_TAB=k; if(el.dataset.module==='tesoreria') TES_TAB=k; if(el.dataset.module==='actas') ACTAS_TAB=k; render(); },
+
   'cuenta-pago-open'() { PAGO_MODAL=true; render(); },
   'cuenta-pago-close'() { PAGO_MODAL=false; render(); },
   'cuenta-pago-stop'() {},
