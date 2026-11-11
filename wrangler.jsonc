@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "tribulaciones",
-      "database_id": "7a14068c-db18-4041-8f37-3fd0bfa02a3a"
+      "database_id": "PON_AQUI_EL_ID_DE_LA_BASE_DE_DATOS"
     }
   ],
   "observability": { "enabled": true }

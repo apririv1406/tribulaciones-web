@@ -18,6 +18,15 @@ const setCookie = (req, n, v, maxAge, path = '/') => `${n}=${v}; HttpOnly; SameS
 const origin = (env, req) => (env.SITE_URL ? env.SITE_URL.replace(/\/$/, '') : new URL(req.url).origin);
 const emailOk = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && e.length <= 120;
 
+// Acepta números internacionales. Si se introducen 9 cifras españolas,
+// añade automáticamente el prefijo 34. WhatsApp necesita solo cifras.
+function normalizarTelefono(valor) {
+  let n = String(valor || '').replace(/\D/g, '');
+  if (n.startsWith('00')) n = n.slice(2);
+  if (n.length === 9) n = '34' + n;
+  return /^[1-9]\d{7,14}$/.test(n) ? n : null;
+}
+
 /* ---------- arranque ---------- */
 let ready;
 async function init(env) {
@@ -110,6 +119,8 @@ async function forgot(req, env, b) {
   if (await limited(env, 'f:' + ip, 10, 36e5)) return E('Demasiadas solicitudes. Inténtalo más tarde.', 429);
   await fail(env, 'f:' + ip);
   const h = await env.DB.prepare("SELECT id,nombre,email,pass_hash FROM hermanas WHERE email=? AND estado!='Baja'").bind(email).first();
+  // Se conserva el mecanismo anterior como compatibilidad, aunque la interfaz
+  // nueva indica pedir el restablecimiento a la administradora por WhatsApp.
   if (h) await enviarEnlace(env, req, h, h.pass_hash ? 'reset' : 'invitacion');
   return J({ ok: true });
 }
@@ -144,7 +155,7 @@ async function setup(req, env, b) {
   const pw = String(b.password || '');
   if (!pwOk(pw)) return E('La contraseña debe tener entre 8 y 128 caracteres');
   const a = await env.DB.prepare('SELECT id FROM hermanas WHERE es_admin=1 AND pass_hash IS NULL ORDER BY id LIMIT 1').first();
-  if (!a) return E('La administradora ya tiene contraseña. Usa "He he olvidado mi contraseña".'.replace('He he', 'He'), 409);
+  if (!a) return E('La administradora ya tiene contraseña. Usa "He olvidado mi contraseña".', 409);
   await env.DB.prepare('UPDATE hermanas SET pass_hash=? WHERE id=?').bind(await hashPw(pw), a.id).run();
   return session(req, env, a.id);
 }
@@ -175,7 +186,7 @@ async function gCallback(req, env, url) {
   return session(req, env, h.id, null, o + '/zona/#/');
 }
 
-/* ---------- correo ---------- */
+/* ---------- correo (se conserva para compatibilidad) ---------- */
 async function getCfg(env) {
   const c = { mail_asunto: 'Bienvenida a la web de Las Tribulaciones de Sara', mail_mensaje: '' };
   (await env.DB.prepare('SELECT clave,valor FROM config').all()).results.forEach(r => (c[r.clave] = r.valor));
@@ -209,6 +220,17 @@ async function enviarEnlace(env, req, h, tipo) {
   return res;
 }
 
+// Genera un token nuevo y devuelve el enlace para que la administradora
+// lo comparta manualmente por WhatsApp. Nunca se envía ningún mensaje solo.
+async function generarEnlaceWhatsApp(env, req, h, tipo) {
+  const tok = rand(32), horas = tipo === 'reset' ? 24 : 168;
+  await env.DB.prepare('DELETE FROM tokens WHERE hermana_id=?').bind(h.id).run();
+  await env.DB.prepare('INSERT INTO tokens VALUES(?,?,?,?)').bind(await sha(tok), h.id, tipo, Date.now() + horas * 36e5).run();
+  const link = `${origin(env, req)}/zona/#/clave/${tok}`;
+  if (tipo === 'invitacion') await env.DB.prepare("UPDATE hermanas SET invitada=datetime('now') WHERE id=?").bind(h.id).run();
+  return { link, telefono: h.telefono, nombre: h.nombre, tipo };
+}
+
 /* ---------- imágenes ---------- */
 async function guardarImagen(env, dataUrl) {
   const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ''));
@@ -239,13 +261,13 @@ const cuentaDe = r => (r.tiene_pass || r.ultimo_acceso ? 'activa' : r.invitada ?
 async function admin(req, env, me, m, p, b) {
   let r;
   if (m === 'GET' && p === '/api/admin/hermanas') {
-    const rs = (await env.DB.prepare("SELECT h.id,h.nombre,h.email,h.cargo_id,c.nombre cargo,h.estado,h.es_admin,h.anio_entrada,h.visible_web,h.foto_id,h.pass_hash IS NOT NULL tiene_pass,h.invitada,h.ultimo_acceso FROM hermanas h LEFT JOIN cargos c ON c.id=h.cargo_id ORDER BY h.estado='Baja',h.nombre").all()).results;
-    return J(rs.map(x => ({ id: x.id, nombre: x.nombre, email: x.email, cargo_id: x.cargo_id, cargo: x.cargo, estado: x.estado, es_admin: !!x.es_admin, anio_entrada: x.anio_entrada, visible_web: !!x.visible_web, foto: x.foto_id, cuenta: cuentaDe(x) })));
+    const rs = (await env.DB.prepare("SELECT h.id,h.nombre,h.email,h.telefono,h.cargo_id,c.nombre cargo,h.estado,h.es_admin,h.anio_entrada,h.visible_web,h.foto_id,h.pass_hash IS NOT NULL tiene_pass,h.invitada,h.ultimo_acceso FROM hermanas h LEFT JOIN cargos c ON c.id=h.cargo_id ORDER BY h.estado='Baja',h.nombre").all()).results;
+    return J(rs.map(x => ({ id: x.id, nombre: x.nombre, email: x.email, telefono: x.telefono || '', cargo_id: x.cargo_id, cargo: x.cargo, estado: x.estado, es_admin: !!x.es_admin, anio_entrada: x.anio_entrada, visible_web: !!x.visible_web, foto: x.foto_id, cuenta: cuentaDe(x) })));
   }
   if (m === 'POST' && p === '/api/admin/hermanas') return crearHermana(env, b);
   if (m === 'PUT' && (r = p.match(/^\/api\/admin\/hermanas\/(\d+)$/))) return editarHermana(env, +r[1], b);
   if (m === 'POST' && (r = p.match(/^\/api\/admin\/hermanas\/(\d+)\/(invitar|reset)$/))) return enviarA(env, req, +r[1], r[2]);
-  if (m === 'POST' && p === '/api/admin/invitar-pendientes') return invitarTodas(env, req);
+  if (m === 'POST' && p === '/api/admin/invitar-pendientes') return E('Las bienvenidas se preparan individualmente desde cada hermana por WhatsApp.', 400);
   if (m === 'GET' && p === '/api/admin/cargos') return J((await env.DB.prepare('SELECT c.id,c.nombre,c.permiso,(SELECT COUNT(*) FROM hermanas h WHERE h.cargo_id=c.id) usos FROM cargos c ORDER BY c.orden,c.id').all()).results);
   if (m === 'POST' && p === '/api/admin/cargos') return cargoGuardar(env, null, b);
   if ((m === 'PUT' || m === 'DELETE') && (r = p.match(/^\/api\/admin\/cargos\/(\d+)$/))) return m === 'PUT' ? cargoGuardar(env, +r[1], b) : cargoBorrar(env, +r[1]);
@@ -274,14 +296,17 @@ async function admin(req, env, me, m, p, b) {
   }
   return E('No encontrado', 404);
 }
+
 async function crearHermana(env, b) {
   const nombre = String(b.nombre || '').trim(), email = String(b.email || '').trim().toLowerCase() || null;
+  const telefono = b.telefono ? normalizarTelefono(b.telefono) : null;
   if (nombre.length < 2 || nombre.length > 80) return E('Escribe el nombre de la hermana');
   if (email && !emailOk(email)) return E('El correo no es válido');
+  if (b.telefono && !telefono) return E('El teléfono no es válido. Escribe el prefijo internacional, por ejemplo +34 600 000 000.');
   const cargo = b.cargo_id ? +b.cargo_id : (await env.DB.prepare("SELECT id FROM cargos WHERE nombre='Hermana'").first())?.id ?? null;
   const anio = b.anio_entrada ? +b.anio_entrada : null;
   try {
-    const r = await env.DB.prepare('INSERT INTO hermanas(nombre,email,cargo_id,anio_entrada) VALUES(?,?,?,?)').bind(nombre, email, cargo, anio).run();
+    const r = await env.DB.prepare('INSERT INTO hermanas(nombre,email,telefono,cargo_id,anio_entrada) VALUES(?,?,?,?,?)').bind(nombre, email, telefono, cargo, anio).run();
     return J({ ok: true, id: r.meta.last_row_id });
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return E('Ese correo ya está registrado', 409);
@@ -293,9 +318,11 @@ async function editarHermana(env, id, b) {
   if (!cur) return E('No encontrada', 404);
   const nombre = b.nombre !== undefined ? String(b.nombre).trim() : cur.nombre;
   const email = b.email !== undefined ? String(b.email).trim().toLowerCase() || null : cur.email;
+  const telefono = b.telefono !== undefined ? (String(b.telefono).trim() ? normalizarTelefono(b.telefono) : null) : cur.telefono;
   const estado = b.estado ?? cur.estado, esAdmin = b.es_admin !== undefined ? (b.es_admin ? 1 : 0) : cur.es_admin;
   if (nombre.length < 2 || nombre.length > 80) return E('Escribe el nombre de la hermana');
   if (email && !emailOk(email)) return E('El correo no es válido');
+  if (b.telefono !== undefined && String(b.telefono).trim() && !telefono) return E('El teléfono no es válido. Escribe el prefijo internacional, por ejemplo +34 600 000 000.');
   if (!['Activa', 'Pasiva', 'Baja'].includes(estado)) return E('Estado no válido');
   if (cur.es_admin && (!esAdmin || estado === 'Baja')) {
     const n = await env.DB.prepare("SELECT COUNT(*) n FROM hermanas WHERE es_admin=1 AND estado!='Baja' AND id!=?").bind(id).first();
@@ -312,7 +339,7 @@ async function editarHermana(env, id, b) {
   const anio = b.anio_entrada !== undefined ? (b.anio_entrada ? +b.anio_entrada : null) : cur.anio_entrada;
   const vis = b.visible_web !== undefined ? (b.visible_web ? 1 : 0) : cur.visible_web;
   try {
-    await env.DB.prepare('UPDATE hermanas SET nombre=?,email=?,cargo_id=?,estado=?,es_admin=?,anio_entrada=?,visible_web=?,foto_id=? WHERE id=?').bind(nombre, email, cargo, estado, esAdmin, anio, vis, foto, id).run();
+    await env.DB.prepare('UPDATE hermanas SET nombre=?,email=?,telefono=?,cargo_id=?,estado=?,es_admin=?,anio_entrada=?,visible_web=?,foto_id=? WHERE id=?').bind(nombre, email, telefono, cargo, estado, esAdmin, anio, vis, foto, id).run();
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return E('Ese correo ya está registrado', 409);
     throw e;
@@ -321,18 +348,13 @@ async function editarHermana(env, id, b) {
   return J({ ok: true, foto });
 }
 async function enviarA(env, req, id, que) {
-  const h = await env.DB.prepare('SELECT id,nombre,email,estado FROM hermanas WHERE id=?').bind(id).first();
+  const h = await env.DB.prepare('SELECT id,nombre,telefono,estado FROM hermanas WHERE id=?').bind(id).first();
   if (!h) return E('No encontrada', 404);
   if (h.estado === 'Baja') return E('Está dada de baja');
-  if (!h.email) return E('Falta el correo de esta hermana');
-  const res = await enviarEnlace(env, req, h, que === 'reset' ? 'reset' : 'invitacion');
-  return J({ ok: true, enviado: res.ok, aviso: res.aviso });
-}
-async function invitarTodas(env, req) {
-  const rs = (await env.DB.prepare("SELECT id,nombre,email FROM hermanas WHERE estado!='Baja' AND email IS NOT NULL AND pass_hash IS NULL AND invitada IS NULL AND ultimo_acceso IS NULL").all()).results;
-  let ok = 0, ko = 0, aviso = '';
-  for (const h of rs) { const r = await enviarEnlace(env, req, h, 'invitacion'); if (r.ok) ok++; else { ko++; aviso = r.aviso; } }
-  return J({ ok: true, enviados: ok, fallidos: ko, aviso });
+  if (!h.telefono) return E('Añade primero el teléfono de esta hermana');
+  const tipo = que === 'reset' ? 'reset' : 'invitacion';
+  const r = await generarEnlaceWhatsApp(env, req, h, tipo);
+  return J({ ok: true, ...r });
 }
 async function cargoGuardar(env, id, b) {
   const nombre = String(b.nombre || '').trim(), permiso = b.permiso || 'none';
