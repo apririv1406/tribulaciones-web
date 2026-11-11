@@ -50,11 +50,13 @@ export async function routeModulos(req, env, me, method, path, body) {
 
   // SÁBADOS Y ASISTENCIA
   if (path === '/api/modulos/sabados' && method === 'GET') {
-    const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,a.alergias mis_alergias,a.observaciones mi_observaciones,
+    const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,
+      COALESCE(a.alergias,ah.alergias,'') mis_alergias,a.observaciones mi_observaciones,
       COALESCE(c.copas,0) mis_copas,COALESCE(c.refrescos,0) mis_refrescos,
       (SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1) confirmadas
       FROM sabados s LEFT JOIN asistencias_sabado a ON a.sabado_id=s.id AND a.hermana_id=?
-      LEFT JOIN consumos_sabado c ON c.sabado_id=s.id AND c.hermana_id=? ORDER BY s.fecha DESC,s.id DESC LIMIT 40`).bind(me.id,me.id));
+      LEFT JOIN alergias_hermanas ah ON ah.hermana_id=?
+      LEFT JOIN consumos_sabado c ON c.sabado_id=s.id AND c.hermana_id=? ORDER BY s.fecha DESC,s.id DESC LIMIT 40`).bind(me.id,me.id,me.id));
     return J(data);
   }
   if (path === '/api/modulos/sabados' && method === 'POST') {
@@ -91,8 +93,9 @@ export async function routeModulos(req, env, me, method, path, body) {
     return J({ ok: true });
   }
   if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/asistencias$/)) && method === 'GET') {
-    if (!tes(me)) return E('Solo tesorería o administración puede consultar el listado', 403);
-    return J(await rows(env.DB.prepare(`SELECT a.*,h.nombre,h.telefono,COALESCE(c.copas,0) copas,COALESCE(c.refrescos,0) refrescos FROM asistencias_sabado a JOIN hermanas h ON h.id=a.hermana_id LEFT JOIN consumos_sabado c ON c.sabado_id=a.sabado_id AND c.hermana_id=a.hermana_id WHERE a.sabado_id=? ORDER BY h.nombre`).bind(+m[1])));
+    if (!tes(me) && !actas(me)) return E('No tienes permiso para consultar el listado', 403);
+    const columnas = actas(me) ? 'a.*' : 'a.id,a.sabado_id,a.hermana_id,a.asiste,a.acompanantes,a.detalle_acompanantes,a.observaciones,a.actualizado';
+    return J(await rows(env.DB.prepare(`SELECT ${columnas},h.nombre,h.telefono,COALESCE(c.copas,0) copas,COALESCE(c.refrescos,0) refrescos FROM asistencias_sabado a JOIN hermanas h ON h.id=a.hermana_id LEFT JOIN consumos_sabado c ON c.sabado_id=a.sabado_id AND c.hermana_id=a.hermana_id WHERE a.sabado_id=? ORDER BY h.nombre`).bind(+m[1])));
   }
   if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/consumos$/)) && method === 'POST') {
     const id = +m[1];
@@ -143,9 +146,13 @@ export async function routeModulos(req, env, me, method, path, body) {
           ((SELECT COUNT(*) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1) +
            (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1))) presupuesto_calculado_centimos
         FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC LIMIT 100`)),
-      tes(me)
+      actas(me)
       ? await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.estado!='Baja' ORDER BY h.nombre"))
-      : await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.id=?").bind(me.id)),
+      : await rows(env.DB.prepare(`SELECT a.hermana_id,h.nombre,COALESCE(asb.alergias,a.alergias) alergias,COALESCE(asb.observaciones,a.observaciones) observaciones
+          FROM turnos_cocina_hermanas mine JOIN turnos_cocina tc ON tc.id=mine.turno_id
+          JOIN sabados s ON s.fecha=tc.fecha JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND asb.asiste=1
+          JOIN hermanas h ON h.id=asb.hermana_id LEFT JOIN alergias_hermanas a ON a.hermana_id=h.id
+          WHERE mine.hermana_id=? ORDER BY h.nombre`).bind(me.id)),
       tes(me)
         ? rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,h.nombre subido_por_nombre FROM tickets t LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 100`))
         : rows(env.DB.prepare('SELECT id,nombre_archivo,mime,tamano,creado,sabado_id,turno_cocina_id FROM tickets WHERE subido_por=? ORDER BY creado DESC LIMIT 50').bind(me.id)),
