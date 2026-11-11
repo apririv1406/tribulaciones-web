@@ -375,7 +375,7 @@ export async function routeModulos(req, env, me, method, path, body) {
           WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL GROUP BY strftime('%Y',fecha),tipo,categoria ORDER BY anio,tipo,total DESC`))
       ]);
       const hermanas = await rows(env.DB.prepare('SELECT id,nombre FROM hermanas ORDER BY nombre'));
-      const cargos_pendientes = await rows(env.DB.prepare(`SELECT x.id,x.hermana_id,h.nombre,x.categoria,x.concepto,x.importe_centimos,
+      const cargos_pendientes = await rows(env.DB.prepare(`SELECT x.id,x.hermana_id,h.nombre,x.categoria,x.concepto,x.source_key,x.grupo,x.importe_centimos,
         ((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado')) pagado_centimos,
         MAX(0,x.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado'))) restante_centimos
         FROM cargos_hermanas x JOIN hermanas h ON h.id=x.hermana_id
