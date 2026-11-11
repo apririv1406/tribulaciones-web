@@ -114,7 +114,8 @@ export async function routeModulos(req, env, me, method, path, body) {
   if (path === '/api/modulos/cuenta' && method === 'GET') {
     const cuotas = await rows(env.DB.prepare(`SELECT c.*,(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado') pagado_centimos,MAX(0,c.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')) restante_centimos FROM cuotas c WHERE c.hermana_id=? ORDER BY c.periodo DESC`).bind(me.id));
     const pagos = await rows(env.DB.prepare('SELECT p.*,c.periodo FROM pagos p LEFT JOIN cuotas c ON c.id=p.cuota_id WHERE p.hermana_id=? ORDER BY p.fecha_pago DESC,p.id DESC').bind(me.id));
-    return J({ cuotas, pagos });
+    const alergias = await env.DB.prepare('SELECT alergias,observaciones FROM alergias_hermanas WHERE hermana_id=?').bind(me.id).first();
+    return J({ cuotas, pagos, alergias: alergias || { alergias: '', observaciones: '' } });
   }
   if (path === '/api/modulos/cuenta/pagos' && method === 'POST') {
     const importe = money(body.importe);
@@ -151,7 +152,8 @@ export async function routeModulos(req, env, me, method, path, body) {
     ]);
     const hermanas = tes(me) ? await rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado='Activa' ORDER BY nombre")) : [];
     const asignaciones = await rows(env.DB.prepare(`SELECT tc.turno_id,tc.hermana_id,h.nombre FROM turnos_cocina_hermanas tc JOIN hermanas h ON h.id=tc.hermana_id ORDER BY h.nombre`));
-    return J({ turnos, alergias, tickets, hermanas, asignaciones });
+    const cfg = await env.DB.prepare("SELECT valor FROM config WHERE clave='cocina_personas_por_turno'").first();
+    return J({ turnos, alergias, tickets, hermanas, asignaciones, personas_por_turno: cfg?.valor ? Number(cfg.valor) : 2 });
   }
   if (path === '/api/modulos/cocina/sorteo' && method === 'POST') {
     if (!tes(me)) return E('No tienes permiso para realizar el sorteo', 403);
