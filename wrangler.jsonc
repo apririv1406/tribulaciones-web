@@ -22,6 +22,9 @@
     "MAIL_FROM": "Las Tribulaciones de Sara <onboarding@resend.dev>",
     "SITE_URL": "https://tribulaciones-web.aprstudio.workers.dev"
   },
+  "triggers": {
+    "crons": ["0 1 * * *"]
+  },
   "observability": {
     "enabled": true
   }
