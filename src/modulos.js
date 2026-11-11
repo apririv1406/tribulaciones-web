@@ -62,16 +62,16 @@ async function syncCargosHermanas(db) {
   for(const x of extras.filter(x=>x.tipo==='por_sabado')) porCategoria[x.categoria]=(porCategoria[x.categoria]||0)+Math.max(0,Number(x.importe_centimos)||0);
   const asistencias=await rows(db.prepare(`SELECT s.id sabado_id,s.fecha,s.titulo,s.categoria,a.hermana_id,a.acompanantes,
       COALESCE(c.copas,0) copas,COALESCE(c.refrescos,0) refrescos
-      FROM sabados s JOIN asistencias_sabado a ON a.sabado_id=s.id AND a.asiste=1
+      FROM sabados s JOIN asistencias_sabado a ON a.sabado_id=s.id
       LEFT JOIN consumos_sabado c ON c.sabado_id=s.id AND c.hermana_id=a.hermana_id
       WHERE s.estado!='cancelado'`));
   for(const a of asistencias) {
     const categoria=['Cuaresma','Semana Santa','Otros'].includes(a.categoria)?a.categoria:'Cuaresma';
-    const asistencia=cents('sabado_precio_centimos');
+    const asistencia=a.asiste ? cents('sabado_precio_centimos') : 0;
     const invitadas=Math.max(0,Number(a.acompanantes)||0)*cents('invitada_precio_centimos');
-    const extra=porCategoria[categoria]||0;
+    const extra=a.asiste ? (porCategoria[categoria]||0) : 0;
     const importe=asistencia+invitadas+extra;
-    const detalle=['Asistencia '+(asistencia/100).toFixed(2)+' €',Number(a.acompanantes)>0?'Invitadas '+a.acompanantes+' × '+(cents('invitada_precio_centimos')/100).toFixed(2)+' €':'',extra>0?'Extra '+(extra/100).toFixed(2)+' €':''].filter(Boolean).join(' · ');
+    const detalle=[a.asiste?'Asistencia '+(asistencia/100).toFixed(2)+' €':'',Number(a.acompanantes)>0?'Invitadas '+a.acompanantes+' × '+(cents('invitada_precio_centimos')/100).toFixed(2)+' €':'',extra>0?'Extra '+(extra/100).toFixed(2)+' €':''].filter(Boolean).join(' · ');
     const concepto='Sábado · '+a.titulo+' · '+detalle;
     ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)
       VALUES(?,?,?,?,?,'sabados') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='sabados' WHERE (SELECT fecha FROM sabados WHERE id=?)>=date('now')`)
@@ -89,9 +89,13 @@ async function syncCargosHermanas(db) {
     WHERE grupo IN ('sabados','consumos')
       AND EXISTS(SELECT 1 FROM sabados s WHERE s.fecha>=date('now')
         AND (cargos_hermanas.source_key LIKE 'sabado:'||s.id||':%' OR cargos_hermanas.source_key LIKE 'consumo:'||s.id||':%')
-        AND (s.estado='cancelado' OR NOT EXISTS(
-          SELECT 1 FROM asistencias_sabado a WHERE a.sabado_id=s.id AND a.hermana_id=CAST(REPLACE(REPLACE(cargos_hermanas.source_key,'sabado:'||s.id||':',''),'consumo:'||s.id||':','') AS INTEGER) AND a.asiste=1
-        )))`).run();
+        AND (s.estado='cancelado' OR
+          (cargos_hermanas.grupo='sabados' AND NOT EXISTS(
+            SELECT 1 FROM asistencias_sabado a WHERE a.sabado_id=s.id AND a.hermana_id=CAST(REPLACE(REPLACE(cargos_hermanas.source_key,'sabado:'||s.id||':',''),'consumo:'||s.id||':','') AS INTEGER) AND (a.asiste=1 OR a.acompanantes>0)
+          )) OR
+          (cargos_hermanas.grupo='consumos' AND NOT EXISTS(
+            SELECT 1 FROM consumos_sabado c WHERE c.sabado_id=s.id AND c.hermana_id=CAST(REPLACE(REPLACE(cargos_hermanas.source_key,'sabado:'||s.id||':',''),'consumo:'||s.id||':','') AS INTEGER) AND (c.copas>0 OR c.refrescos>0)
+          )))`).run();
 }
 
 export async function routeModulos(req, env, me, method, path, body) {
@@ -212,11 +216,11 @@ export async function routeModulos(req, env, me, method, path, body) {
     const [turnos, alergias, tickets] = await Promise.all([
       rows(env.DB.prepare(`SELECT tc.*,
         (SELECT COUNT(*) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1) confirmadas,
-        (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1) invitadas,
+        (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado') invitadas,
         COALESCE((SELECT CAST(valor AS INTEGER) FROM config WHERE clave='cocina_precio_persona_centimos'),0) precio_persona_centimos,
         (COALESCE((SELECT CAST(valor AS INTEGER) FROM config WHERE clave='cocina_precio_persona_centimos'),0) *
           ((SELECT COUNT(*) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1) +
-           (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1))) presupuesto_calculado_centimos
+           (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado'))) presupuesto_calculado_centimos
         FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC LIMIT 100`)),
       actas(me)
       ? await rows(env.DB.prepare(`SELECT asb.hermana_id,h.nombre,tc.fecha fecha,COALESCE(NULLIF(asb.alergias,''),a.alergias,'') alergias,COALESCE(NULLIF(asb.observaciones,''),a.observaciones,'') observaciones
