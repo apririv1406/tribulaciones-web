@@ -83,7 +83,7 @@ async function syncCargosHermanas(db) {
       VALUES(?,?,?,?,?,'consumos') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='consumos' WHERE (SELECT fecha FROM sabados WHERE id=?)>=date('now')`)
       .bind(a.hermana_id,categoria,detalleConsumos,importeConsumos,'consumo:'+a.sabado_id+':'+a.hermana_id,a.sabado_id));
   }
-  if(ops.length) await db.batch(ops);
+  for(let i=0;i<ops.length;i+=100) await db.batch(ops.slice(i,i+100));
   await db.prepare(`UPDATE cargos_hermanas SET importe_centimos=
       (SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=cargos_hermanas.id AND p.estado='confirmado')
     WHERE grupo IN ('sabados','consumos')
@@ -272,7 +272,7 @@ export async function routeModulos(req, env, me, method, path, body) {
       ops.push(env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(a.turno_id,id));
     }
     ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cocina_personas_por_turno',?)").bind(String(personas)));
-    await env.DB.batch(ops);
+    for(let i=0;i<ops.length;i+=100) await env.DB.batch(ops.slice(i,i+100));
     return J({ ok: true, personas_por_turno: personas, turnos_sorteados: asignaciones.length, turnos_omitidos: omitidos.length, asignaciones: asignaciones.map(a => ({ turno_id:a.turno_id, hermana_ids:a.hermana_ids, hermanas:a.hermana_ids })) });
   }
   if (path === '/api/modulos/cocina/tickets' && method === 'POST') {
