@@ -51,8 +51,10 @@ export async function routeModulos(req, env, me, method, path, body) {
   // SÁBADOS Y ASISTENCIA
   if (path === '/api/modulos/sabados' && method === 'GET') {
     const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,a.alergias mis_alergias,a.observaciones mi_observaciones,
+      COALESCE(c.copas,0) mis_copas,COALESCE(c.refrescos,0) mis_refrescos,
       (SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1) confirmadas
-      FROM sabados s LEFT JOIN asistencias_sabado a ON a.sabado_id=s.id AND a.hermana_id=? ORDER BY s.fecha DESC,s.id DESC LIMIT 40`).bind(me.id));
+      FROM sabados s LEFT JOIN asistencias_sabado a ON a.sabado_id=s.id AND a.hermana_id=?
+      LEFT JOIN consumos_sabado c ON c.sabado_id=s.id AND c.hermana_id=? ORDER BY s.fecha DESC,s.id DESC LIMIT 40`).bind(me.id,me.id));
     return J(data);
   }
   if (path === '/api/modulos/sabados' && method === 'POST') {
@@ -90,8 +92,23 @@ export async function routeModulos(req, env, me, method, path, body) {
   }
   if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/asistencias$/)) && method === 'GET') {
     if (!tes(me)) return E('Solo tesorería o administración puede consultar el listado', 403);
-    return J(await rows(env.DB.prepare(`SELECT a.*,h.nombre,h.telefono FROM asistencias_sabado a JOIN hermanas h ON h.id=a.hermana_id WHERE a.sabado_id=? ORDER BY h.nombre`).bind(+m[1])));
+    return J(await rows(env.DB.prepare(`SELECT a.*,h.nombre,h.telefono,COALESCE(c.copas,0) copas,COALESCE(c.refrescos,0) refrescos FROM asistencias_sabado a JOIN hermanas h ON h.id=a.hermana_id LEFT JOIN consumos_sabado c ON c.sabado_id=a.sabado_id AND c.hermana_id=a.hermana_id WHERE a.sabado_id=? ORDER BY h.nombre`).bind(+m[1])));
   }
+  if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/consumos$/)) && method === 'POST') {
+    const id = +m[1];
+    const s = await env.DB.prepare('SELECT fecha FROM sabados WHERE id=?').bind(id).first();
+    if (!s) return E('Sábado no encontrado', 404);
+    if (s.fecha >= new Date().toISOString().slice(0, 10)) return E('Las consumiciones se pueden apuntar cuando el sábado ya se ha celebrado', 409);
+    const asistencia = await env.DB.prepare('SELECT asiste FROM asistencias_sabado WHERE sabado_id=? AND hermana_id=?').bind(id, me.id).first();
+    if (!asistencia || !asistencia.asiste) return E('Solo puedes apuntar consumiciones si confirmaste tu asistencia', 403);
+    const copas = num(body.copas), refrescos = num(body.refrescos);
+    if (!Number.isInteger(copas) || copas < 0 || copas > 50 || !Number.isInteger(refrescos) || refrescos < 0 || refrescos > 50) return E('Indica cantidades válidas (entre 0 y 50)');
+    await env.DB.prepare(`INSERT INTO consumos_sabado(sabado_id,hermana_id,copas,refrescos,actualizado) VALUES(?,?,?,?,datetime('now'))
+      ON CONFLICT(sabado_id,hermana_id) DO UPDATE SET copas=excluded.copas,refrescos=excluded.refrescos,actualizado=datetime('now')`)
+      .bind(id,me.id,copas,refrescos).run();
+    return J({ ok: true });
+  }
+
 
   // MI CUENTA: cada hermana solo puede consultar y registrar sus propios pagos.
   if (path === '/api/modulos/cuenta' && method === 'GET') {
@@ -121,17 +138,23 @@ export async function routeModulos(req, env, me, method, path, body) {
       tes(me)
       ? await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.estado!='Baja' ORDER BY h.nombre"))
       : await rows(env.DB.prepare("SELECT a.*,h.nombre FROM alergias_hermanas a JOIN hermanas h ON h.id=a.hermana_id WHERE h.id=?").bind(me.id)),
-      rows(env.DB.prepare('SELECT id,nombre_archivo,mime,tamano,creado,sabado_id FROM tickets WHERE subido_por=? ORDER BY creado DESC LIMIT 50').bind(me.id)),
+      tes(me)
+        ? rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,h.nombre subido_por_nombre FROM tickets t LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 100`))
+        : rows(env.DB.prepare('SELECT id,nombre_archivo,mime,tamano,creado,sabado_id,turno_cocina_id FROM tickets WHERE subido_por=? ORDER BY creado DESC LIMIT 50').bind(me.id)),
     ]);
-    return J({ turnos, alergias, tickets });
+    const hermanas = tes(me) ? await rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado='Activa' ORDER BY nombre")) : [];
+    const asignaciones = await rows(env.DB.prepare(`SELECT tc.turno_id,tc.hermana_id,h.nombre FROM turnos_cocina_hermanas tc JOIN hermanas h ON h.id=tc.hermana_id ORDER BY h.nombre`));
+    return J({ turnos, alergias, tickets, hermanas, asignaciones });
   }
   if (path === '/api/modulos/cocina/tickets' && method === 'POST') {
     const mdata = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos || ''));
     if (!mdata || mdata[2].length > 1400000) return E('El ticket debe ser JPG, PNG, WEBP o PDF y no superar 1 MB');
     const sabadoId = body.sabado_id ? num(body.sabado_id) : null;
     if (sabadoId && !await env.DB.prepare('SELECT id FROM sabados WHERE id=?').bind(sabadoId).first()) return E('El sábado asociado no existe');
-    const r = await env.DB.prepare('INSERT INTO tickets(sabado_id,nombre_archivo,mime,datos,tamano,subido_por) VALUES(?,?,?,?,?,?)')
-      .bind(sabadoId, txt(body.nombre_archivo, 120) || 'ticket', mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id).run();
+    const turnoId = body.turno_cocina_id ? num(body.turno_cocina_id) : null;
+    if (turnoId && !await env.DB.prepare('SELECT id FROM turnos_cocina WHERE id=?').bind(turnoId).first()) return E('El turno de cocina asociado no existe');
+    const r = await env.DB.prepare('INSERT INTO tickets(sabado_id,turno_cocina_id,nombre_archivo,mime,datos,tamano,subido_por) VALUES(?,?,?,?,?,?,?)')
+      .bind(sabadoId, turnoId, txt(body.nombre_archivo, 120) || 'ticket', mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id).run();
     return J({ ok: true, id: r.meta.last_row_id });
   }
   if ((m = path.match(/^\/api\/modulos\/cocina\/tickets\/(\d+)$/)) && method === 'GET') {
@@ -150,6 +173,20 @@ export async function routeModulos(req, env, me, method, path, body) {
       .bind(fecha, txt(body.turno, 80) || null, txt(body.menu, 1500) || null, txt(body.responsable, 120) || null,
         Number.isInteger(presupuesto) ? presupuesto : null, txt(body.observaciones, 1000) || null, me.id).run();
     return J({ ok: true, id: r.meta.last_row_id });
+  }
+  if ((m = path.match(/^\/api\/modulos\/cocina\/(\d+)\/asignacion$/)) && method === 'PUT') {
+    if (!tes(me)) return E('No tienes permiso para asignar turnos', 403);
+    const id = +m[1];
+    if (!await env.DB.prepare('SELECT id FROM turnos_cocina WHERE id=?').bind(id).first()) return E('Turno no encontrado', 404);
+    const ids = Array.isArray(body.hermanas) ? [...new Set(body.hermanas.map(num))] : [];
+    if (ids.some(x => !Number.isInteger(x) || x <= 0)) return E('La selección de hermanas no es válida');
+    if (ids.length) {
+      const validas = await rows(env.DB.prepare(`SELECT id FROM hermanas WHERE estado='Activa' AND id IN (${ids.map(() => '?').join(',')})`).bind(...ids));
+      if (validas.length !== ids.length) return E('Solo puedes asignar hermanas activas');
+    }
+    const ops = [env.DB.prepare('DELETE FROM turnos_cocina_hermanas WHERE turno_id=?').bind(id), ...ids.map(hid => env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(id,hid))];
+    await env.DB.batch(ops);
+    return J({ ok: true, asignadas: ids.length });
   }
   if ((m = path.match(/^\/api\/modulos\/cocina\/(\d+)$/)) && (method === 'PUT' || method === 'DELETE')) {
     if (!tes(me)) return E('No tienes permiso para modificar cocina', 403);
@@ -181,7 +218,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         rows(env.DB.prepare(`SELECT p.*,h.nombre hermana,c.periodo FROM pagos p JOIN hermanas h ON h.id=p.hermana_id LEFT JOIN cuotas c ON c.id=p.cuota_id WHERE p.estado='pendiente' ORDER BY p.fecha_pago,p.id`)),
         rows(env.DB.prepare('SELECT * FROM gastos_fijos ORDER BY activo DESC,id')),
         rows(env.DB.prepare(`SELECT c.periodo,c.estado,COUNT(*) cantidad,SUM(c.importe_centimos) total FROM cuotas c GROUP BY c.periodo,c.estado ORDER BY c.periodo DESC LIMIT 24`)),
-        rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.movimiento_id,t.sabado_id,m.concepto FROM tickets t LEFT JOIN movimientos m ON m.id=t.movimiento_id ORDER BY t.creado DESC LIMIT 200`)),
+        rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.movimiento_id,t.sabado_id,t.turno_cocina_id,m.concepto,tc.turno turno_cocina,tc.fecha fecha_turno FROM tickets t LEFT JOIN movimientos m ON m.id=t.movimiento_id LEFT JOIN turnos_cocina tc ON tc.id=t.turno_cocina_id ORDER BY t.creado DESC LIMIT 200`)),
         rows(env.DB.prepare(`SELECT c.id,c.periodo,c.importe_centimos,c.estado,h.nombre,MAX(0,c.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')) restante_centimos FROM cuotas c JOIN hermanas h ON h.id=c.hermana_id WHERE c.estado!='pagada' ORDER BY c.periodo DESC,h.nombre`)),
         rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos FROM movimientos GROUP BY strftime('%Y',fecha) ORDER BY anio DESC`)),
         env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos`).first(),
@@ -246,7 +283,13 @@ export async function routeModulos(req, env, me, method, path, body) {
       return J({ ok: true });
     }
     if ((m = path.match(/^\/api\/modulos\/tesoreria\/pagos\/(\d+)\/rechazar$/)) && method === 'POST') {
-      await env.DB.prepare("UPDATE pagos SET estado='rechazado',confirmado_por=? WHERE id=? AND estado='pendiente'").bind(me.id, +m[1]).run();
+      const pagoId = +m[1];
+      const resultado = await env.DB.prepare("UPDATE pagos SET estado='rechazado',confirmado_por=? WHERE id=? AND estado='pendiente'").bind(me.id, pagoId).run();
+      if (!resultado.meta?.changes) {
+        const existe = await env.DB.prepare('SELECT id,estado FROM pagos WHERE id=?').bind(pagoId).first();
+        if (!existe) return E('Pago no encontrado', 404);
+        return E('Este pago ya está revisado', 409);
+      }
       return J({ ok: true });
     }
     if ((m = path.match(/^\/api\/modulos\/tesoreria\/tickets\/(\d+)$/)) && method === 'GET') {
@@ -272,8 +315,10 @@ export async function routeModulos(req, env, me, method, path, body) {
       if (movimientoId && !await env.DB.prepare('SELECT id FROM movimientos WHERE id=?').bind(movimientoId).first()) return E('El gasto asociado no existe');
       const sabadoId = body.sabado_id ? num(body.sabado_id) : null;
       if (sabadoId && !await env.DB.prepare('SELECT id FROM sabados WHERE id=?').bind(sabadoId).first()) return E('El sábado asociado no existe');
-      const r = await env.DB.prepare('INSERT INTO tickets(movimiento_id,sabado_id,nombre_archivo,mime,datos,tamano,subido_por) VALUES(?,?,?,?,?,?,?)')
-        .bind(movimientoId, sabadoId, nombre, mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id).run();
+      const turnoId = body.turno_cocina_id ? num(body.turno_cocina_id) : null;
+      if (turnoId && !await env.DB.prepare('SELECT id FROM turnos_cocina WHERE id=?').bind(turnoId).first()) return E('El turno de cocina asociado no existe');
+      const r = await env.DB.prepare('INSERT INTO tickets(movimiento_id,sabado_id,turno_cocina_id,nombre_archivo,mime,datos,tamano,subido_por) VALUES(?,?,?,?,?,?,?,?)')
+        .bind(movimientoId, sabadoId, turnoId, nombre, mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id).run();
       return J({ ok: true, id: r.meta.last_row_id });
     }
     return E('Ruta de tesorería no encontrada', 404);
