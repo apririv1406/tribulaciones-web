@@ -102,12 +102,16 @@ r = await call('PUT', '/api/modulos/tesoreria/config', { cuota_mensual: 35, saba
 r = await call('PUT', '/api/modulos/tesoreria/config', { cuotas_extraordinarias: [{ nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' }] }, adm); assert.equal(r.status, 200);
 r = await call('PUT', '/api/modulos/tesoreria/config', { saldo_inicial: { fecha: '2098-12-31', banco: 850, caja: 120 } }, adm); assert.equal(r.status, 200);
 r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); assert.equal(r.data.saldo_inicial.banco_centimos, 85000); assert.equal(r.data.saldo_inicial.caja_centimos, 12000);
-r = await call('POST', '/api/modulos/tesoreria/gastos-fijos', { concepto: 'Alquiler de prueba', categoria: 'Local', importe: 25, periodicidad: 'mensual', dia: 1 }, adm); assert.equal(r.status, 200);
+r = await call('POST', '/api/modulos/tesoreria/gastos-fijos', { concepto: 'Alquiler de prueba', categoria: 'Local', importe: 25, periodicidad: 'mensual', dia: 1, cuenta: 'Caja fuerte', variable: true, mes: 1 }, adm); assert.equal(r.status, 200); const gastoFijoId = r.data.id;
 let tareaProgramada;
 await worker.scheduled({ scheduledTime: Date.UTC(2099, 0, 1, 1, 0, 0) }, env, { waitUntil: p => { tareaProgramada=p; } });
 await tareaProgramada;
 r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.status, 200); assert.ok(r.data.cuotas.some(x => x.periodo === '2099-01' && x.importe_centimos === 3500));
-r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); assert.equal(r.data.movimientos.filter(x => x.concepto === 'Alquiler de prueba').length, 1);
+r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); assert.equal(r.data.movimientos.filter(x => x.concepto === 'Alquiler de prueba').length, 0);
+const periodoFijo = new Date().toISOString().slice(0,7);
+r = await call('POST', '/api/modulos/tesoreria/gastos-fijos/'+gastoFijoId+'/registrar', { periodo: periodoFijo, importe: 27.5 }, adm); assert.equal(r.status, 200);
+r = await call('POST', '/api/modulos/tesoreria/gastos-fijos/'+gastoFijoId+'/registrar', { periodo: periodoFijo, importe: 27.5 }, adm); assert.equal(r.status, 409);
+r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); const gastoRegistrado = r.data.movimientos.find(x => x.concepto === 'Alquiler de prueba'); assert.ok(gastoRegistrado); assert.equal(gastoRegistrado.importe_centimos, 2750); assert.equal(gastoRegistrado.cuenta, 'Caja fuerte');
 
 r = await call('POST', '/api/modulos/sabados', { fecha: '2099-01-03', titulo: 'Sábado de prueba' }, adm); assert.equal(r.status, 200); const sid = r.data.id;
 r = await call('POST', `/api/modulos/sabados/${sid}/asistencia`, { asiste: true, acompanantes: 1, alergias: 'Sin gluten (celiaquía)' }, adm); assert.equal(r.status, 200);
