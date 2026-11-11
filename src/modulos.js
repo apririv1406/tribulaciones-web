@@ -395,10 +395,11 @@ export async function routeModulos(req, env, me, method, path, body) {
         refresco_precio: 'refresco_precio_centimos'
       };
       const ops = [];
+      const actualizaPrecios = Object.keys(campos).some(campo => body[campo] !== undefined);
       for (const [campo, clave] of Object.entries(campos)) {
         if (body[campo] === undefined || body[campo] === '') {
-          if (campo !== 'cuota_mensual') continue;
-          return E('Indica una cuota mensual válida');
+          if (campo === 'cuota_mensual' && actualizaPrecios) return E('Indica una cuota mensual válida');
+          continue;
         }
         const numero = Number(String(body[campo]).replace(',', '.'));
         if (!Number.isFinite(numero) || numero < 0 || (campo === 'cuota_mensual' && numero === 0)) return E('Revisa los importes de configuración');
