@@ -1,6 +1,7 @@
+
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  name = "tribulaciones-web"
+  "name": "tribulaciones-web",
   "main": "src/index.js",
   "compatibility_date": "2026-10-01",
   "assets": {
@@ -15,5 +16,13 @@
       "database_id": "7a14068c-db18-4041-8f37-3fd0bfa02a3a"
     }
   ],
-  "observability": { "enabled": true }
+  "vars": {
+    "ADMIN_EMAIL": "albaprieto1406@gmail.com",
+    "ADMIN_NAME": "Alba Prieto",
+    "MAIL_FROM": "Las Tribulaciones de Sara <onboarding@resend.dev>",
+    "SITE_URL": "https://tribulaciones-web.aprstudio.workers.dev"
+  },
+  "observability": {
+    "enabled": true
+  }
 }
