@@ -51,8 +51,10 @@ export async function routeModulos(req, env, me, method, path, body) {
   // SÁBADOS Y ASISTENCIA
   if (path === '/api/modulos/sabados' && method === 'GET') {
     const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,a.alergias mis_alergias,a.observaciones mi_observaciones,
+      COALESCE(c.copas,0) mis_copas,COALESCE(c.refrescos,0) mis_refrescos,
       (SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1) confirmadas
-      FROM sabados s LEFT JOIN asistencias_sabado a ON a.sabado_id=s.id AND a.hermana_id=? ORDER BY s.fecha DESC,s.id DESC LIMIT 40`).bind(me.id));
+      FROM sabados s LEFT JOIN asistencias_sabado a ON a.sabado_id=s.id AND a.hermana_id=?
+      LEFT JOIN consumos_sabado c ON c.sabado_id=s.id AND c.hermana_id=? ORDER BY s.fecha DESC,s.id DESC LIMIT 40`).bind(me.id,me.id));
     return J(data);
   }
   if (path === '/api/modulos/sabados' && method === 'POST') {
@@ -90,8 +92,23 @@ export async function routeModulos(req, env, me, method, path, body) {
   }
   if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/asistencias$/)) && method === 'GET') {
     if (!tes(me)) return E('Solo tesorería o administración puede consultar el listado', 403);
-    return J(await rows(env.DB.prepare(`SELECT a.*,h.nombre,h.telefono FROM asistencias_sabado a JOIN hermanas h ON h.id=a.hermana_id WHERE a.sabado_id=? ORDER BY h.nombre`).bind(+m[1])));
+    return J(await rows(env.DB.prepare(`SELECT a.*,h.nombre,h.telefono,COALESCE(c.copas,0) copas,COALESCE(c.refrescos,0) refrescos FROM asistencias_sabado a JOIN hermanas h ON h.id=a.hermana_id LEFT JOIN consumos_sabado c ON c.sabado_id=a.sabado_id AND c.hermana_id=a.hermana_id WHERE a.sabado_id=? ORDER BY h.nombre`).bind(+m[1])));
   }
+  if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/consumos$/)) && method === 'POST') {
+    const id = +m[1];
+    const s = await env.DB.prepare('SELECT fecha FROM sabados WHERE id=?').bind(id).first();
+    if (!s) return E('Sábado no encontrado', 404);
+    if (s.fecha >= new Date().toISOString().slice(0, 10)) return E('Las consumiciones se pueden apuntar cuando el sábado ya se ha celebrado', 409);
+    const asistencia = await env.DB.prepare('SELECT asiste FROM asistencias_sabado WHERE sabado_id=? AND hermana_id=?').bind(id, me.id).first();
+    if (!asistencia || !asistencia.asiste) return E('Solo puedes apuntar consumiciones si confirmaste tu asistencia', 403);
+    const copas = num(body.copas), refrescos = num(body.refrescos);
+    if (!Number.isInteger(copas) || copas < 0 || copas > 50 || !Number.isInteger(refrescos) || refrescos < 0 || refrescos > 50) return E('Indica cantidades válidas (entre 0 y 50)');
+    await env.DB.prepare(`INSERT INTO consumos_sabado(sabado_id,hermana_id,copas,refrescos,actualizado) VALUES(?,?,?,?,datetime('now'))
+      ON CONFLICT(sabado_id,hermana_id) DO UPDATE SET copas=excluded.copas,refrescos=excluded.refrescos,actualizado=datetime('now')`)
+      .bind(id,me.id,copas,refrescos).run();
+    return J({ ok: true });
+  }
+
 
   // MI CUENTA: cada hermana solo puede consultar y registrar sus propios pagos.
   if (path === '/api/modulos/cuenta' && method === 'GET') {
