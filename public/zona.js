@@ -27,7 +27,7 @@ function telefonoWhatsApp(valor) {
 }
 
 /* ---------- estructura ---------- */
-const items = () => !ME ? [] : [['#/', 'Inicio'], ...(ME.admin ? [['#/admin/hermanas', 'Administración']] : []), ['#/perfil', 'Mi perfil']];
+const items = () => !ME ? [] : [['#/', 'Inicio'], ['#/sabados', 'Sábados'], ['#/cuenta', 'Mi cuenta'], ['#/cocina', 'Cocina'], ...(ME.actas ? [['#/actas', 'Actas y juntas']] : []), ...(ME.tes ? [['#/tesoreria', 'Tesorería']] : []), ...(ME.admin ? [['#/admin/hermanas', 'Administración']] : []), ['#/perfil', 'Mi perfil']];
 function shell(html) {
   LAST = html;
   const cur = location.hash || '#/', its = items();
@@ -58,10 +58,65 @@ function vSetup() {
 
 /* ---------- zona ---------- */
 function vInicio() {
-  const mod = (t, d) => `<div class="card"><span class="pill">Próximamente</span><h3 style="margin-top:10px">${t}</h3><p class="mu" style="margin:0">${d}</p></div>`;
+  const mod = (t, d, href) => `<a class="card" href="${href}" style="display:block;color:inherit;text-decoration:none"><h3 style="margin-top:0">${t}</h3><p class="mu" style="margin:0">${d}</p></a>`;
   shell(`<div class="top"><div class="tag">Zona hermana</div><h2>Hola, ${esc(ME.nombre.split(' ')[0])}</h2><p class="mu" style="margin:0">${esc(ME.cargo || 'Hermana')}</p></div>
 ${ME.admin ? `<div class="card" style="margin:18px 0"><h3>Administración</h3><p class="mu">Gestiona las hermanas, sus cargos, la bienvenida por WhatsApp, las noticias y la historia de la web.</p><a class="btn" href="#/admin/hermanas">Ir a la administración</a></div>` : ''}
-<h3 style="margin:22px 0 12px">Lo que vamos a ir abriendo</h3><div class="grid">${mod('Sábados y asistencia', 'Confirmar asistencia, invitadas y avisos de alergias.')}${mod('Mi cuenta', 'Lo que debes, tus pagos y registrar un pago.')}${mod('Cocina', 'Turnos, presupuesto de compra y tickets.')}${mod('Actas y juntas', 'Convocatorias, orden del día y actas.')}${ME.tes ? mod('Tesorería', 'Movimientos, gastos fijos, informes y puntear pagos.') : ''}</div>`);
+<h3 style="margin:22px 0 12px">Zona hermana</h3><div class="grid">${mod('Sábados y asistencia', 'Confirma tu asistencia, añade acompañantes y comunica alergias.', '#/sabados')}${mod('Mi cuenta', 'Consulta tus cuotas, pagos y movimientos.', '#/cuenta')}${mod('Cocina', 'Consulta turnos, menús, presupuesto y alergias.', '#/cocina')}${ME.actas ? mod('Actas y juntas', 'Convocatorias, orden del día, asistentes y actas.', '#/actas') : ''}${ME.tes ? mod('Tesorería', 'Movimientos, gastos fijos, tickets, cuotas e informes.', '#/tesoreria') : ''}</div>`);
+}
+
+const euros = n => (Number(n || 0) / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+const fechaBonita = f => f ? new Date(`${f}T12:00:00`).toLocaleDateString('es-ES') : '—';
+const readFileData = file => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('No se ha podido leer el archivo')); r.readAsDataURL(file); });
+
+async function vSabados() {
+  const ss = await api('GET', '/modulos/sabados');
+  return shell(`<div class="top"><div class="tag">Zona hermana</div><h2>Sábados y asistencia</h2><p class="mu" style="margin:0">Confirma tu asistencia y comunica si vienes acompañada.</p></div>
+${ME.admin || ME.tes ? `<div class="card" style="margin:16px 0"><h3>Organizar un sábado</h3><form data-f="sabado-new"><div class="row" style="align-items:flex-end"><div style="flex:1 1 150px">${campo('fecha','Fecha','type="date" required')}</div><div style="flex:1 1 120px">${campo('hora','Hora','type="time"')}</div><div style="flex:2 1 220px">${campo('titulo','Actividad','required maxlength="120"')}</div><button class="btn">Crear</button></div><label class="fl" style="text-align:left">Información</label><textarea class="t" name="descripcion" rows="2"></textarea></form></div>` : ''}
+<div class="grid">${ss.length ? ss.map(s => `<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><span class="pill ${s.estado === 'abierto' ? 'ok' : ''}">${s.estado === 'abierto' ? 'Abierto' : s.estado === 'cancelado' ? 'Cancelado' : 'Cerrado'}</span><span class="mu">${fechaBonita(s.fecha)} ${esc(s.hora || '')}</span></div><h3>${esc(s.titulo)}</h3><p class="mu">${esc(s.descripcion || '')}</p><p class="mu">${s.confirmadas || 0} confirmaciones</p>
+${s.estado === 'abierto' ? `<form data-f="sabado-rsvp" data-id="${s.id}"><label class="fl" style="text-align:left">¿Vas a asistir?</label><select class="t" name="asiste"><option value="1" ${s.mi_asistencia === 1 ? 'selected' : ''}>Sí, asistiré</option><option value="0" ${s.mi_asistencia === 0 ? 'selected' : ''}>No podré asistir</option></select><div class="row" style="margin-top:10px"><div style="flex:0 0 120px">${campo('acompanantes','Acompañantes','type="number" min="0" max="20" value="'+(s.mis_acompanantes || 0)+'"')}</div><div style="flex:1 1 180px">${campo('detalle_acompanantes','Nombres de acompañantes','value="'+esc(s.detalle_acompanantes || '')+'"')}</div></div><label class="fl" style="text-align:left">Alergias o intolerancias</label><textarea class="t" name="alergias" rows="2">${esc(s.mis_alergias || '')}</textarea><label class="fl" style="text-align:left">Observaciones</label><textarea class="t" name="observaciones" rows="2">${esc(s.mi_observaciones || '')}</textarea><button class="btn" style="margin-top:12px">Guardar asistencia</button></form>` : '<p class="mu">Este sábado ya no admite cambios.</p>'}
+${ME.admin || ME.tes ? `<p style="margin:14px 0 0"><button class="chip" type="button" data-a="sabado-asistentes" data-id="${s.id}">Ver asistentes</button></p>` : ''}</div>`).join('') : '<div class="card"><p class="mu">Todavía no hay sábados publicados.</p></div>'}</div>`);
+}
+
+async function vCuenta() {
+  const d = await api('GET', '/modulos/cuenta');
+  const pendientes = d.cuotas.filter(c => c.estado !== 'pagada');
+  return shell(`<div class="top"><div class="tag">Zona hermana</div><h2>Mi cuenta</h2><p class="mu" style="margin:0">Tus cuotas y el estado de tus pagos.</p></div>
+<div class="grid" style="margin-top:16px"><div class="card"><div class="mu">Cuotas pendientes o parciales</div><h2>${pendientes.length}</h2></div><div class="card"><div class="mu">Total pendiente</div><h2>${euros(pendientes.reduce((a,c)=>a+c.restante_centimos,0))}</h2></div></div>
+<div class="card" style="margin-top:16px"><h3>Mis cuotas</h3>${d.cuotas.length ? d.cuotas.map(c => `<div class="mv"><div class="x"><b>${esc(c.periodo)}</b><br><small class="mu">${c.estado === 'pagada' ? 'Pagada' : c.estado === 'parcial' ? 'Pago parcial' : 'Pendiente'}</small></div><b>${euros(c.importe_centimos)}</b></div>`).join('') : '<p class="mu">Todavía no hay cuotas generadas.</p>'}</div>
+<div class="card" style="margin-top:16px"><h3>Registrar un pago</h3><p class="mu">El pago quedará pendiente de revisión por tesorería hasta que se confirme.</p><form data-f="cuenta-pago"><div class="row" style="align-items:flex-end"><div style="flex:1 1 160px"><label class="fl">Cuota</label><select class="t" name="cuota_id"><option value="">Otro pago / varias cuotas</option>${pendientes.map(c=>`<option value="${c.id}">${esc(c.periodo)} · ${euros(c.importe_centimos)}</option>`).join('')}</select></div><div style="flex:1 1 120px">${campo('importe','Importe (€)','type="number" min="0.01" step="0.01" required')}</div><div style="flex:1 1 150px">${campo('fecha_pago','Fecha de pago','type="date" required')}</div><div style="flex:1 1 150px"><label class="fl">Método</label><select class="t" name="metodo"><option>Transferencia</option><option>Efectivo</option><option>Bizum</option><option>Otro</option></select></div><button class="btn">Registrar</button></div>${campo('concepto','Observaciones','maxlength="300"')}</form></div>
+<div class="card" style="margin-top:16px"><h3>Historial de pagos</h3>${d.pagos.length ? d.pagos.map(p=>`<div class="mv"><div class="x"><b>${fechaBonita(p.fecha_pago)} · ${esc(p.periodo || p.concepto || 'Pago')}</b><br><small class="mu">${esc(p.metodo || '')} · ${p.estado === 'confirmado' ? 'Confirmado' : p.estado === 'rechazado' ? 'Rechazado' : 'Pendiente de revisión'}</small></div><b>${euros(p.importe_centimos)}</b></div>`).join('') : '<p class="mu">No hay pagos registrados.</p>'}</div>`);
+}
+
+async function vCocina() {
+  const d = await api('GET', '/modulos/cocina');
+  return shell(`<div class="top"><div class="tag">Zona hermana</div><h2>Cocina</h2><p class="mu" style="margin:0">Turnos, menús y organización de las comidas.</p></div>
+${ME.admin || ME.tes ? `<div class="card" style="margin:16px 0"><h3>Nuevo turno</h3><form data-f="cocina-new"><div class="row" style="align-items:flex-end"><div style="flex:1 1 140px">${campo('fecha','Fecha','type="date" required')}</div><div style="flex:1 1 130px">${campo('turno','Turno','placeholder="Comida / cena"')}</div><div style="flex:1 1 180px">${campo('responsable','Responsable')}</div><div style="flex:1 1 130px">${campo('presupuesto','Presupuesto (€)','type="number" min="0" step="0.01"')}</div><button class="btn">Añadir</button></div><label class="fl" style="text-align:left">Menú</label><textarea class="t" name="menu" rows="3"></textarea><label class="fl" style="text-align:left">Observaciones</label><textarea class="t" name="observaciones" rows="2"></textarea></form></div>` : ''}
+<div class="grid">${d.turnos.length ? d.turnos.map(t=>`<div class="card"><div class="mu">${fechaBonita(t.fecha)} · ${esc(t.turno || '')}</div><h3>${esc(t.responsable || 'Turno de cocina')}</h3><p>${esc(t.menu || 'Menú pendiente')}</p>${t.presupuesto_centimos ? `<p class="mu">Presupuesto: ${euros(t.presupuesto_centimos)}</p>` : ''}<p class="mu">${esc(t.observaciones || '')}</p>${ME.admin || ME.tes ? `<button class="chip" data-a="cocina-del" data-id="${t.id}">Eliminar turno</button>` : ''}</div>`).join('') : '<div class="card"><p class="mu">Todavía no hay turnos organizados.</p></div>'}</div>
+<div class="card" style="margin-top:16px"><h3>Tickets de compra</h3><p class="mu">Sube una fotografía o PDF del justificante de compra para que quede guardado.</p><form data-f="cocina-ticket"><div class="row" style="align-items:flex-end"><div style="flex:1 1 150px">${campo('sabado_id','ID del sábado (opcional)','type="number" min="1"')}</div><div style="flex:2 1 220px"><label class="fl">Ticket</label><input class="t" type="file" name="ticket" accept="image/jpeg,image/png,image/webp,application/pdf" required></div><button class="btn">Subir ticket</button></div></form>${d.tickets.length ? d.tickets.map(t=>`<div class="mv"><div class="x"><b>${esc(t.nombre_archivo)}</b><br><small class="mu">${fechaBonita((t.creado || '').slice(0,10))}</small></div><a class="chip" target="_blank" href="/api/modulos/cocina/tickets/${t.id}">Abrir</a></div>`).join('') : '<p class="mu">Todavía no has subido tickets.</p>'}</div>
+<div class="card" style="margin-top:16px"><h3>Alergias e intolerancias</h3>${d.alergias.length ? d.alergias.map(a=>`<div class="mv"><div class="x"><b>${esc(a.nombre)}</b><br><small class="mu">${esc(a.alergias || 'Sin alergias indicadas')} ${esc(a.observaciones || '')}</small></div></div>`).join('') : '<p class="mu">No hay información de alergias disponible.</p>'}<form data-f="alergias" style="margin-top:14px"><label class="fl" style="text-align:left">Mis alergias o intolerancias</label><textarea class="t" name="alergias" rows="2" placeholder="Indica aquí alergias o intolerancias">${esc(d.alergias.find(a=>a.hermana_id===ME.id)?.alergias || '')}</textarea><label class="fl" style="text-align:left">Observaciones</label><textarea class="t" name="observaciones" rows="2">${esc(d.alergias.find(a=>a.hermana_id===ME.id)?.observaciones || '')}</textarea><button class="btn" style="margin-top:10px">Guardar información</button></form></div>`);
+}
+
+async function vActas() {
+  const d = await api('GET', '/modulos/actas');
+  return shell(`<div class="top"><div class="tag">Panel privado</div><h2>Actas y juntas</h2><p class="mu" style="margin:0">Convocatorias, orden del día, asistencia y acuerdos.</p></div>
+<div class="card" style="margin:16px 0"><h3>Convocar una junta</h3><form data-f="junta-new"><div class="row" style="align-items:flex-end"><div style="flex:1 1 140px">${campo('fecha','Fecha','type="date" required')}</div><div style="flex:1 1 120px">${campo('hora','Hora','type="time"')}</div><div style="flex:1 1 180px">${campo('lugar','Lugar')}</div><button class="btn">Crear convocatoria</button></div><label class="fl" style="text-align:left">Convocatoria</label><textarea class="t" name="convocatoria" rows="2"></textarea><label class="fl" style="text-align:left">Orden del día</label><textarea class="t" name="orden_dia" rows="3"></textarea></form></div>
+${d.juntas.length ? d.juntas.map(j=>{const a=d.actas.find(x=>x.junta_id===j.id), ids=d.asistencias.filter(x=>x.junta_id===j.id).map(x=>x.hermana_id);return `<div class="card" style="margin-bottom:14px"><div class="row" style="justify-content:space-between"><span class="pill">${esc(j.estado)}</span><span class="mu">${fechaBonita(j.fecha)} ${esc(j.hora || '')}</span></div><h3>${esc(j.lugar || 'Junta')}</h3><p>${esc(j.convocatoria || '')}</p><p class="mu"><b>Orden del día</b><br>${esc(j.orden_dia || 'Sin definir')}</p><p class="mu">Asistentes registrados: ${j.asistentes || 0}</p><form data-f="junta-asistencia" data-id="${j.id}"><label class="fl" style="text-align:left">Control de asistencia</label><div class="grid">${d.hermanas.map(h=>`<label class="mu"><input type="checkbox" name="hermana" value="${h.id}" ${ids.includes(h.id)?'checked':''}> ${esc(h.nombre)}</label>`).join('')}</div><button class="chip" style="margin-top:10px">Guardar asistentes</button></form><form data-f="acta-save" data-id="${j.id}" style="margin-top:14px"><label class="fl" style="text-align:left">Acta</label><textarea class="t" name="texto" rows="5" required>${esc(a?.texto || '')}</textarea><label class="fl" style="text-align:left">Acuerdos</label><textarea class="t" name="acuerdos" rows="3">${esc(a?.acuerdos || '')}</textarea><button class="btn" style="margin-top:10px">Guardar acta</button></form><p style="margin:12px 0 0"><button class="chip" data-a="junta-del" data-id="${j.id}">Eliminar junta</button></p></div>`}).join('') : '<div class="card"><p class="mu">Todavía no hay juntas convocadas.</p></div>'}`);
+}
+
+async function vTesoreria() {
+  const d = await api('GET', '/modulos/tesoreria');
+  const ingresos = d.totales.ingresos, gastos = d.totales.gastos;
+  return shell(`<div class="top"><div class="tag">Panel privado</div><h2>Tesorería</h2><p class="mu" style="margin:0">Control de cuotas, ingresos, gastos y justificantes.</p></div>
+<div class="grid" style="margin-top:16px"><div class="card"><div class="mu">Ingresos</div><h2>${euros(ingresos)}</h2></div><div class="card"><div class="mu">Gastos</div><h2>${euros(gastos)}</h2></div><div class="card"><div class="mu">Saldo</div><h2>${euros(ingresos-gastos)}</h2></div></div>
+<div class="card" style="margin-top:16px"><h3>Cuota mensual</h3><p class="mu">La cuota se genera automáticamente el día 1 de cada mes para las hermanas activas. El importe se puede actualizar aquí.</p><form data-f="tes-config"><div class="row" style="align-items:flex-end"><div style="flex:1 1 180px">${campo('cuota_mensual','Importe mensual (€)','type="number" min="0.01" step="0.01" required value="'+(d.cuota_mensual || '')+'"')}</div><button class="btn">Guardar cuota</button></div></form>${d.resumen_cuotas.map(c=>`<div class="mv"><div class="x"><b>${esc(c.periodo)}</b><br><small class="mu">${esc(c.estado)} · ${c.cantidad} hermanas</small></div><b>${euros(c.total)}</b></div>`).join('')}</div>
+<div class="card" style="margin-top:16px"><h3>Cuotas pendientes</h3>${d.cuotas_pendientes.length ? d.cuotas_pendientes.map(c=>`<div class="mv"><div class="x"><b>${esc(c.nombre)} · ${esc(c.periodo)}</b><br><small class="mu">${esc(c.estado)}</small></div><b>${euros(c.restante_centimos)}</b></div>`).join('') : '<p class="mu">No hay cuotas pendientes.</p>'}</div>
+<div class="card" style="margin-top:16px"><h3>Resumen anual</h3>${d.informes.length ? d.informes.map(i=>`<div class="mv"><div class="x"><b>${esc(i.anio)}</b><br><small class="mu">Ingresos: ${euros(i.ingresos)} · Gastos: ${euros(i.gastos)}</small></div><b>${euros(i.ingresos-i.gastos)}</b></div>`).join('') : '<p class="mu">Todavía no hay movimientos para resumir.</p>'}</div>
+<div class="card" style="margin-top:16px"><h3>Pagos pendientes de revisar</h3>${d.pagos_pendientes.length ? d.pagos_pendientes.map(p=>`<div class="mv"><div class="x"><b>${esc(p.hermana)} · ${euros(p.importe_centimos)}</b><br><small class="mu">${fechaBonita(p.fecha_pago)} · ${esc(p.periodo || p.concepto || '')}</small></div><button class="chip on" data-a="pago-confirm" data-id="${p.id}">Confirmar</button><button class="chip" data-a="pago-reject" data-id="${p.id}">Rechazar</button></div>`).join('') : '<p class="mu">No hay pagos pendientes.</p>'}</div>
+<div class="card" style="margin-top:16px"><h3>Registrar movimiento</h3><form data-f="tes-movimiento"><div class="row" style="align-items:flex-end"><div style="flex:1 1 130px"><label class="fl">Tipo</label><select class="t" name="tipo"><option value="ingreso">Ingreso</option><option value="gasto">Gasto</option></select></div><div style="flex:1 1 140px">${campo('fecha','Fecha','type="date" required')}</div><div style="flex:2 1 200px">${campo('concepto','Concepto','required')}</div><div style="flex:1 1 120px">${campo('categoria','Categoría')}</div><div style="flex:1 1 120px">${campo('importe','Importe (€)','type="number" min="0.01" step="0.01" required')}</div><button class="btn">Guardar</button></div></form></div>
+<div class="card" style="margin-top:16px"><h3>Gastos fijos</h3>${d.gastos_fijos.map(g=>`<div class="mv"><div class="x"><b>${esc(g.concepto)}</b><br><small class="mu">${esc(g.periodicidad)} · día ${g.dia} · ${g.activo ? 'Activo' : 'Inactivo'}</small></div><b>${euros(g.importe_centimos)}</b><button class="chip" data-a="fijo-del" data-id="${g.id}">Eliminar</button></div>`).join('')}<form data-f="tes-fijo" style="margin-top:14px"><div class="row" style="align-items:flex-end"><div style="flex:2 1 180px">${campo('concepto','Concepto','required')}</div><div style="flex:1 1 120px">${campo('importe','Importe (€)','type="number" min="0.01" step="0.01" required')}</div><div style="flex:1 1 130px"><label class="fl">Periodicidad</label><select class="t" name="periodicidad"><option value="mensual">Mensual</option><option value="trimestral">Trimestral</option><option value="anual">Anual</option></select></div><div style="flex:0 0 90px">${campo('dia','Día','type="number" min="1" max="28" value="1"')}</div><button class="btn">Añadir gasto fijo</button></div></form></div>
+<div class="card" style="margin-top:16px"><h3>Tickets y justificantes</h3><p class="mu">Puedes adjuntar fotografías o PDF a un movimiento de gasto.</p><form data-f="tes-ticket"><div class="row" style="align-items:flex-end"><div style="flex:1 1 140px">${campo('movimiento_id','ID del movimiento (opcional)','type="number" min="1"')}</div><div style="flex:1 1 140px">${campo('sabado_id','ID del sábado (opcional)','type="number" min="1"')}</div><div style="flex:2 1 220px"><label class="fl">Archivo</label><input class="t" type="file" name="ticket" accept="image/jpeg,image/png,image/webp,application/pdf" required></div><button class="btn">Subir ticket</button></div></form></div>
+<div class="card" style="margin-top:16px"><h3>Movimientos</h3>${d.movimientos.map(x=>`<div class="mv"><div class="x"><b>${esc(x.concepto)}</b><br><small class="mu">${fechaBonita(x.fecha)} · ${esc(x.categoria || '')} ${esc(x.hermana || '')}</small></div><b>${x.tipo==='gasto'?'−':'+'}${euros(x.importe_centimos)}</b>${x.tickets ? x.tickets.split(',').map(id=>`<a class="chip" target="_blank" href="/api/modulos/tesoreria/tickets/${id}">Ver ticket</a>`).join('') : ''}</div>`).join('')}</div>
+<div class="card" style="margin-top:16px"><h3>Archivo de tickets</h3>${d.tickets.length ? d.tickets.map(t=>`<div class="mv"><div class="x"><b>${esc(t.nombre_archivo)}</b><br><small class="mu">${fechaBonita((t.creado || '').slice(0,10))} · ${esc(t.concepto || (t.sabado_id ? 'Compra de sábado' : 'Sin movimiento asociado'))}</small></div><a class="chip" target="_blank" href="/api/modulos/tesoreria/tickets/${t.id}">Abrir</a></div>`).join('') : '<p class="mu">Todavía no hay tickets guardados.</p>'}</div>`);
 }
 function vPerfil() {
   shell(`<div class="top"><div class="tag">Mi perfil</div><h2>${esc(ME.nombre)}</h2><p class="mu" style="margin:0">${esc(ME.email || '')} · ${esc(ME.cargo || 'Hermana')}</p></div>
@@ -88,94 +143,11 @@ async function vAdmin(tab) {
   if (tab === 'whatsapp') {
     return shell(adm(tab, `<div class="card" style="max-width:720px"><h3>Bienvenida y contraseñas por WhatsApp</h3><p class="mu">Desde la ficha de cada hermana puedes preparar un mensaje de WhatsApp con su enlace personal para crear la contraseña.</p><ul class="mu" style="padding-left:20px;line-height:1.8"><li>Añade su número de teléfono, preferiblemente con prefijo internacional.</li><li>Pulsa <b>Enviar bienvenida por WhatsApp</b> para abrir la conversación con el mensaje preparado.</li><li>Revisa el mensaje y pulsa Enviar en WhatsApp. No se envía automáticamente.</li><li>Para una contraseña nueva, utiliza <b>Restablecer contraseña</b>. El enlace caduca en 24 horas.</li></ul><p class="mu" style="font-size:13px;margin-bottom:0">Los enlaces son personales y de un solo uso. La bienvenida caduca en 7 días. No compartas el enlace con otras personas.</p></div>`));
   }
-if (tab === 'noticias') {
-  const ns = await api('GET', '/admin/noticias');
-  const hoy = new Date();
-  const fechaHoy = [
-    hoy.getFullYear(),
-    String(hoy.getMonth() + 1).padStart(2, '0'),
-    String(hoy.getDate()).padStart(2, '0')
-  ].join('-');
-
-  return shell(adm(tab, `
-    <div class="card">
-      <h3>Nueva noticia</h3>
-      <form data-f="noticia-new">
-        ${campo('titulo', 'Título', 'required maxlength="150" placeholder="Ej.: Sábado de Romanos"')}
-
-        <label class="fl" style="text-align:left">Fecha de publicación</label>
-        <input class="t" type="date" name="fecha" value="${fechaHoy}" required>
-
-        <label class="fl" style="text-align:left">Texto</label>
-        <textarea class="t" name="texto" rows="6" required maxlength="6000"></textarea>
-
-        <label class="fl" style="text-align:left">Fotografía (opcional)</label>
-        <input type="file" name="foto" accept="image/*">
-
-        <p style="margin:14px 0">
-          <label class="mu">
-            <input type="checkbox" name="visible_web" checked>
-            Mostrar noticia en la web pública
-          </label>
-        </p>
-
-        <button class="btn">Publicar noticia</button>
-      </form>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <h3>Noticias publicadas y guardadas</h3>
-      ${ns.length ? ns.map(n => `
-        <form class="mv" data-f="noticia-save" data-id="${n.id}"
-          style="display:block;border-bottom:1px solid var(--bd,#eee);padding:16px 0">
-
-          <div class="row" style="align-items:center;justify-content:space-between">
-            <b>${esc(n.titulo)}</b>
-            <span class="pill ${n.visible_web ? 'ok' : ''}">
-              ${n.visible_web ? 'Visible en la web' : 'Oculta'}
-            </span>
-          </div>
-
-          ${campo('titulo', 'Título', `value="${esc(n.titulo)}" required maxlength="150"`)}
-
-          <label class="fl" style="text-align:left">Fecha de publicación</label>
-          <input class="t" type="date" name="fecha" value="${esc(n.fecha)}" required>
-
-          <label class="fl" style="text-align:left">Texto</label>
-          <textarea class="t" name="texto" rows="5" required maxlength="6000">${esc(n.texto)}</textarea>
-
-          ${n.imagen ? `
-            <div style="margin:10px 0">
-              <img src="/media/${n.imagen}" alt=""
-                style="max-width:180px;max-height:120px;object-fit:cover;border-radius:10px">
-              <label class="mu" style="display:block;margin-top:6px">
-                <input type="checkbox" name="quitar_imagen">
-                Quitar fotografía actual
-              </label>
-            </div>
-          ` : ''}
-
-          <label class="fl" style="text-align:left">Cambiar fotografía (opcional)</label>
-          <input type="file" name="foto" accept="image/*">
-
-          <p style="margin:12px 0">
-            <label class="mu">
-              <input type="checkbox" name="visible_web" ${n.visible_web ? 'checked' : ''}>
-              Mostrar noticia en la web pública
-            </label>
-          </p>
-
-          <div class="row" style="margin-top:12px">
-            <button class="btn" style="padding:9px 20px">Guardar cambios</button>
-            <button type="button" class="chip" data-a="noticia-del" data-id="${n.id}">
-              Eliminar noticia
-            </button>
-          </div>
-        </form>
-      `).join('') : '<p class="mu">Todavía no hay noticias.</p>'}
-    </div>
-  `));
-}
+  if (tab === 'noticias') {
+    const d = await api('GET', '/public');
+    return shell(adm(tab, `<div class="card"><h3>Nueva noticia</h3><form data-f="noticia-new">${campo('titulo', 'Título', 'required maxlength="150" placeholder="Ej.: Sábado de Pan y Peces"')}<label class="fl" style="text-align:left">Texto</label><textarea class="t" name="texto" rows="6" required maxlength="6000" placeholder="Cuenta cómo fue el sábado…"></textarea><label class="fl" style="text-align:left">Foto (opcional)</label><input type="file" name="foto" accept="image/*"><p style="margin:18px 0 0"><button class="btn">Publicar en la web</button></p></form></div>
+<div class="card" style="margin-top:16px"><h3>Publicadas</h3>${d.noticias.length ? d.noticias.map(n => `<div class="mv">${n.imagen ? `<img src="/media/${n.imagen}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:10px">` : ''}<div class="x"><b>${esc(n.titulo)}</b><br><small class="mu">${esc(n.fecha)} · ${esc(n.texto.slice(0, 70))}…</small></div><button class="chip" data-a="noticia-del" data-id="${n.id}">Eliminar</button></div>`).join('') : '<p class="mu" style="margin:0">Todavía no hay noticias.</p>'}</div>`));
+  }
   if (tab === 'historia') {
     const d = await api('GET', '/public');
     return shell(adm(tab, `<div class="card"><h3>Línea de tiempo de la historia</h3><p class="mu">Cada hito aparece en la web pública, junto a la historia del cuartel.</p><form data-f="historia"><div id="hitos">${d.hitos.map(hitoRow).join('')}</div><p style="margin:14px 0 0"><button type="button" class="chip" data-a="hito-add">Añadir hito</button> <button class="btn">Guardar</button></p></form></div>`));
@@ -204,38 +176,21 @@ const FORM = {
     await api('PUT', '/admin/hermanas/' + f.dataset.id, b); toast('Guardado'); render();
   },
   async 'cargo-new'(f, d) { await api('POST', '/admin/cargos', { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Cargo creado'); render(); },
-  async 'noticia-new'(f, d) {
-  const b = {
-    titulo: d.get('titulo'),
-    texto: d.get('texto'),
-    fecha: d.get('fecha'),
-    visible_web: d.get('visible_web') === 'on'
-  };
-
-  const fl = d.get('foto');
-  if (fl && fl.size) b.imagen = await reducir(fl, 1400, 0.8);
-
-  await api('POST', '/admin/noticias', b);
-  toast('Noticia guardada correctamente');
-  render();
-},
-
-async 'noticia-save'(f, d) {
-  const b = {
-    titulo: d.get('titulo'),
-    texto: d.get('texto'),
-    fecha: d.get('fecha'),
-    visible_web: d.get('visible_web') === 'on',
-    quitar_imagen: d.get('quitar_imagen') === 'on'
-  };
-
-  const fl = d.get('foto');
-  if (fl && fl.size) b.imagen = await reducir(fl, 1400, 0.8);
-
-  await api('PUT', '/admin/noticias/' + f.dataset.id, b);
-  toast('Noticia actualizada');
-  render();
-},
+  async 'cargo-save'(f, d) { await api('PUT', '/admin/cargos/' + f.dataset.id, { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Guardado'); render(); },
+  async 'noticia-new'(f, d) { const b = { titulo: d.get('titulo'), texto: d.get('texto') }; const fl = d.get('foto'); if (fl && fl.size) b.imagen = await reducir(fl, 1400, 0.8); await api('POST', '/admin/noticias', b); toast('Noticia publicada. Ya aparece en la web.'); render(); },
+  async 'sabado-new'(f,d) { await api('POST','/modulos/sabados',{fecha:d.get('fecha'),hora:d.get('hora'),titulo:d.get('titulo'),descripcion:d.get('descripcion')}); toast('Sábado creado'); render(); },
+  async 'sabado-rsvp'(f,d) { await api('POST','/modulos/sabados/'+f.dataset.id+'/asistencia',{asiste:d.get('asiste')==='1',acompanantes:d.get('acompanantes'),detalle_acompanantes:d.get('detalle_acompanantes'),alergias:d.get('alergias'),observaciones:d.get('observaciones')}); toast('Asistencia guardada'); render(); },
+  async 'cuenta-pago'(f,d) { await api('POST','/modulos/cuenta/pagos',{cuota_id:d.get('cuota_id')||null,importe:d.get('importe'),fecha_pago:d.get('fecha_pago'),metodo:d.get('metodo'),concepto:d.get('concepto')}); toast('Pago registrado y pendiente de revisión'); render(); },
+  async 'cocina-new'(f,d) { await api('POST','/modulos/cocina',{fecha:d.get('fecha'),turno:d.get('turno'),responsable:d.get('responsable'),presupuesto:d.get('presupuesto'),menu:d.get('menu'),observaciones:d.get('observaciones')}); toast('Turno añadido'); render(); },
+  async 'cocina-ticket'(f,d) { const file=d.get('ticket'); if(!file || !file.size) throw new Error('Selecciona un ticket'); if(file.size>1024*1024) throw new Error('El archivo no puede superar 1 MB'); const datos=await readFileData(file); await api('POST','/modulos/cocina/tickets',{sabado_id:d.get('sabado_id')||null,nombre_archivo:file.name,datos}); toast('Ticket guardado'); render(); },
+  async alergias(f,d) { await api('PUT','/modulos/alergias',{alergias:d.get('alergias'),observaciones:d.get('observaciones')}); toast('Información guardada'); render(); },
+  async 'junta-new'(f,d) { await api('POST','/modulos/actas/juntas',{fecha:d.get('fecha'),hora:d.get('hora'),lugar:d.get('lugar'),convocatoria:d.get('convocatoria'),orden_dia:d.get('orden_dia')}); toast('Junta convocada'); render(); },
+  async 'acta-save'(f,d) { await api('PUT','/modulos/actas/juntas/'+f.dataset.id+'/acta',{texto:d.get('texto'),acuerdos:d.get('acuerdos')}); toast('Acta guardada'); render(); },
+  async 'junta-asistencia'(f,d) { await api('PUT','/modulos/actas/juntas/'+f.dataset.id+'/asistencia',{hermanas:d.getAll('hermana')}); toast('Asistencia actualizada'); render(); },
+  async 'tes-config'(f,d) { await api('PUT','/modulos/tesoreria/config',{cuota_mensual:d.get('cuota_mensual')}); toast('Cuota mensual guardada'); render(); },
+  async 'tes-movimiento'(f,d) { await api('POST','/modulos/tesoreria/movimientos',{tipo:d.get('tipo'),fecha:d.get('fecha'),concepto:d.get('concepto'),categoria:d.get('categoria'),importe:d.get('importe')}); toast('Movimiento registrado'); render(); },
+  async 'tes-fijo'(f,d) { await api('POST','/modulos/tesoreria/gastos-fijos',{concepto:d.get('concepto'),importe:d.get('importe'),periodicidad:d.get('periodicidad'),dia:d.get('dia')}); toast('Gasto fijo añadido'); render(); },
+  async 'tes-ticket'(f,d) { const file=d.get('ticket'); if(!file || !file.size) throw new Error('Selecciona un ticket'); if(file.size>1024*1024) throw new Error('El archivo no puede superar 1 MB'); const datos=await readFileData(file); await api('POST','/modulos/tesoreria/tickets',{movimiento_id:d.get('movimiento_id')||null,sabado_id:d.get('sabado_id')||null,nombre_archivo:file.name,datos}); toast('Ticket guardado'); render(); },
   async historia(f) { const hitos = [...f.querySelectorAll('#hitos .row')].map(r => ({ anio: r.querySelector('[name=anio]').value, texto: r.querySelector('[name=texto]').value })); const r = await api('PUT', '/admin/hitos', { hitos }); toast(`Guardado (${r.total} hitos)`); render(); },
 };
 async function abrirWhatsApp(el, tipo) {
@@ -264,6 +219,12 @@ const ACT = {
   async 'her-quitar-foto'(el) { await api('PUT', '/admin/hermanas/' + el.dataset.id, { quitar_foto: true }); toast('Foto quitada'); render(); },
   async 'cargo-del'(el) { if (!confirm('¿Borrar este cargo?')) return; await api('DELETE', '/admin/cargos/' + el.dataset.id); render(); },
   async 'noticia-del'(el) { if (!confirm('¿Eliminar esta noticia?')) return; await api('DELETE', '/admin/noticias/' + el.dataset.id); render(); },
+  async 'sabado-asistentes'(el) { const a=await api('GET','/modulos/sabados/'+el.dataset.id+'/asistencias'); alert(a.length ? a.map(x=>`${x.nombre}: ${x.asiste?'Asiste':'No asiste'}${x.acompanantes?' + '+x.acompanantes+' acompañantes':''}${x.alergias?' · Alergias: '+x.alergias:''}`).join('\n') : 'Todavía no hay confirmaciones.'); },
+  async 'pago-confirm'(el) { if(!confirm('¿Confirmar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/confirmar'); toast('Pago confirmado'); render(); },
+  async 'pago-reject'(el) { if(!confirm('¿Rechazar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/rechazar'); toast('Pago rechazado'); render(); },
+  async 'fijo-del'(el) { if(!confirm('¿Eliminar este gasto fijo?')) return; await api('DELETE','/modulos/tesoreria/gastos-fijos/'+el.dataset.id); render(); },
+  async 'cocina-del'(el) { if(!confirm('¿Eliminar este turno?')) return; await api('DELETE','/modulos/cocina/'+el.dataset.id); render(); },
+  async 'junta-del'(el) { if(!confirm('¿Eliminar esta junta y su acta?')) return; await api('DELETE','/modulos/actas/juntas/'+el.dataset.id); render(); },
   'hito-add'() { $('#hitos').insertAdjacentHTML('beforeend', hitoRow({ anio: '', texto: '' })); },
   'hito-del'(el) { el.closest('.row').remove(); },
 };
@@ -292,6 +253,11 @@ async function render() {
     if ((m = h.match(/^#\/error\/([\w-]+)$/))) return vLogin(m[1]);
     if (!ME) return vLogin();
     if (h === '#/perfil') return vPerfil();
+    if (h === '#/sabados') return await vSabados();
+    if (h === '#/cuenta') return await vCuenta();
+    if (h === '#/cocina') return await vCocina();
+    if (h === '#/actas') return ME.admin || ME.actas ? await vActas() : vInicio();
+    if (h === '#/tesoreria') return ME.admin || ME.tes ? await vTesoreria() : vInicio();
     if (h.startsWith('#/admin/')) return ME.admin ? await vAdmin(h.slice(8)) : vInicio();
     return vInicio();
   } catch (er) {
