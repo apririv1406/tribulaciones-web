@@ -250,7 +250,8 @@ async function media(req, env, id) {
 async function publico(env) {
   const [h, n, t] = await Promise.all([
     env.DB.prepare("SELECT h.nombre,c.nombre cargo,h.anio_entrada anio,h.foto_id foto FROM hermanas h LEFT JOIN cargos c ON c.id=h.cargo_id WHERE h.visible_web=1 AND h.estado!='Baja' ORDER BY COALESCE(c.orden,99),h.nombre").all(),
-    env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen FROM noticias ORDER BY fecha DESC,id DESC LIMIT 12').all(),
+    /*env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen FROM noticias ORDER BY fecha DESC,id DESC LIMIT 12').all(),*/
+    env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen FROM noticias WHERE visible_web=1 ORDER BY fecha DESC,id DESC LIMIT 12').all(),
     env.DB.prepare('SELECT anio,texto FROM hitos ORDER BY orden,id').all(),
   ]);
   return J({ hermanas: h.results, noticias: n.results, hitos: t.results }, 200, { 'Cache-Control': 'public, max-age=30' });
@@ -264,6 +265,16 @@ async function admin(req, env, me, m, p, b) {
     const rs = (await env.DB.prepare("SELECT h.id,h.nombre,h.email,h.telefono,h.cargo_id,c.nombre cargo,h.estado,h.es_admin,h.anio_entrada,h.visible_web,h.foto_id,h.pass_hash IS NOT NULL tiene_pass,h.invitada,h.ultimo_acceso FROM hermanas h LEFT JOIN cargos c ON c.id=h.cargo_id ORDER BY h.estado='Baja',h.nombre").all()).results;
     return J(rs.map(x => ({ id: x.id, nombre: x.nombre, email: x.email, telefono: x.telefono || '', cargo_id: x.cargo_id, cargo: x.cargo, estado: x.estado, es_admin: !!x.es_admin, anio_entrada: x.anio_entrada, visible_web: !!x.visible_web, foto: x.foto_id, cuenta: cuentaDe(x) })));
   }
+  if (m === 'GET' && p === '/api/admin/noticias') {
+  const rs = await env.DB.prepare(
+    'SELECT id,titulo,texto,fecha,imagen_id imagen,visible_web FROM noticias ORDER BY fecha DESC,id DESC'
+  ).all();
+
+  return J(rs.results.map(n => ({
+    ...n,
+    visible_web: !!n.visible_web
+  })));
+}
   if (m === 'POST' && p === '/api/admin/hermanas') return crearHermana(env, b);
   if (m === 'PUT' && (r = p.match(/^\/api\/admin\/hermanas\/(\d+)$/))) return editarHermana(env, +r[1], b);
   if (m === 'POST' && (r = p.match(/^\/api\/admin\/hermanas\/(\d+)\/(invitar|reset)$/))) return enviarA(env, req, +r[1], r[2]);
@@ -375,19 +386,57 @@ async function cargoBorrar(env, id) {
   return J({ ok: true });
 }
 async function noticiaGuardar(env, me, id, b) {
-  const titulo = String(b.titulo || '').trim(), texto = String(b.texto || '').trim();
-  if (titulo.length < 3 || titulo.length > 150) return E('Escribe un título');
-  if (texto.length < 3 || texto.length > 6000) return E('Escribe el texto de la noticia');
+  const titulo = String(b.titulo || '').trim();
+  const texto = String(b.texto || '').trim();
+  const fecha = String(b.fecha || new Date().toISOString().slice(0, 10));
+  const visible = b.visible_web === true ||
+    b.visible_web === 1 ||
+    b.visible_web === '1' ? 1 : 0;
+
+  if (titulo.length < 3 || titulo.length > 150) {
+    return E('Escribe un título');
+  }
+
+  if (texto.length < 3 || texto.length > 6000) {
+    return E('Escribe el texto de la noticia');
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) ||
+      Number.isNaN(Date.parse(fecha + 'T00:00:00Z'))) {
+    return E('La fecha no es válida');
+  }
+
   let img = null;
-  if (b.imagen) { img = await guardarImagen(env, b.imagen); if (!img) return E('La foto no es válida o pesa demasiado'); }
+
+  if (b.imagen) {
+    img = await guardarImagen(env, b.imagen);
+    if (!img) return E('La foto no es válida o pesa demasiado');
+  }
+
   if (!id) {
-    const r = await env.DB.prepare('INSERT INTO noticias(titulo,texto,imagen_id,autor_id) VALUES(?,?,?,?)').bind(titulo, texto, img, me.id).run();
+    const r = await env.DB.prepare(
+      'INSERT INTO noticias(titulo,texto,fecha,imagen_id,autor_id,visible_web) VALUES(?,?,?,?,?,?)'
+    ).bind(titulo, texto, fecha, img, me.id, visible).run();
+
     return J({ ok: true, id: r.meta.last_row_id });
   }
-  const cur = await env.DB.prepare('SELECT imagen_id FROM noticias WHERE id=?').bind(id).first();
+
+  const cur = await env.DB.prepare(
+    'SELECT imagen_id FROM noticias WHERE id=?'
+  ).bind(id).first();
+
   if (!cur) return E('No encontrada', 404);
+
   let nueva = cur.imagen_id;
-  if (b.quitar_imagen || img) { await borrarImagen(env, cur.imagen_id); nueva = img; }
-  await env.DB.prepare('UPDATE noticias SET titulo=?,texto=?,imagen_id=? WHERE id=?').bind(titulo, texto, nueva, id).run();
+
+  if (b.quitar_imagen || img) {
+    await borrarImagen(env, cur.imagen_id);
+    nueva = img;
+  }
+
+  await env.DB.prepare(
+    'UPDATE noticias SET titulo=?,texto=?,fecha=?,imagen_id=?,visible_web=? WHERE id=?'
+  ).bind(titulo, texto, fecha, nueva, visible, id).run();
+
   return J({ ok: true });
 }
