@@ -480,7 +480,7 @@ export async function routeModulos(req, env, me, method, path, body) {
       const mes=Number(periodo.slice(5,7));
       if(g.periodicidad==='anual'&&Number(g.mes)!==mes) return E('Este gasto no vence este mes');
       if(g.ultimo_periodo===periodo) return E('Este gasto ya está registrado este mes',409);
-      const importe=body.importe===undefined?Number(g.importe_centimos):money(body.importe);
+      const importe=g.variable?money(body.importe):Number(g.importe_centimos);
       if(!Number.isInteger(importe)||importe<=0) return E('Revisa el importe del gasto');
       const fecha=periodo+'-'+String(g.dia).padStart(2,'0');
       const ops=[
