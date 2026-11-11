@@ -20,7 +20,7 @@ const origin = (env, req) => (env.SITE_URL ? env.SITE_URL.replace(/\/$/, '') : n
 const emailOk = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && e.length <= 120;
 
 // Acepta números internacionales. Si se introducen 9 cifras españolas,
-// añade automáticamente el prefijo 34. WhatsApp necesita solo cifras.
+// añade automáticamente el prefijo 34.
 function normalizarTelefono(valor) {
   let n = String(valor || '').replace(/\D/g, '');
   if (n.startsWith('00')) n = n.slice(2);
@@ -131,7 +131,7 @@ async function forgot(req, env, b) {
   await fail(env, 'f:' + ip);
   const h = await env.DB.prepare("SELECT id,nombre,email,pass_hash FROM hermanas WHERE email=? AND estado!='Baja'").bind(email).first();
   // Se conserva el mecanismo anterior como compatibilidad, aunque la interfaz
-  // nueva indica pedir el restablecimiento a la administradora por WhatsApp.
+  // nueva indica pedir el restablecimiento a la administradora por correo electrónico.
   if (h) await enviarEnlace(env, req, h, h.pass_hash ? 'reset' : 'invitacion');
   return J({ ok: true });
 }
@@ -230,10 +230,6 @@ async function enviarEnlace(env, req, h, tipo) {
   if (tipo === 'invitacion' && res.ok) await env.DB.prepare("UPDATE hermanas SET invitada=datetime('now') WHERE id=?").bind(h.id).run();
   return res;
 }
-
-// Genera un token nuevo y devuelve el enlace para que la administradora
-// lo comparta manualmente por WhatsApp. Nunca se envía ningún mensaje solo.
-
 
 /* ---------- imágenes ---------- */
 async function guardarImagen(env, dataUrl) {
