@@ -494,7 +494,7 @@ export async function routeModulos(req, env, me, method, path, body) {
     }
     if ((m = path.match(/^\/api\/modulos\/tesoreria\/gastos-fijos\/(\d+)$/)) && (method === 'PUT' || method === 'DELETE')) {
       const id=+m[1];
-      if(method==='DELETE'){await env.DB.prepare('DELETE FROM gastos_fijos WHERE id=?').bind(id).run();return J({ok:true});}
+      if(method==='DELETE'){await env.DB.prepare('UPDATE gastos_fijos SET activo=0 WHERE id=?').bind(id).run();return J({ok:true});}
       const cur=await env.DB.prepare('SELECT * FROM gastos_fijos WHERE id=?').bind(id).first();
       if(!cur) return E('Gasto fijo no encontrado',404);
       const importe=body.importe!==undefined?money(body.importe):cur.importe_centimos;
