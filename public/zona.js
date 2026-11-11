@@ -3,7 +3,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(''));
 const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.600 2.400 30.200 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.800 6.100C12.300 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.500 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.700c-.6 3-2.300 5.500-4.800 7.200l7.500 5.800c4.400-4.100 7.100-10.100 7.100-17.500z"/><path fill="#FBBC05" d="M10.400 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.9-4.700l-7.800-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.800-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.700-4.100-13.600-9.800l-7.800 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
-let ME = null, MENU = false, LAST = '', PAGO_MODAL = false;
+let ME = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox';
 
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
@@ -86,7 +86,9 @@ const readFileData = file => new Promise((resolve, reject) => { const r = new Fi
 async function vSabados() {
   const ss = await api('GET', '/modulos/sabados');
   const fechaActual = new Date(); fechaActual.setHours(0,0,0,0);
-  const tarjetas = ss.map(s => {
+  const proximos = ss.filter(s => new Date(`${s.fecha}T12:00:00`) >= fechaActual);
+  const celebrados = ss.filter(s => new Date(`${s.fecha}T12:00:00`) < fechaActual);
+  const tarjetas = lista => lista.map(s => {
     const fecha = new Date(`${s.fecha}T12:00:00`);
     const pasado = fecha < fechaActual;
     const abierto = s.estado === 'abierto';
@@ -96,16 +98,18 @@ async function vSabados() {
     return `<article class="card sab ${pasado ? 'past' : abierto ? 'next' : ''}">
       <div class="date"><b>${esc(dia)}</b><span>${esc(mes)}</span></div>
       <div class="bd">
-        <div class="row" style="justify-content:space-between;align-items:center;gap:8px"><span class="pill ${abierto ? 'ok' : ''}">${abierto ? 'Confirmación abierta' : s.estado === 'cancelado' ? 'Cancelado' : 'Cerrado'}</span><span class="mu" style="font-size:13px">${esc(s.hora || '')}</span></div>
+        <div class="row" style="justify-content:space-between;align-items:center;gap:8px"><span class="pill ${abierto ? 'ok' : ''}">${pasado ? 'Celebrado' : abierto ? 'Confirmación abierta' : s.estado === 'cancelado' ? 'Cancelado' : 'Cerrado'}</span><span class="mu" style="font-size:13px">${esc(s.hora || '')}</span></div>
         <h3 style="margin:8px 0 4px">${esc(s.titulo)}</h3><p class="mu" style="margin:0 0 8px">${esc(s.descripcion || '')}</p>
         <div class="menu">${s.confirmadas || 0} confirmaciones · ${fechaBonita(s.fecha)}</div>
-        ${abierto ? `<form data-f="sabado-rsvp" data-id="${s.id}" style="margin-top:14px"><label class="fl">¿Vas a asistir?</label><div class="seg"><button type="button" class="${s.mi_asistencia === 1 ? 'y' : ''}" data-a="rsvp-choice" data-value="1">Sí, asistiré</button><button type="button" class="${s.mi_asistencia === 0 ? 'n' : ''}" data-a="rsvp-choice" data-value="0">No podré asistir</button></div><input type="hidden" name="asiste" value="${s.mi_asistencia === 0 ? '0' : '1'}"><div class="row"><div style="flex:0 0 120px">${campo('acompanantes','Invitadas','type="number" min="0" max="20" value="'+(s.mis_acompanantes || 0)+'"')}</div></div><label class="fl">Alergias o intolerancias</label><textarea class="t" name="alergias" rows="2">${esc(s.mis_alergias || '')}</textarea><label class="fl">Observaciones</label><textarea class="t" name="observaciones" rows="2">${esc(s.mi_observaciones || '')}</textarea><button class="btn" style="margin-top:12px">Guardar asistencia</button></form>` : '<p class="mu" style="margin:14px 0 0">Este sábado ya no admite cambios.</p>'}
+        ${!pasado && abierto ? `<form data-f="sabado-rsvp" data-id="${s.id}" style="margin-top:14px"><label class="fl">¿Vas a asistir?</label><div class="seg"><button type="button" class="${s.mi_asistencia === 1 ? 'y' : ''}" data-a="rsvp-choice" data-value="1">Sí, asistiré</button><button type="button" class="${s.mi_asistencia === 0 ? 'n' : ''}" data-a="rsvp-choice" data-value="0">No podré asistir</button></div><input type="hidden" name="asiste" value="${s.mi_asistencia === 0 ? '0' : '1'}"><div class="row"><div style="flex:0 0 120px">${campo('acompanantes','Invitadas','type="number" min="0" max="20" value="'+(s.mis_acompanantes || 0)+'"')}</div></div><label class="fl">Alergias o intolerancias</label><textarea class="t" name="alergias" rows="2">${esc(s.mis_alergias || '')}</textarea><label class="fl">Observaciones</label><textarea class="t" name="observaciones" rows="2">${esc(s.mi_observaciones || '')}</textarea><button class="btn" style="margin-top:12px">Guardar asistencia</button></form>` : ''}
+        ${pasado && s.mi_asistencia === 1 ? `<p class="mu" style="margin:12px 0 6px">Apunta las consumiciones que tomaste en este encuentro.</p><form data-f="sabado-consumos" data-id="${s.id}"><div class="row"><div style="flex:1 1 130px">${campo('copas','Copas','type="number" min="0" max="50" value="'+(s.mis_copas || 0)+'"')}</div><div style="flex:1 1 130px">${campo('refrescos','Refrescos','type="number" min="0" max="50" value="'+(s.mis_refrescos || 0)+'"')}</div></div><button class="btn" style="margin-top:10px">Guardar consumiciones</button></form>` : pasado ? '<p class="mu" style="margin:12px 0 0">No confirmaste asistencia a este sábado.</p>' : '<p class="mu" style="margin:14px 0 0">Este sábado ya no admite cambios.</p>'}
         ${ME.admin || ME.tes ? `<p style="margin:12px 0 0"><button class="chip" type="button" data-a="sabado-asistentes" data-id="${s.id}">Ver asistentes</button></p>` : ''}
       </div></article>`;
   }).join('');
-  return shell(`<div class="top"><div class="tag">Organización del cuartel</div><h2>Sábados y asistencia</h2><p class="mu" style="margin:0">Consulta los próximos encuentros y confirma si vas a acompañarnos.</p></div>
+  return shell(`<div class="top"><div class="tag">Organización del cuartel</div><h2>Sábados y asistencia</h2><p class="mu" style="margin:0">Consulta los próximos encuentros, confirma tu asistencia y registra tus consumiciones después de cada sábado.</p></div>
   ${ME.admin || ME.tes ? `<section class="card" style="margin:18px 0"><div class="tag">Agenda</div><h3>Organizar un sábado</h3><form data-f="sabado-new"><div class="row" style="align-items:flex-end"><div style="flex:1 1 150px">${campo('fecha','Fecha','type="date" required')}</div><div style="flex:1 1 120px">${campo('hora','Hora','type="time"')}</div><div style="flex:2 1 220px">${campo('titulo','Actividad','required maxlength="120"')}</div><button class="btn">Publicar sábado</button></div><label class="fl">Información del encuentro</label><textarea class="t" name="descripcion" rows="2"></textarea></form></section>` : ''}
-  <section class="sec" style="padding-top:12px"><div class="tag">Calendario</div><div style="margin-top:14px">${tarjetas || '<div class="card"><p class="mu" style="margin:0">Todavía no hay sábados publicados.</p></div>'}</div></section>`);
+  <div class="sub s2"><button type="button" class="${SAB_TAB === 'prox' ? 'on' : ''}" data-a="sabados-tab" data-tab="prox">Próximos sábados (${proximos.length})</button><button type="button" class="${SAB_TAB === 'ant' ? 'on' : ''}" data-a="sabados-tab" data-tab="ant">Ya celebrados (${celebrados.length})</button></div>
+  <section class="sec" style="padding-top:12px"><div style="margin-top:14px">${SAB_TAB === 'prox' ? (tarjetas(proximos) || '<div class="card"><p class="mu" style="margin:0">No hay próximos sábados publicados.</p></div>') : (tarjetas(celebrados) || '<div class="card"><p class="mu" style="margin:0">Todavía no hay sábados celebrados.</p></div>')}</div></section>`);
 }
 
 async function vCuenta() {
@@ -222,6 +226,7 @@ const FORM = {
   async 'noticia-new'(f, d) { const b = { titulo: d.get('titulo'), texto: d.get('texto') }; const fl = d.get('foto'); if (fl && fl.size) b.imagen = await reducir(fl, 1400, 0.8); await api('POST', '/admin/noticias', b); toast('Noticia publicada. Ya aparece en la web.'); render(); },
   async 'sabado-new'(f,d) { await api('POST','/modulos/sabados',{fecha:d.get('fecha'),hora:d.get('hora'),titulo:d.get('titulo'),descripcion:d.get('descripcion')}); toast('Sábado creado'); render(); },
   async 'sabado-rsvp'(f,d) { await api('POST','/modulos/sabados/'+f.dataset.id+'/asistencia',{asiste:d.get('asiste')==='1',acompanantes:d.get('acompanantes'),detalle_acompanantes:'',alergias:d.get('alergias'),observaciones:d.get('observaciones')}); toast('Asistencia guardada'); render(); },
+  async 'sabado-consumos'(f,d) { await api('POST','/modulos/sabados/'+f.dataset.id+'/consumos',{copas:d.get('copas'),refrescos:d.get('refrescos')}); toast('Consumiciones guardadas'); render(); },
   async 'cuenta-pago'(f,d) { await api('POST','/modulos/cuenta/pagos',{cuota_id:d.get('cuota_id')||null,importe:d.get('importe'),fecha_pago:d.get('fecha_pago'),metodo:d.get('metodo'),concepto:d.get('concepto')}); PAGO_MODAL=false; toast('Pago registrado y pendiente de revisión'); render(); },
   async 'cocina-new'(f,d) { await api('POST','/modulos/cocina',{fecha:d.get('fecha'),turno:d.get('turno'),responsable:d.get('responsable'),presupuesto:d.get('presupuesto'),menu:d.get('menu'),observaciones:d.get('observaciones')}); toast('Turno añadido'); render(); },
   async 'cocina-ticket'(f,d) { const file=d.get('ticket'); if(!file || !file.size) throw new Error('Selecciona un ticket'); if(file.size>1024*1024) throw new Error('El archivo no puede superar 1 MB'); const datos=await readFileData(file); await api('POST','/modulos/cocina/tickets',{sabado_id:d.get('sabado_id')||null,nombre_archivo:file.name,datos}); toast('Ticket guardado'); render(); },
@@ -266,6 +271,7 @@ const ACT = {
   async 'cargo-del'(el) { if (!confirm('¿Borrar este cargo?')) return; await api('DELETE', '/admin/cargos/' + el.dataset.id); render(); },
   async 'noticia-del'(el) { if (!confirm('¿Eliminar esta noticia?')) return; await api('DELETE', '/admin/noticias/' + el.dataset.id); render(); },
   async 'sabado-asistentes'(el) { const a=await api('GET','/modulos/sabados/'+el.dataset.id+'/asistencias'); alert(a.length ? a.map(x=>`${x.nombre}: ${x.asiste?'Asiste':'No asiste'}${x.acompanantes?' + '+x.acompanantes+' acompañantes':''}${x.alergias?' · Alergias: '+x.alergias:''}`).join('\n') : 'Todavía no hay confirmaciones.'); },
+  'sabados-tab'(el) { SAB_TAB=el.dataset.tab==='ant'?'ant':'prox'; render(); },
   async 'pago-confirm'(el) { if(!confirm('¿Confirmar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/confirmar'); toast('Pago confirmado'); render(); },
   async 'pago-reject'(el) { if(!confirm('¿Rechazar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/rechazar'); toast('Pago rechazado'); render(); },
   async 'fijo-del'(el) { if(!confirm('¿Eliminar este gasto fijo?')) return; await api('DELETE','/modulos/tesoreria/gastos-fijos/'+el.dataset.id); render(); },
