@@ -163,10 +163,10 @@ export async function routeModulos(req, env, me, method, path, body) {
   // MI CUENTA: cada hermana solo puede consultar y registrar sus propios pagos.
   if (path === '/api/modulos/cuenta' && method === 'GET') {
     await syncCargosHermanas(env.DB);
-    const cuotas = await rows(env.DB.prepare(`SELECT c.*,(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado') pagado_centimos,MAX(0,c.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')) restante_centimos FROM cuotas c WHERE c.hermana_id=? ORDER BY c.periodo DESC`).bind(me.id));
+    const cuotas = await rows(env.DB.prepare(`SELECT c.*,((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cuota_id=c.id AND p.estado='confirmado')) pagado_centimos,MAX(0,c.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cuota_id=c.id AND p.estado='confirmado'))) restante_centimos FROM cuotas c WHERE c.hermana_id=? ORDER BY c.periodo DESC`).bind(me.id));
     const cargos = await rows(env.DB.prepare(`SELECT x.*,
-      (SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado') pagado_centimos,
-      MAX(0,x.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')) restante_centimos
+      ((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado')) pagado_centimos,
+      MAX(0,x.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado'))) restante_centimos
       FROM cargos_hermanas x WHERE x.hermana_id=? ORDER BY CASE x.categoria WHEN 'Cuaresma' THEN 1 WHEN 'Semana Santa' THEN 2 ELSE 3 END,x.id`).bind(me.id));
     const pagos = await rows(env.DB.prepare('SELECT p.*,c.periodo,x.concepto cargo_concepto FROM pagos p LEFT JOIN cuotas c ON c.id=p.cuota_id LEFT JOIN cargos_hermanas x ON x.id=p.cargo_id WHERE p.hermana_id=? ORDER BY p.fecha_pago DESC,p.id DESC').bind(me.id));
     const alergias = await env.DB.prepare('SELECT alergias,observaciones FROM alergias_hermanas WHERE hermana_id=?').bind(me.id).first();
@@ -341,7 +341,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         rows(env.DB.prepare('SELECT * FROM gastos_fijos ORDER BY activo DESC,id')),
         rows(env.DB.prepare(`SELECT c.periodo,c.estado,COUNT(*) cantidad,SUM(c.importe_centimos) total FROM cuotas c GROUP BY c.periodo,c.estado ORDER BY c.periodo DESC LIMIT 24`)),
         rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.movimiento_id,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado,m.concepto,tc.turno turno_cocina,tc.fecha fecha_turno FROM tickets t LEFT JOIN movimientos m ON m.id=t.movimiento_id LEFT JOIN turnos_cocina tc ON tc.id=t.turno_cocina_id LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 200`)),
-        rows(env.DB.prepare(`SELECT c.id,c.periodo,c.importe_centimos,c.estado,h.nombre,MAX(0,c.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')) restante_centimos FROM cuotas c JOIN hermanas h ON h.id=c.hermana_id WHERE c.estado!='pagada' ORDER BY c.periodo DESC,h.nombre`)),
+        rows(env.DB.prepare(`SELECT c.id,c.periodo,c.importe_centimos,c.estado,h.nombre,MAX(0,c.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cuota_id=c.id AND p.estado='confirmado'))) restante_centimos FROM cuotas c JOIN hermanas h ON h.id=c.hermana_id WHERE c.estado!='pagada' ORDER BY c.periodo DESC,h.nombre`)),
         rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos FROM movimientos WHERE traspaso_id IS NULL GROUP BY strftime('%Y',fecha) ORDER BY anio DESC`)),
         env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos WHERE traspaso_id IS NULL`).first(),
         env.DB.prepare("SELECT valor FROM config WHERE clave='cuota_mensual_centimos'").first(),
@@ -361,8 +361,8 @@ export async function routeModulos(req, env, me, method, path, body) {
       ]);
       const hermanas = await rows(env.DB.prepare('SELECT id,nombre FROM hermanas ORDER BY nombre'));
       const cargos_pendientes = await rows(env.DB.prepare(`SELECT x.id,x.hermana_id,h.nombre,x.categoria,x.concepto,x.importe_centimos,
-        (SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado') pagado_centimos,
-        MAX(0,x.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')) restante_centimos
+        ((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado')) pagado_centimos,
+        MAX(0,x.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado'))) restante_centimos
         FROM cargos_hermanas x JOIN hermanas h ON h.id=x.hermana_id
         WHERE x.importe_centimos>(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')
         ORDER BY h.nombre,x.categoria,x.id`));
