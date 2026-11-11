@@ -91,12 +91,20 @@ console.log('  ·', w.status, 'sin Resend:', (await w.json()).error ?? 'responde
 // 16 parámetros configurables, sorteo equilibrado y presupuesto automático de cocina
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com' }, adm); assert.equal(r.status, 200);
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 2', email: 'prueba2@ejemplo.com' }, adm); assert.equal(r.status, 200);
-r = await call('PUT', '/api/modulos/tesoreria/config', { cuota_mensual: 35, sabado_precio: 10, invitada_precio: 10, copa_precio: 2, refresco_precio: 1, cocina_precio_persona: 12.5, personas_por_turno: 2 }, adm); assert.equal(r.status, 200);
+r = await call('PUT', '/api/modulos/tesoreria/config', { cuota_mensual: 35, sabado_precio: 10, invitada_precio: 10, copa_precio: 2, refresco_precio: 1, cocina_precio_persona: 12.5, personas_por_turno: 2, cuotas_extraordinarias: [{ nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' }] }, adm); assert.equal(r.status, 200);
 r = await call('POST', '/api/modulos/sabados', { fecha: '2099-01-03', titulo: 'Sábado de prueba' }, adm); assert.equal(r.status, 200); const sid = r.data.id;
 r = await call('POST', `/api/modulos/sabados/${sid}/asistencia`, { asiste: true, acompanantes: 1, alergias: 'Sin gluten (celiaquía)' }, adm); assert.equal(r.status, 200);
 r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 2 }, adm); assert.equal(r.status, 200); assert.equal(r.data.turnos_sorteados, 1); assert.equal(r.data.asignaciones[0].hermana_ids.length, 2);
 r = await call('GET', '/api/modulos/cocina', null, adm); assert.equal(r.status, 200);
 const turnoPrueba = r.data.turnos.find(t => t.fecha === '2099-01-03'); assert.ok(turnoPrueba); assert.equal(turnoPrueba.confirmadas, 1); assert.equal(turnoPrueba.invitadas, 1); assert.equal(turnoPrueba.presupuesto_calculado_centimos, 2500);
-r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); assert.equal(r.data.parametros.cocina_precio_persona_centimos, 1250); assert.ok(Array.isArray(r.data.estadisticas.mensuales));
-ok('tesorería: parámetros configurables, sorteo de 2/3 personas y presupuesto por comensal calculado');
+r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 3 }, adm); assert.equal(r.status, 409); // no debe reemplazar asignaciones existentes
+r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.status, 200);
+const cargoSabado = r.data.cargos.find(x => String(x.source_key).startsWith('sabado:'+sid+':')); assert.ok(cargoSabado); assert.equal(cargoSabado.importe_centimos, 2000);
+const extraCuaresma = r.data.cargos.find(x => x.concepto === 'Aportación de Cuaresma'); assert.ok(extraCuaresma); assert.equal(extraCuaresma.importe_centimos, 625);
+r = await call('POST', '/api/modulos/cuenta/pagos', { cargo_id: cargoSabado.id, importe: 5, fecha_pago: '2099-01-04', metodo: 'Bizum' }, adm); assert.equal(r.status, 200); const pagoId = r.data.id;
+r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.data.cargos.find(x => x.id === cargoSabado.id).restante_centimos, 2000);
+r = await call('POST', '/api/modulos/tesoreria/pagos/'+pagoId+'/confirmar', {}, adm); assert.equal(r.status, 200);
+r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.data.cargos.find(x => x.id === cargoSabado.id).restante_centimos, 1500);
+r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); assert.equal(r.data.parametros.cocina_precio_persona_centimos, 1250); assert.ok(Array.isArray(r.data.estadisticas.mensuales)); assert.ok(Array.isArray(r.data.hermanas)); assert.ok(r.data.cargos_pendientes.some(x => x.id === cargoSabado.id));
+ok('tesorería: cuotas extraordinarias, cargos automáticos, pagos confirmados sin duplicidad, sorteo protegido y presupuesto automático');
 console.log('\nTODO CORRECTO');
