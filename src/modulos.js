@@ -310,6 +310,7 @@ export async function routeModulos(req, env, me, method, path, body) {
   if (path.startsWith('/api/modulos/tesoreria')) {
     if (!tes(me)) return E('No tienes permiso para acceder a tesorería', 403);
     if (path === '/api/modulos/tesoreria' && method === 'GET') {
+      await syncCargosHermanas(env.DB);
       const [movimientos, pagos, gastosFijos, cuotas, tickets, pendientes, informes, totales, cfg] = await Promise.all([
         rows(env.DB.prepare(`SELECT m.*,h.nombre hermana,(SELECT GROUP_CONCAT(t.id) FROM tickets t WHERE t.movimiento_id=m.id) tickets FROM movimientos m LEFT JOIN hermanas h ON h.id=m.hermana_id ORDER BY m.fecha DESC,m.id DESC LIMIT 250`)),
         rows(env.DB.prepare(`SELECT p.*,h.nombre hermana,c.periodo FROM pagos p JOIN hermanas h ON h.id=p.hermana_id LEFT JOIN cuotas c ON c.id=p.cuota_id WHERE p.estado='pendiente' ORDER BY p.fecha_pago,p.id`)),
@@ -330,11 +331,25 @@ export async function routeModulos(req, env, me, method, path, body) {
         rows(env.DB.prepare(`SELECT strftime('%Y-%m',fecha) periodo,
           SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,
           SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos
-          FROM movimientos WHERE tipo IN ('ingreso','gasto') GROUP BY strftime('%Y-%m',fecha) ORDER BY periodo`)),
+          FROM movimientos WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL GROUP BY strftime('%Y-%m',fecha) ORDER BY periodo`)),
         rows(env.DB.prepare(`SELECT tipo,categoria,SUM(importe_centimos) total FROM movimientos
-          WHERE tipo IN ('ingreso','gasto') GROUP BY tipo,categoria ORDER BY tipo,total DESC`))
+          WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL GROUP BY tipo,categoria ORDER BY tipo,total DESC`))
       ]);
-      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, cuotas_pendientes: pendientes, informes, totales, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
+      const cargos_pendientes = await rows(env.DB.prepare(`SELECT x.id,x.hermana_id,h.nombre,x.categoria,x.concepto,x.importe_centimos,
+        (SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado') pagado_centimos,
+        MAX(0,x.importe_centimos-(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')) restante_centimos
+        FROM cargos_hermanas x JOIN hermanas h ON h.id=x.hermana_id
+        WHERE x.importe_centimos>(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')
+        ORDER BY h.nombre,x.categoria,x.id`));
+      const saldoCfg=await rows(env.DB.prepare("SELECT clave,valor FROM config WHERE clave IN ('saldo_inicial_fecha','saldo_inicial_banco_centimos','saldo_inicial_caja_centimos')"));
+      const saldosCfg=Object.fromEntries(saldoCfg.map(x=>[x.clave,x.valor]));
+      const saldoInicial={fecha:saldosCfg.saldo_inicial_fecha||'2026-01-01',banco_centimos:Number(saldosCfg.saldo_inicial_banco_centimos||0),caja_centimos:Number(saldosCfg.saldo_inicial_caja_centimos||0)};
+      const saldos=await rows(env.DB.prepare(`SELECT cuenta,
+        SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE -importe_centimos END) neto
+        FROM movimientos WHERE fecha>=? GROUP BY cuenta`).bind(saldoInicial.fecha));
+      const banco=saldoInicial.banco_centimos+Number(saldos.find(x=>x.cuenta==='Banco')?.neto||0);
+      const caja=saldoInicial.caja_centimos+Number(saldos.find(x=>x.cuenta==='Caja fuerte')?.neto||0);
+      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, cuotas_pendientes: pendientes, cargos_pendientes, informes, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco+caja}, saldo_inicial:saldoInicial, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
     }
     if (path === '/api/modulos/tesoreria/config' && method === 'PUT') {
       const campos = {
