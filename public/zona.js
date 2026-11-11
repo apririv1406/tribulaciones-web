@@ -192,6 +192,41 @@ async function vActas() {
 
 
 function extraRow(x={}) { return `<div class="extra-row card" style="margin:10px 0;padding:12px"><div class="two formgrid"><div>${campo('nombre','Concepto','required value="'+esc(x.nombre||'')+'"')}</div><div><label class="fl">Categoría</label><select class="t" name="categoria"><option ${x.categoria==='Cuaresma'?'selected':''}>Cuaresma</option><option ${x.categoria==='Semana Santa'?'selected':''}>Semana Santa</option><option ${!x.categoria||x.categoria==='Otros'?'selected':''}>Otros</option></select></div><div>${campo('importe','Importe (€)','type="number" min="0" step="0.01" value="'+(Number(x.importe_centimos||0)/100)+'"')}</div><div><label class="fl">Aplicación</label><select class="t" name="tipo"><option value="una_vez" ${x.tipo==='una_vez'?'selected':''}>Una sola vez</option><option value="por_sabado" ${x.tipo==='por_sabado'?'selected':''}>Cada sábado que asista</option></select></div></div><button type="button" class="chip" data-a="extra-del" style="margin-top:8px">Eliminar concepto</button></div>`; }
+function parseCSV(text) {
+  const first=(text.split(/\r?\n/)[0]||'');
+  const sep=first.includes(';')?';':',';
+  const rows=[];let row=[],cell='',quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(ch==='"'&&quoted&&text[i+1]==='"'){cell+='"';i++;}
+    else if(ch==='"') quoted=!quoted;
+    else if(ch===sep&&!quoted){row.push(cell.trim());cell='';}
+    else if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell.trim());if(row.some(Boolean))rows.push(row);row=[];cell='';}
+    else cell+=ch;
+  }
+  row.push(cell.trim());if(row.some(Boolean))rows.push(row);
+  if(rows.length<2)throw new Error('El CSV no contiene filas de movimientos.');
+  const norm=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const headers=rows.shift().map(norm);
+  const idx=(...names)=>headers.findIndex(h=>names.includes(h));
+  const ix={fecha:idx('fecha','date'),tipo:idx('tipo','type'),categoria:idx('categoria','category'),concepto:idx('concepto','descripcion','description','concept'),cuenta:idx('cuenta','account'),importe:idx('importe','cantidad','amount','total')};
+  if(ix.fecha<0||ix.tipo<0||ix.concepto<0||ix.importe<0)throw new Error('Faltan columnas obligatorias: Fecha, Tipo, Concepto e Importe.');
+  const out=[];
+  rows.forEach((r,i)=>{
+    let fecha=String(r[ix.fecha]||'').trim();
+    const es=fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(es)fecha=es[3]+'-'+es[2].padStart(2,'0')+'-'+es[1].padStart(2,'0');
+    const tipo=/^(ingreso|entrada|income)$/i.test(r[ix.tipo]||'')?'Ingreso':/^(gasto|salida|expense)$/i.test(r[ix.tipo]||'')?'Gasto':'';
+    let importe=String(r[ix.importe]||'').replace(/[€\s]/g,'');
+    if(importe.includes(','))importe=importe.replace(/\./g,'').replace(',','.');
+    const cuenta=ix.cuenta>=0&&/caja/i.test(r[ix.cuenta]||'')?'Caja fuerte':'Banco';
+    const concepto=String(r[ix.concepto]||'').trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)||!tipo||!concepto||!Number.isFinite(Number(importe))||Number(importe)<=0)throw new Error('La fila '+(i+2)+' tiene datos no válidos.');
+    const categoria=ix.categoria>=0?String(r[ix.categoria]||'Otros').trim():'Otros';
+    out.push({fecha,tipo,categoria,concepto,cuenta,importe:String(Number(importe).toFixed(2)),clave:(i+1)+'|'+fecha+'|'+tipo+'|'+concepto+'|'+importe+'|'+cuenta});
+  });
+  return out;
+}
+
 async function vTesoreria() {
   const d = await api('GET', '/modulos/tesoreria');
   const ingresos=d.totales.ingresos, gastos=d.totales.gastos, saldo=Number(d.totales.saldo_centimos||0);
@@ -230,7 +265,7 @@ async function vTesoreria() {
     if(TES_CFG_TAB==='pre') contenido+=`<div class="card"><div class="tag">Parámetros económicos</div><h3>Precios y cuota</h3><p class="mu">Configura aquí los importes. La web los utiliza para calcular automáticamente los cargos y presupuestos; no hay cantidades fijas en el código.</p><form data-f="tes-config" class="two formgrid"><div>${campo('cuota_mensual','Cuota mensual (€)','type="number" min="0.01" step="0.01" required value="'+(d.cuota_mensual||'')+'"')}</div><div>${campo('sabado_precio','Sábado · asistencia (€)','type="number" min="0" step="0.01" value="'+moneyParam('sabado_precio_centimos')+'"')}</div><div>${campo('invitada_precio','Invitada (€)','type="number" min="0" step="0.01" value="'+moneyParam('invitada_precio_centimos')+'"')}</div><div>${campo('copa_precio','Copa (€)','type="number" min="0" step="0.01" value="'+moneyParam('copa_precio_centimos')+'"')}</div><div>${campo('refresco_precio','Refresco (€)','type="number" min="0" step="0.01" value="'+moneyParam('refresco_precio_centimos')+'"')}</div><div>${campo('cocina_precio_persona','Presupuesto de cocina por comensal (€)','type="number" min="0" step="0.01" value="'+moneyParam('cocina_precio_persona_centimos')+'"')}</div><div><label class="fl">Personas por turno en el sorteo</label><select class="t" name="personas_por_turno"><option value="2" ${Number(d.parametros?.cocina_personas_por_turno||2)===2?'selected':''}>2 personas</option><option value="3" ${Number(d.parametros?.cocina_personas_por_turno||2)===3?'selected':''}>3 personas</option></select></div><button class="btn">Guardar parámetros</button></form></div>`;
     else contenido+=`<div class="card"><div class="tag">Cargos configurables</div><h3>Cuotas extraordinarias de este año</h3><p class="mu">Puedes crear, editar o eliminar los conceptos y sus importes. Elige si se aplican una sola vez o en cada sábado que corresponda.</p><form data-f="tes-extras"><div id="tes-extras-rows">${extras.map(x=>extraRow(x)).join('')}</div><p><button type="button" class="chip" data-a="extra-add">Añadir cuota extraordinaria</button></p><button class="btn">Guardar cuotas extraordinarias</button></form></div>`;
   }
-  if(TES_TAB==='imp') contenido=`<div class="card"><h3>Importar el último informe</h3><p class="mu">Esta sección de la maqueta necesita un formato de informe definido para poder importar movimientos sin duplicarlos. No voy a simular una importación ni inventar columnas.</p><h3 style="margin-top:22px">Saldos de partida</h3><p class="mu">Los saldos iniciales deben registrarse una sola vez antes de importar el histórico. Esta función queda pendiente de conectar al formato real del informe.</p></div>`;
+  if(TES_TAB==='imp') contenido=`<div class="card"><h3>Importar informe de tesorería</h3><p class="mu">Carga un CSV con las columnas Fecha, Tipo, Categoría, Concepto, Cuenta e Importe. Primero verás una vista previa; no se guardará nada hasta que confirmes.</p><label class="fl">Archivo CSV</label><input class="t" type="file" accept=".csv,text/csv" data-import-csv><p class="mu">${esc(TES_IMPORT_FILE)}</p>${TES_IMPORT_ROWS.length?`<p>${TES_IMPORT_ROWS.length} movimientos preparados.</p><div class="wrap"><table class="rt"><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Cuenta</th><th class="r">Importe</th></tr></thead><tbody>${TES_IMPORT_ROWS.slice(0,20).map(x=>`<tr><td>${esc(x.fecha)}</td><td>${esc(x.tipo)}</td><td>${esc(x.concepto)}</td><td>${esc(x.cuenta)}</td><td class="r">${esc(x.importe)} €</td></tr>`).join('')}</tbody></table></div><div class="row" style="margin-top:12px"><button class="btn" data-a="tes-import-confirm">Importar movimientos</button><button class="chip" data-a="tes-import-clear">Cancelar</button></div>`:''}</div><div class="card" style="margin-top:14px"><h3>Saldos de partida</h3><p class="mu">Se aplican desde la fecha indicada. Los saldos actuales se calculan sumando los movimientos posteriores.</p><form data-f="tes-saldos" class="two formgrid"><div>${campo('fecha','Fecha del saldo inicial','type="date" required value="'+esc(d.saldo_inicial?.fecha||'2026-01-01')+'"')}</div><div>${campo('banco','Banco (€)','type="number" step="0.01" value="'+(Number(d.saldo_inicial?.banco_centimos||0)/100)+'"')}</div><div>${campo('caja','Caja fuerte (€)','type="number" step="0.01" value="'+(Number(d.saldo_inicial?.caja_centimos||0)/100)+'"')}</div><button class="btn">Guardar saldos iniciales</button></form></div>`;
   const tabs=[['res','Estadísticas'],['mov','Movimientos'],['rec','Gastos fijos'],['pun','Por puntear ('+d.pagos_pendientes.length+')'],['gp','Gastos pendientes'],['pen','Cuotas pendientes'],['inf','Informe'],['cfg','Precios y cuota'],['imp','Importar']];
   return shell(`<div class="top"><div class="tag">Gestión económica</div><h2>Tesorería</h2><p class="mu" style="margin:0">Contabilidad, parámetros, pagos e informes del cuartel.</p></div>
   <section class="hero2"><div class="tag" style="color:var(--go)">Total disponible</div><div class="big">${euros(saldo)}</div><div class="two"><div><small>Banco</small><b>${euros(d.totales.banco_centimos)}</b></div><div><small>Caja fuerte</small><b>${euros(d.totales.caja_centimos)}</b></div></div><div class="two" style="margin-top:10px"><div><small>Ingresos</small><b>${euros(ingresos)}</b></div><div><small>Gastos</small><b>${euros(gastos)}</b></div></div></section>
