@@ -69,7 +69,8 @@ async function syncCargosHermanas(db) {
     const categoria=['Cuaresma','Semana Santa','Otros'].includes(a.categoria)?a.categoria:'Cuaresma';
     const importe=cents('sabado_precio_centimos')+Math.max(0,Number(a.acompanantes)||0)*cents('invitada_precio_centimos')+
       Math.max(0,Number(a.copas)||0)*cents('copa_precio_centimos')+Math.max(0,Number(a.refrescos)||0)*cents('refresco_precio_centimos')+(porCategoria[categoria]||0);
-    const concepto='Sábado · '+a.titulo;
+    const detalle=['Asistencia '+(cents('sabado_precio_centimos')/100).toFixed(2)+' €',Number(a.acompanantes)>0?'Invitadas '+a.acompanantes+' × '+(cents('invitada_precio_centimos')/100).toFixed(2)+' €':'',Number(a.copas)>0?'Copas '+a.copas+' × '+(cents('copa_precio_centimos')/100).toFixed(2)+' €':'',Number(a.refrescos)>0?'Refrescos '+a.refrescos+' × '+(cents('refresco_precio_centimos')/100).toFixed(2)+' €':'',porCategoria[categoria]>0?'Extra '+(porCategoria[categoria]/100).toFixed(2)+' €':''].filter(Boolean).join(' · ');
+    const concepto='Sábado · '+a.titulo+' · '+detalle;
     ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key)
       VALUES(?,?,?,?,?) ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos`)
       .bind(a.hermana_id,categoria,concepto,importe,'sabado:'+a.sabado_id+':'+a.hermana_id));
