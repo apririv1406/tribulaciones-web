@@ -55,7 +55,7 @@ async function syncCargosHermanas(db) {
   for(const x of extras.filter(x=>x.tipo==='una_vez' && Number(x.importe_centimos)>=0)) {
     const key='extra:'+String(x.categoria)+':'+String(x.nombre).trim().toLowerCase();
     for(const h of hermanas) ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)
-      VALUES(?,?,?,?,?,'extraordinaria') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='extraordinaria'`)
+      VALUES(?,?,?,?,?,'extraordinaria') ON CONFLICT(source_key) DO NOTHING`)
       .bind(h.id,x.categoria,x.nombre,Math.round(Number(x.importe_centimos)||0),key+':'+h.id));
   }
   const porCategoria={};
@@ -74,16 +74,24 @@ async function syncCargosHermanas(db) {
     const detalle=['Asistencia '+(asistencia/100).toFixed(2)+' €',Number(a.acompanantes)>0?'Invitadas '+a.acompanantes+' × '+(cents('invitada_precio_centimos')/100).toFixed(2)+' €':'',extra>0?'Extra '+(extra/100).toFixed(2)+' €':''].filter(Boolean).join(' · ');
     const concepto='Sábado · '+a.titulo+' · '+detalle;
     ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)
-      VALUES(?,?,?,?,?,'sabados') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='sabados'`)
-      .bind(a.hermana_id,categoria,concepto,importe,'sabado:'+a.sabado_id+':'+a.hermana_id));
+      VALUES(?,?,?,?,?,'sabados') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='sabados' WHERE (SELECT fecha FROM sabados WHERE id=?)>=date('now')`)
+      .bind(a.hermana_id,categoria,concepto,importe,'sabado:'+a.sabado_id+':'+a.hermana_id,a.sabado_id));
     const copas=Math.max(0,Number(a.copas)||0),refrescos=Math.max(0,Number(a.refrescos)||0);
     const importeConsumos=copas*cents('copa_precio_centimos')+refrescos*cents('refresco_precio_centimos');
     const detalleConsumos=['Copas '+copas+' × '+(cents('copa_precio_centimos')/100).toFixed(2)+' €','Refrescos '+refrescos+' × '+(cents('refresco_precio_centimos')/100).toFixed(2)+' €'].join(' · ');
     ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)
-      VALUES(?,?,?,?,?,'consumos') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='consumos'`)
-      .bind(a.hermana_id,categoria,detalleConsumos,importeConsumos,'consumo:'+a.sabado_id+':'+a.hermana_id));
+      VALUES(?,?,?,?,?,'consumos') ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo='consumos' WHERE (SELECT fecha FROM sabados WHERE id=?)>=date('now')`)
+      .bind(a.hermana_id,categoria,detalleConsumos,importeConsumos,'consumo:'+a.sabado_id+':'+a.hermana_id,a.sabado_id));
   }
   if(ops.length) await db.batch(ops);
+  await db.prepare(`UPDATE cargos_hermanas SET importe_centimos=
+      (SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=cargos_hermanas.id AND p.estado='confirmado')
+    WHERE grupo IN ('sabados','consumos')
+      AND EXISTS(SELECT 1 FROM sabados s WHERE s.fecha>=date('now')
+        AND (cargos_hermanas.source_key LIKE 'sabado:'||s.id||':%' OR cargos_hermanas.source_key LIKE 'consumo:'||s.id||':%')
+        AND (s.estado='cancelado' OR NOT EXISTS(
+          SELECT 1 FROM asistencias_sabado a WHERE a.sabado_id=s.id AND a.hermana_id=CAST(substr(cargos_hermanas.source_key,instr(cargos_hermanas.source_key,':',instr(cargos_hermanas.source_key,':')+1)+1) AS INTEGER) AND a.asiste=1
+        )))`).run();
 }
 
 export async function routeModulos(req, env, me, method, path, body) {
