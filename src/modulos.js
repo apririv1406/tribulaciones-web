@@ -548,6 +548,27 @@ export async function routeModulos(req, env, me, method, path, body) {
     return E('Ruta de tesorería no encontrada', 404);
   }
 
+  if (path === '/api/modulos/actas/estatutos' && method === 'GET') {
+    const doc=await env.DB.prepare("SELECT nombre,tamano,creado FROM documentos WHERE clave='estatutos'").first();
+    return J({documento:doc||null});
+  }
+  if (path === '/api/modulos/actas/estatutos/archivo' && method === 'GET') {
+    const doc=await env.DB.prepare("SELECT nombre,mime,datos FROM documentos WHERE clave='estatutos'").first();
+    if(!doc) return E('Todavía no hay estatutos publicados',404);
+    const bytes=Uint8Array.from(atob(doc.datos),ch=>ch.charCodeAt(0));
+    const nombre=txt(doc.nombre,120).replace(/[\\r\\n"\\\\]/g,'_');
+    return new Response(bytes,{headers:{'Content-Type':'application/pdf','Content-Disposition':`inline; filename="${nombre}"`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+  }
+  if (path === '/api/modulos/actas/estatutos' && method === 'PUT') {
+    if(!actas(me)) return E('No tienes permiso para publicar estatutos',403);
+    const match=/^data:application\\/pdf;base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos||''));
+    if(!match||match[1].length>1400000) return E('El archivo debe ser un PDF de 1 MB como máximo');
+    await env.DB.prepare(`INSERT INTO documentos(clave,nombre,mime,datos,tamano,subido_por) VALUES('estatutos',?,'application/pdf',?,?,?)
+      ON CONFLICT(clave) DO UPDATE SET nombre=excluded.nombre,mime=excluded.mime,datos=excluded.datos,tamano=excluded.tamano,subido_por=excluded.subido_por,creado=datetime('now')`)
+      .bind(txt(body.nombre,120)||'Estatutos_vigentes.pdf',match[1],Math.floor(match[1].length*3/4),me.id).run();
+    return J({ok:true});
+  }
+
   // ACTAS Y JUNTAS: permiso actas o administradora.
   if (path.startsWith('/api/modulos/actas')) {
     if (!actas(me)) return E('No tienes permiso para acceder a actas y juntas', 403);
