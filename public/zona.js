@@ -290,7 +290,7 @@ const ACT = {
   async 'pago-confirm'(el) { if(!confirm('¿Confirmar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/confirmar'); toast('Pago confirmado'); render(); },
   async 'pago-reject'(el) { if(!confirm('¿Rechazar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/rechazar'); toast('Pago rechazado'); render(); },
   async 'tes-filtro-reset'() { TES_FILTRO={tipo:'todos',texto:'',desde:'',hasta:''}; render(); },
-  'fijo-del'(el) { if(!confirm('¿Eliminar este gasto fijo?')) return; await api('DELETE','/modulos/tesoreria/gastos-fijos/'+el.dataset.id); render(); },
+  async 'fijo-del'(el) { if(!confirm('¿Eliminar este gasto fijo?')) return; await api('DELETE','/modulos/tesoreria/gastos-fijos/'+el.dataset.id); render(); },
   async 'cocina-del'(el) { if(!confirm('¿Eliminar este turno?')) return; await api('DELETE','/modulos/cocina/'+el.dataset.id); render(); },
   async 'junta-del'(el) { if(!confirm('¿Eliminar esta junta y su acta?')) return; await api('DELETE','/modulos/actas/juntas/'+el.dataset.id); render(); },
   'hito-add'() { $('#hitos').insertAdjacentHTML('beforeend', hitoRow({ anio: '', texto: '' })); },
