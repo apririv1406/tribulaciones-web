@@ -297,8 +297,9 @@ export async function routeModulos(req, env, me, method, path, body) {
           if (campo !== 'cuota_mensual') continue;
           return E('Indica una cuota mensual válida');
         }
-        const importe = money(body[campo]);
-        if (!Number.isInteger(importe) || importe < 0 || (campo === 'cuota_mensual' && importe === 0)) return E('Revisa los importes de configuración');
+        const numero = Number(String(body[campo]).replace(',', '.'));
+        if (!Number.isFinite(numero) || numero < 0 || (campo === 'cuota_mensual' && numero === 0)) return E('Revisa los importes de configuración');
+        const importe = Math.round(numero * 100);
         ops.push(env.DB.prepare('INSERT OR REPLACE INTO config(clave,valor) VALUES(?,?)').bind(clave,String(importe)));
       }
       if (body.personas_por_turno !== undefined) {
