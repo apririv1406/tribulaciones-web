@@ -141,7 +141,7 @@ export async function routeModulos(req, env, me, method, path, body) {
       rows(env.DB.prepare('SELECT id,nombre_archivo,mime,tamano,creado,sabado_id FROM tickets WHERE subido_por=? ORDER BY creado DESC LIMIT 50').bind(me.id)),
     ]);
     const hermanas = tes(me) ? await rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado='Activa' ORDER BY nombre")) : [];
-    const asignaciones = tes(me) ? await rows(env.DB.prepare(`SELECT tc.turno_id,tc.hermana_id,h.nombre FROM turnos_cocina_hermanas tc JOIN hermanas h ON h.id=tc.hermana_id ORDER BY h.nombre`)) : [];
+    const asignaciones = await rows(env.DB.prepare(`SELECT tc.turno_id,tc.hermana_id,h.nombre FROM turnos_cocina_hermanas tc JOIN hermanas h ON h.id=tc.hermana_id ORDER BY h.nombre`));
     return J({ turnos, alergias, tickets, hermanas, asignaciones });
   }
   if (path === '/api/modulos/cocina/tickets' && method === 'POST') {
