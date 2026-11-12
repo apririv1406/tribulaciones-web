@@ -273,10 +273,17 @@ export async function routeModulos(req, env, me, method, path, body) {
         : rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado
           FROM tickets t WHERE t.subido_por=? OR t.turno_cocina_id IN (SELECT turno_id FROM turnos_cocina_hermanas WHERE hermana_id=?) ORDER BY t.creado DESC LIMIT 50`).bind(me.id,me.id)),
     ]);
-    const hermanas = tes(me) ? await rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado='Activa' ORDER BY nombre")) : [];
+    const hermanas = await rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado='Activa' ORDER BY nombre"));
     const asignaciones = await rows(env.DB.prepare(`SELECT tc.turno_id,tc.hermana_id,h.nombre FROM turnos_cocina_hermanas tc JOIN hermanas h ON h.id=tc.hermana_id ORDER BY h.nombre`));
+    const cambios = await rows(env.DB.prepare(`SELECT ch.id,ch.turno_id,ch.hermana_sale_id,ch.hermana_entra_id,hs.nombre hermana_sale,he.nombre hermana_entra,hr.nombre registrado_por,ch.creado
+      FROM lts_cambios_cocina ch
+      JOIN hermanas hs ON hs.id=ch.hermana_sale_id
+      JOIN hermanas he ON he.id=ch.hermana_entra_id
+      JOIN hermanas hr ON hr.id=ch.registrado_por
+      WHERE ?=1 OR ch.hermana_sale_id=? OR ch.hermana_entra_id=? OR ch.turno_id IN (SELECT turno_id FROM turnos_cocina_hermanas WHERE hermana_id=?)
+      ORDER BY ch.creado DESC,ch.id DESC LIMIT 200`).bind(tes(me)?1:0,me.id,me.id,me.id));
     const cfg = await env.DB.prepare("SELECT valor FROM config WHERE clave='cocina_personas_por_turno'").first();
-    return J({ turnos, alergias, tickets, hermanas, asignaciones, personas_por_turno: cfg?.valor ? Number(cfg.valor) : 2 });
+    return J({ turnos, alergias, tickets, hermanas, asignaciones, cambios, personas_por_turno: cfg?.valor ? Number(cfg.valor) : 2 });
   }
   if (path === '/api/modulos/cocina/sorteo' && method === 'POST') {
     if (!tes(me)) return E('No tienes permiso para realizar el sorteo', 403);
@@ -313,6 +320,25 @@ export async function routeModulos(req, env, me, method, path, body) {
     ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cocina_personas_por_turno',?)").bind(String(personas)));
     for(let i=0;i<ops.length;i+=100) await env.DB.batch(ops.slice(i,i+100));
     return J({ ok: true, personas_por_turno: personas, turnos_sorteados: asignaciones.length, turnos_omitidos: omitidos.length, asignaciones: asignaciones.map(a => ({ turno_id:a.turno_id, hermana_ids:a.hermana_ids, hermanas:a.hermana_ids })) });
+  }
+  if ((m = path.match(/^\\/api\\/modulos\\/cocina\\/(\\d+)\\/cambio$/)) && method === 'POST') {
+    const turnoId = Number(m[1]);
+    const turno = await env.DB.prepare('SELECT id,fecha FROM turnos_cocina WHERE id=?').bind(turnoId).first();
+    if (!turno) return E('Turno de cocina no encontrado', 404);
+    const propia = await env.DB.prepare('SELECT id FROM turnos_cocina_hermanas WHERE turno_id=? AND hermana_id=?').bind(turnoId,me.id).first();
+    if (!propia) return E('Solo puedes cambiar un turno que tengas asignado', 403);
+    const nueva = num(body.hermana_id);
+    if (!Number.isInteger(nueva) || nueva<=0 || nueva===me.id) return E('Selecciona otra hermana para el cambio');
+    const activa = await env.DB.prepare("SELECT id FROM hermanas WHERE id=? AND estado='Activa'").bind(nueva).first();
+    if (!activa) return E('La hermana elegida no está activa', 400);
+    const ocupada = await env.DB.prepare('SELECT id FROM turnos_cocina_hermanas WHERE turno_id=? AND hermana_id=?').bind(turnoId,nueva).first();
+    if (ocupada) return E('Esa hermana ya forma parte de este turno');
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM turnos_cocina_hermanas WHERE turno_id=? AND hermana_id=?').bind(turnoId,me.id),
+      env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(turnoId,nueva),
+      env.DB.prepare('INSERT INTO lts_cambios_cocina(turno_id,hermana_sale_id,hermana_entra_id,registrado_por) VALUES(?,?,?,?)').bind(turnoId,me.id,nueva,me.id)
+    ]);
+    return J({ok:true,turno_id:turnoId,hermana_sale_id:me.id,hermana_entra_id:nueva});
   }
   if (path === '/api/modulos/cocina/tickets' && method === 'POST') {
     const mdata = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos || ''));
