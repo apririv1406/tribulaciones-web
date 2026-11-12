@@ -114,11 +114,13 @@ r = await call('POST', '/api/modulos/tesoreria/gastos-fijos/'+gastoFijoId+'/regi
 r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); const gastoRegistrado = r.data.movimientos.find(x => x.concepto === 'Alquiler de prueba'); assert.ok(gastoRegistrado); assert.equal(gastoRegistrado.importe_centimos, 2750); assert.equal(gastoRegistrado.cuenta, 'Caja fuerte');
 
 r = await call('POST', '/api/modulos/sabados', { fecha: '2099-01-03', titulo: 'Sábado de prueba' }, adm); assert.equal(r.status, 200); const sid = r.data.id;
-r = await call('POST', `/api/modulos/sabados/${sid}/asistencia`, { asiste: true, acompanantes: 1, alergias: 'Sin gluten (celiaquía)' }, adm); assert.equal(r.status, 200);
+r = await call('POST', `/api/modulos/sabados/${sid}/asistencia`, { asiste: true, acompanantes: 1, personas: [{ tipo: 'hermana', numero: 0, alergias: 'Sin gluten (celiaquía)' }, { tipo: 'invitada', numero: 1, alergias: 'Sin lactosa' }] }, adm); assert.equal(r.status, 200);
+let alergiasEvento = await env.DB.prepare('SELECT persona_tipo,persona_numero,alergias FROM lts_alergias_evento WHERE sabado_id=? AND hermana_id=? ORDER BY persona_tipo').bind(sid,aid).all();
+assert.equal(alergiasEvento.results.length, 2); assert.ok(alergiasEvento.results.some(x => x.persona_tipo === 'invitada' && x.alergias === 'Sin lactosa'));
 await env.DB.prepare('INSERT INTO asistencias_sabado(sabado_id,hermana_id,asiste,acompanantes) VALUES(?,?,0,2)').bind(sid,hermanaInvitadasId).run();
-r = await call('GET', '/api/modulos/sabados', null, adm); assert.equal(r.status, 200);
+r = await call('GET', '/api/modulos/sabados', null, adm); assert.equal(r.status, 200); assert.equal(r.data.find(x => x.id === sid).mis_alergias_personas.length, 2);
 r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 2 }, adm); assert.equal(r.status, 200); assert.equal(r.data.turnos_sorteados, 1); assert.equal(r.data.asignaciones[0].hermana_ids.length, 2);
-r = await call('GET', '/api/modulos/cocina', null, adm); assert.equal(r.status, 200);
+r = await call('GET', '/api/modulos/cocina', null, adm); assert.equal(r.status, 200); assert.equal(r.data.alergias.length, 2); assert.ok(r.data.alergias.some(x => x.nombre.startsWith('Invitada 1 de ')));
 const turnoPrueba = r.data.turnos.find(t => t.fecha === '2099-01-03'); assert.ok(turnoPrueba); assert.equal(turnoPrueba.confirmadas, 1); assert.equal(turnoPrueba.invitadas, 3); assert.equal(turnoPrueba.presupuesto_calculado_centimos, 5000);
 r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 3 }, adm); assert.equal(r.status, 409); // no debe reemplazar asignaciones existentes
 r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.status, 200);
