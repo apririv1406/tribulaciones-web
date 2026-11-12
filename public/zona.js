@@ -118,7 +118,7 @@ async function vSabados() {
     const partes = String(s.fecha || '').split('-');
     const dia = partes.length === 3 ? partes[2] : '—';
     const mes = partes.length === 3 ? fecha.toLocaleDateString('es-ES',{month:'short'}).replace('.','') : '';
-    const asiste = s.mi_asistencia !== 0;
+    const asiste = Number(s.mi_asistencia) === 1;
     const invitadas = Math.max(0,Number(s.mis_acompanantes || 0));
     const plazas = Number(s.plazas_ocupadas ?? (Number(s.confirmadas||0)+Number(s.invitadas||0)));
     const importe = (asiste ? Number(s.precio_sabado_centimos ?? precioSabado) : 0) + invitadas*Number(s.precio_invitada_centimos ?? precioInvitada);
