@@ -2,6 +2,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert/strict';
 import worker from '../src/index.js';
+import { ensureSchema } from '../src/schema.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys=ON');
@@ -24,6 +25,21 @@ const call = async (method, path, body, cookie) => {
 };
 const ok = (n) => console.log('  ✓', n);
 const foto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+// 0 reparación de esquemas antiguos: no elimina ni reinicia datos.
+const dbLegada = d1();
+await ensureSchema(dbLegada);
+await dbLegada.prepare('ALTER TABLE sabados DROP COLUMN categoria').run();
+await dbLegada.prepare('ALTER TABLE asistencias_sabado DROP COLUMN alergias').run();
+await dbLegada.prepare('ALTER TABLE consumos_sabado DROP COLUMN refrescos').run();
+await ensureSchema(dbLegada);
+const colsSabado = await dbLegada.prepare('PRAGMA table_info(sabados)').all();
+const colsAsistencia = await dbLegada.prepare('PRAGMA table_info(asistencias_sabado)').all();
+const colsConsumo = await dbLegada.prepare('PRAGMA table_info(consumos_sabado)').all();
+assert.ok(colsSabado.results.some(x => x.name === 'categoria'));
+assert.ok(colsAsistencia.results.some(x => x.name === 'alergias'));
+assert.ok(colsConsumo.results.some(x => x.name === 'refrescos'));
+ok('migración compatible: repara columnas antiguas sin borrar datos');
 
 // 1 público y arranque
 let r = await call('GET', '/api/public'); assert.equal(r.status, 200); assert.equal(r.data.hitos.length, 2); ok('arranque: tablas creadas y datos de partida');
