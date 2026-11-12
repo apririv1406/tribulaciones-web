@@ -136,7 +136,7 @@ async function vSabados() {
           <div style="margin-top:14px"><b>Alergias o dietas</b><p class="mu" style="margin:4px 0 0">Indica las de cada persona, sin necesidad de poner nombres. Solo las verá el turno de cocina y la junta.</p>
           ${alergias}${alergiasInvitadas}</div>
           <label class="fl" style="margin-top:12px">Observaciones del sábado</label><textarea class="t" name="observaciones" rows="2">${esc(s.mi_observaciones || '')}</textarea>
-          <div class="pay" style="margin-top:12px"><span class="mu">${asiste?'Sábado '+euros(s.precio_sabado_centimos ?? precioSabado)+(invitadas?' · '+invitadas+' invitada(s) × '+euros(s.precio_invitada_centimos ?? precioInvitada):''):'Sin asistencia'}${!asiste&&invitadas?' · invitadas: '+invitadas:''}</span><b data-rsvp-total>${euros(importe)}</b></div>
+          <div class="pay" style="margin-top:12px"><span class="mu" data-rsvp-summary>${asiste?'Sábado '+euros(s.precio_sabado_centimos ?? precioSabado)+(invitadas?' · '+invitadas+' invitada(s) × '+euros(s.precio_invitada_centimos ?? precioInvitada):''):'Sin asistencia'}${!asiste&&invitadas?' · invitadas: '+invitadas:''}</span><b data-rsvp-total>${euros(importe)}</b></div>
           <div class="meter" style="margin-top:12px"><i data-rsvp-seats-bar style="width:${Math.min(100,plazas/40*100)}%"></i></div><div class="menu" data-rsvp-seats-label>${plazas} de 40 plazas ocupadas</div>
           <button class="btn" style="margin-top:12px">Guardar asistencia</button>
         </form>` : pasado && s.mi_asistencia === 1 ? `<p class="mu" style="margin:12px 0 6px">Apunta las consumiciones que tomaste después del sábado.</p><form data-f="sabado-consumos" data-id="${s.id}"><div class="row"><div style="flex:1 1 130px">${campo('copas','Copas','type="number" min="0" max="50" value="'+(s.mis_copas || 0)+'"')}</div><div style="flex:1 1 130px">${campo('refrescos','Refrescos','type="number" min="0" max="50" value="'+(s.mis_refrescos || 0)+'"')}</div></div><button class="btn" style="margin-top:10px">Guardar consumiciones</button></form>` : pasado ? '<p class="mu" style="margin:12px 0 0">No confirmaste asistencia a este sábado.</p>' : '<p class="mu" style="margin:14px 0 0">El plazo de confirmación terminó el jueves a las 23:00.</p>'}
@@ -439,9 +439,11 @@ function actualizarResumenRSVP(form) {
   const plazasOtras=Number(form.dataset.plazasOtras||0);
   const total=(asiste?precioSabado:0)+cantidad*precioInvitada;
   const plazas=plazasOtras+(asiste?1:0)+cantidad;
+  const resumen=form.querySelector('[data-rsvp-summary]');
   const importe=form.querySelector('[data-rsvp-total]');
   const barra=form.querySelector('[data-rsvp-seats-bar]');
   const etiqueta=form.querySelector('[data-rsvp-seats-label]');
+  if(resumen) resumen.textContent=asiste?'Sábado '+euros(precioSabado)+(cantidad?' · '+cantidad+' invitada(s) × '+euros(precioInvitada):''):(cantidad?'Sin asistencia · invitadas: '+cantidad:'Sin asistencia');
   if(importe) importe.textContent=euros(total);
   if(barra) barra.style.width=Math.min(100,plazas/40*100)+'%';
   if(etiqueta) etiqueta.textContent=plazas+' de 40 plazas ocupadas';
