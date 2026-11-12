@@ -571,8 +571,8 @@ export async function routeModulos(req, env, me, method, path, body) {
       if(!Number.isInteger(importe)||importe<=0) return E('Revisa el importe del gasto');
       const fecha=periodo+'-'+String(g.dia).padStart(2,'0');
       const ops=[
-        env.DB.prepare(`INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,creado_por,cuenta,gasto_fijo_id,periodo_fijo)
-          VALUES('gasto',?,?,?,?,?,?,?,?)`).bind(fecha,g.concepto,g.categoria||'Gastos fijos',importe,me.id,g.cuenta||'Banco',id,periodo),
+        env.DB.prepare(`INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,creado_por,cuenta,gasto_fijo_id,periodo_fijo,estado)
+          VALUES('gasto',?,?,?,?,?,?,?,?, 'pendiente')`).bind(fecha,g.concepto,g.categoria||'Gastos fijos',importe,me.id,g.cuenta||'Banco',id,periodo),
         env.DB.prepare(`UPDATE gastos_fijos SET ultimo_periodo=? WHERE id=? AND EXISTS(SELECT 1 FROM movimientos WHERE gasto_fijo_id=? AND periodo_fijo=?)`).bind(periodo,id,id,periodo),
       ];
       const res=await env.DB.batch(ops);
