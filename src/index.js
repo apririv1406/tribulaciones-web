@@ -262,7 +262,7 @@ async function publico(env) {
     env.DB.prepare("SELECT id,titulo,texto,fecha,imagen_id imagen,url,tipo FROM noticias ORDER BY fecha DESC,id DESC LIMIT 12").all(),
     env.DB.prepare('SELECT anio,texto FROM hitos ORDER BY orden,id').all(),
   ]);
-  return J({ hermanas: h.results, noticias: n.results, hitos: t.results }, 200, { 'Cache-Control': 'public, max-age=30' });
+  return J({ hermanas: h.results, noticias: n.results, hitos: t.results }, 200, { 'Cache-Control': 'no-store' });
 }
 
 async function noticiasPublicas(env, tipo) {
