@@ -20,6 +20,16 @@ function menu(abrir) {
 }
 $('#hb').addEventListener('click', () => menu(true));
 document.addEventListener('click', e => { if (e.target.closest('[data-c]') || e.target.closest('.mn a')) menu(false); });
+document.querySelectorAll('.nav-trigger').forEach(button => button.addEventListener('click', e => {
+  e.stopPropagation();
+  const item = button.closest('.nav-drop');
+  const open = !item.classList.contains('open');
+  document.querySelectorAll('.nav-drop.open').forEach(x => { x.classList.remove('open'); x.querySelector('.nav-trigger')?.setAttribute('aria-expanded','false'); });
+  item.classList.toggle('open', open);
+  button.setAttribute('aria-expanded', String(open));
+}));
+document.addEventListener('click', e => { if (!e.target.closest('.nav-drop')) document.querySelectorAll('.nav-drop.open').forEach(x => { x.classList.remove('open'); x.querySelector('.nav-trigger')?.setAttribute('aria-expanded','false'); }); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.nav-drop.open').forEach(x => { x.classList.remove('open'); x.querySelector('.nav-trigger')?.setAttribute('aria-expanded','false'); }); });
 
 // Datos que se editan desde la zona hermana
 fetch('/api/public').then(r => r.json()).then(d => {
