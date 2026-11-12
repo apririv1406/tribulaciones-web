@@ -85,7 +85,9 @@ export async function routeModulos(req, env, me, method, path, body) {
   if (path === '/api/modulos/sabados' && method === 'GET') {
     await syncCargosHermanas(env.DB);
     const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,
-      COALESCE(a.alergias,ah.alergias,ah_old.alergias,'') mis_alergias,a.observaciones mi_observaciones,
+      COALESCE(NULLIF(a.alergias,''),ah.alergias,ah_old.alergias,'') mis_alergias,
+      COALESCE(ah.observaciones,ah_old.observaciones,'') mi_alergias_observaciones,
+      COALESCE(a.observaciones,'') mi_observaciones,
       COALESCE(c.copas,0) mis_copas,COALESCE(c.refrescos,0) mis_refrescos,
       (SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1) confirmadas,
       (SELECT COALESCE(SUM(x.acompanantes),0) FROM asistencias_sabado x WHERE x.sabado_id=s.id) invitadas,
@@ -146,6 +148,12 @@ export async function routeModulos(req, env, me, method, path, body) {
       tipo: 'hermana', numero: 0, alergias: body.alergias || '', observaciones: body.observaciones || ''
     }];
     const propia = personas.find(x => x.tipo === 'hermana' && Number(x.numero || 0) === 0) || {};
+    const ocupacion = await env.DB.prepare(`SELECT
+      (SELECT COUNT(*) FROM asistencias_sabado WHERE sabado_id=? AND hermana_id<>? AND asiste=1) confirmadas,
+      (SELECT COALESCE(SUM(acompanantes),0) FROM asistencias_sabado WHERE sabado_id=? AND hermana_id<>?) invitadas`)
+      .bind(id,me.id,id,me.id).first();
+    const plazasOcupadas = Number(ocupacion?.confirmadas || 0) + Number(ocupacion?.invitadas || 0) + (asiste ? 1 : 0) + acomp;
+    if (plazasOcupadas > 40) return E(`No quedan plazas suficientes. Solo hay ${Math.max(0,40-Number(ocupacion?.confirmadas||0)-Number(ocupacion?.invitadas||0))} disponibles.`,409);
     const ops = [
       env.DB.prepare(`INSERT INTO asistencias_sabado(sabado_id,hermana_id,asiste,acompanantes,detalle_acompanantes,alergias,observaciones,actualizado)
         VALUES(?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(sabado_id,hermana_id) DO UPDATE SET asiste=excluded.asiste,acompanantes=excluded.acompanantes,
