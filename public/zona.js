@@ -604,18 +604,6 @@ const ACT = {
       });
       y=doc.lastAutoTable.finalY+11;
     }
-    const situacion=[...document.querySelectorAll('.tes-content .g2 .card')].find(c=>c.innerText.includes('Situación actual'));
-    if(situacion){
-      const t=situacion.querySelector('table');
-      if(t){
-        if(y>175){doc.addPage();cabecera('Situación actual');y=37;}
-        else {doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...color);doc.text('Situación actual',margen,y);y+=3;}
-        const head=[...t.querySelectorAll('thead th')].map(x=>x.innerText.trim());
-        const body=[...t.querySelectorAll('tbody tr')].map(tr=>[...tr.querySelectorAll('td')].map(td=>td.innerText.trim()));
-        const foot=[...t.querySelectorAll('tfoot tr:last-child td')].map(x=>x.innerText.trim());
-        doc.autoTable({startY:y,head:[head],body,foot:foot.length?[foot]:undefined,theme:'grid',styles:{fontSize:8,cellPadding:2.5},headStyles:{fillColor:[65,55,43]},footStyles:{fillColor:[246,242,234],textColor:color,fontStyle:'bold'},margin:{left:margen,right:margen}});
-      }
-    }
     const blob=doc.output('blob'),file=new File([blob],'Informe_Tesoreria_'+anio+'.pdf',{type:'application/pdf'});
     if(navigator.canShare&&navigator.canShare({files:[file]})){
       try{await navigator.share({files:[file],title:'Informe de tesorería',text:'Informe anual de tesorería de Las Tribulaciones de Sara.'});return;}
