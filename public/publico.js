@@ -9,7 +9,7 @@ const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(
 document.querySelectorAll('.phi img').forEach(i => i.addEventListener('error', () => i.remove()));
 
 // Menú de móvil
-const links = [['#historia', 'Historia'], ['#hermandad', 'Hermandad'], ['#cuaresma', 'Cuaresma'], ['#hermanas', 'Hermanas'], ['#noticias', 'Noticias'], ['/zona/', 'Zona hermana']];
+const links = [['#historia', 'Historia'], ['#hermandad', 'Hermandad'], ['#cuaresma', 'Cuaresma'], ['#hermanas', 'Hermanas'], ['/noticias/', 'Noticias'], ['/zona/', 'Zona hermana']];
 function menu(abrir) {
   $('#mn').innerHTML = abrir ? `<div class="sc" data-c="1"></div><div class="mn"><button class="x" data-c="1" aria-label="Cerrar">✕</button>${links.map(([h, t]) => `<a href="${h}">${t}</a>`).join('')}</div>` : '';
 }
