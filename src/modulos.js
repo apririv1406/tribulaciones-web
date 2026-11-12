@@ -417,16 +417,17 @@ export async function routeModulos(req, env, me, method, path, body) {
     if (!tes(me)) return E('No tienes permiso para acceder a tesorería', 403);
     if (path === '/api/modulos/tesoreria' && method === 'GET') {
       await syncCargosHermanas(env.DB);
-      const [movimientos, pagos, gastosFijos, cuotas, tickets, pendientes, informes, totales, cfg] = await Promise.all([
-        rows(env.DB.prepare(`SELECT m.*,h.nombre hermana,(SELECT GROUP_CONCAT(t.id) FROM tickets t WHERE t.movimiento_id=m.id) tickets FROM movimientos m LEFT JOIN hermanas h ON h.id=m.hermana_id ORDER BY m.fecha DESC,m.id DESC`)),
+      const [movimientos, pagos, gastosFijos, cuotas, tickets, pendientes, informes, totales, cfg, movimientosPendientes] = await Promise.all([
+        rows(env.DB.prepare(`SELECT m.*,h.nombre hermana,(SELECT GROUP_CONCAT(t.id) FROM tickets t WHERE t.movimiento_id=m.id) tickets FROM movimientos m LEFT JOIN hermanas h ON h.id=m.hermana_id WHERE m.estado='confirmado' ORDER BY m.fecha DESC,m.id DESC`)),
         rows(env.DB.prepare(`SELECT p.*,h.nombre hermana,c.periodo FROM pagos p JOIN hermanas h ON h.id=p.hermana_id LEFT JOIN cuotas c ON c.id=p.cuota_id WHERE p.estado='pendiente' ORDER BY p.fecha_pago,p.id`)),
         rows(env.DB.prepare('SELECT * FROM gastos_fijos ORDER BY activo DESC,id')),
         rows(env.DB.prepare(`SELECT c.periodo,c.estado,COUNT(*) cantidad,SUM(c.importe_centimos) total FROM cuotas c GROUP BY c.periodo,c.estado ORDER BY c.periodo DESC LIMIT 24`)),
         rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.movimiento_id,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado,m.concepto,tc.turno turno_cocina,tc.fecha fecha_turno FROM tickets t LEFT JOIN movimientos m ON m.id=t.movimiento_id LEFT JOIN turnos_cocina tc ON tc.id=t.turno_cocina_id LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 200`)),
         rows(env.DB.prepare(`SELECT c.id,c.periodo,c.importe_centimos,c.estado,h.nombre,MAX(0,c.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cuota_id=c.id AND p.estado='confirmado'))) restante_centimos FROM cuotas c JOIN hermanas h ON h.id=c.hermana_id WHERE c.estado!='pagada' ORDER BY c.periodo DESC,h.nombre`)),
         rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos FROM movimientos WHERE traspaso_id IS NULL GROUP BY strftime('%Y',fecha) ORDER BY anio DESC`)),
-        env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos WHERE traspaso_id IS NULL`).first(),
+        env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos WHERE traspaso_id IS NULL AND estado='confirmado'`).first(),
         env.DB.prepare("SELECT valor FROM config WHERE clave='cuota_mensual_centimos'").first(),
+        rows(env.DB.prepare(`SELECT m.*,h.nombre hermana FROM movimientos m LEFT JOIN hermanas h ON h.id=m.hermana_id WHERE m.estado='pendiente' ORDER BY m.fecha,m.id`)),
       ]);
       const parametrosRows = await rows(env.DB.prepare("SELECT clave,valor FROM config WHERE clave IN ('cocina_precio_persona_centimos','sabado_precio_centimos','invitada_precio_centimos','copa_precio_centimos','refresco_precio_centimos','cocina_personas_por_turno')"));
       const parametros = Object.fromEntries(parametrosRows.map(x => [x.clave, Number(x.valor)]));
@@ -437,9 +438,9 @@ export async function routeModulos(req, env, me, method, path, body) {
         rows(env.DB.prepare(`SELECT strftime('%Y-%m',fecha) periodo,
           SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,
           SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos
-          FROM movimientos WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL GROUP BY strftime('%Y-%m',fecha) ORDER BY periodo`)),
+          FROM movimientos WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL AND estado='confirmado' GROUP BY strftime('%Y-%m',fecha) ORDER BY periodo`)),
         rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,tipo,categoria,SUM(importe_centimos) total FROM movimientos
-          WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL GROUP BY strftime('%Y',fecha),tipo,categoria ORDER BY anio,tipo,total DESC`))
+          WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL AND estado='confirmado' GROUP BY strftime('%Y',fecha),tipo,categoria ORDER BY anio,tipo,total DESC`))
       ]);
       const hermanas = await rows(env.DB.prepare('SELECT id,nombre FROM hermanas ORDER BY nombre'));
       const cargos_pendientes = await rows(env.DB.prepare(`SELECT x.id,x.hermana_id,h.nombre,x.categoria,x.concepto,x.source_key,x.grupo,x.importe_centimos,
@@ -459,10 +460,10 @@ export async function routeModulos(req, env, me, method, path, body) {
         FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC`));
       const saldos=await rows(env.DB.prepare(`SELECT cuenta,
         SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE -importe_centimos END) neto
-        FROM movimientos WHERE fecha>=? GROUP BY cuenta`).bind(saldoInicial.fecha));
+        FROM movimientos WHERE fecha>=? AND estado='confirmado' GROUP BY cuenta`).bind(saldoInicial.fecha));
       const banco=saldoInicial.banco_centimos+Number(saldos.find(x=>x.cuenta==='Banco')?.neto||0);
       const caja=saldoInicial.caja_centimos+Number(saldos.find(x=>x.cuenta==='Caja fuerte')?.neto||0);
-      return J({ movimientos, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, hermanas, cuotas_pendientes: pendientes, cargos_pendientes, informes, cocina_informe, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco+caja}, saldo_inicial:saldoInicial, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
+      return J({ movimientos, movimientos_pendientes: movimientosPendientes, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, hermanas, cuotas_pendientes: pendientes, cargos_pendientes, informes, cocina_informe, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco+caja}, saldo_inicial:saldoInicial, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
     }
     if (path === '/api/modulos/tesoreria/config' && method === 'PUT') {
       const campos = {
@@ -558,6 +559,16 @@ export async function routeModulos(req, env, me, method, path, body) {
       const r=await env.DB.prepare(`INSERT INTO gastos_fijos(concepto,categoria,importe_centimos,periodicidad,dia,activo,creado_por,cuenta,variable,mes)
         VALUES(?,?,?,?,?,1,?,?,?,?)`).bind(concepto,txt(body.categoria,80)||null,importe,periodicidad,dia,me.id,cuenta,body.variable?1:0,mes).run();
       return J({ok:true,id:r.meta.last_row_id});
+    }
+    if ((m = path.match(/^\/api\/modulos\/tesoreria\/movimientos\/(\d+)\/revisar$/)) && method === 'POST') {
+      const id=+m[1], estado=body.estado;
+      if(!['confirmado','rechazado'].includes(estado)) return E('Estado de revisión no válido');
+      const movimiento=await env.DB.prepare("SELECT id,estado,gasto_fijo_id,periodo_fijo FROM movimientos WHERE id=?").bind(id).first();
+      if(!movimiento) return E('Movimiento no encontrado',404);
+      if(movimiento.estado!=='pendiente') return E('Este movimiento ya está revisado',409);
+      await env.DB.prepare("UPDATE movimientos SET estado=?,confirmado_por=?,confirmado=datetime('now') WHERE id=? AND estado='pendiente'").bind(estado,me.id,id).run();
+      if(estado==='rechazado' && movimiento.gasto_fijo_id) await env.DB.prepare('UPDATE gastos_fijos SET ultimo_periodo=NULL WHERE id=? AND ultimo_periodo=?').bind(movimiento.gasto_fijo_id,movimiento.periodo_fijo).run();
+      return J({ok:true,estado});
     }
     if ((m = path.match(/^\/api\/modulos\/tesoreria\/gastos-fijos\/(\d+)\/registrar$/)) && method === 'POST') {
       const id=+m[1],g=await env.DB.prepare('SELECT * FROM gastos_fijos WHERE id=? AND activo=1').bind(id).first();
