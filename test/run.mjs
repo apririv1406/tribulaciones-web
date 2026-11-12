@@ -111,6 +111,18 @@ r = await call('POST', '/api/modulos/actas/juntas', { fecha: '2099-01-02', hora:
 r = await call('PUT', '/api/modulos/actas/juntas/'+juntaPruebaId+'/asistencia', { hermanas: [aid, hermanaInvitadasId, hermanaDosId] }, adm); assert.equal(r.status, 200); assert.equal(r.data.total, 3);
 r = await call('GET', '/api/modulos/actas', null, adm); assert.equal(r.status, 200); assert.equal(r.data.juntas.find(x => x.id === juntaPruebaId).asistentes, 3);
 r = await call('PUT', '/api/modulos/actas/juntas/'+juntaPruebaId+'/acta', { texto: 'Acta de prueba con acuerdos adoptados.', acuerdos: 'Revisar tesorería.' }, adm); assert.equal(r.status, 200);
+const actaPdf = 'data:application/pdf;base64,JVBERi0xLjQK';
+r = await call('PUT', '/api/modulos/actas/juntas/'+juntaPruebaId+'/archivo', { nombre: 'Acta_2026.pdf', datos: actaPdf }, adm); assert.equal(r.status, 200);
+r = await call('GET', '/api/modulos/actas', null, adm); assert.ok(r.data.documentos.some(x => Number(x.junta_id) === juntaPruebaId && x.nombre === 'Acta_2026.pdf'));
+const actaArchivo = await worker.fetch(new Request('https://ejemplo.es/api/modulos/actas/juntas/'+juntaPruebaId+'/archivo', { headers: { 'X-Requested-With': 'fetch', cookie: adm } }), env); assert.equal(actaArchivo.status, 200); assert.equal(actaArchivo.headers.get('content-type'), 'application/pdf');
+r = await call('POST', '/api/modulos/actas/juntas/historica', { fecha: '2026-02-14', lugar: 'Junta histórica', orden_dia: 'Archivo de prueba' }, adm); assert.equal(r.status, 200); const juntaHistoricaId = r.data.id;
+r = await call('PUT', '/api/modulos/actas/juntas/'+juntaHistoricaId+'/archivo', { nombre: 'Acta_historica.pdf', datos: actaPdf }, adm); assert.equal(r.status, 200);
+r = await call('POST', '/api/modulos/actas/juntas/historica', { fecha: 'fecha incorrecta' }, adm); assert.equal(r.status, 400);
+r = await call('POST', '/api/auth/login', { email: 'laura@ejemplo.com', password: 'Nueva-Clave-77' }); assert.equal(r.status, 200); const lau2 = r.cookie;
+r = await call('GET', '/api/modulos/actas', null, lau2); assert.equal(r.status, 200); assert.equal(r.data.solo_lectura, true); assert.ok(r.data.documentos.some(x => Number(x.junta_id) === juntaPruebaId));
+const actaArchivoHermana = await worker.fetch(new Request('https://ejemplo.es/api/modulos/actas/juntas/'+juntaPruebaId+'/archivo', { headers: { 'X-Requested-With': 'fetch', cookie: lau2 } }), env); assert.equal(actaArchivoHermana.status, 200);
+r = await call('PUT', '/api/modulos/actas/juntas/'+juntaPruebaId+'/archivo', { nombre: 'No_permitido.pdf', datos: actaPdf }, lau2); assert.equal(r.status, 403);
+ok('actas: subir y consultar PDF, registrar reuniones históricas y proteger permisos de edición');
 r = await call('PUT', '/api/modulos/actas/estatutos', { nombre: 'Estatutos.pdf', datos: 'data:application/pdf;base64,JVBERi0xLjQK' }, adm); assert.equal(r.status, 200);
 r = await call('GET', '/api/modulos/actas/estatutos', null, adm); assert.equal(r.status, 200); assert.equal(r.data.documento.nombre, 'Estatutos.pdf');
 const pdf = await worker.fetch(new Request('https://ejemplo.es/api/modulos/actas/estatutos/archivo', { headers: { 'X-Requested-With': 'fetch', cookie: adm } }), env); assert.equal(pdf.status, 200); assert.equal(pdf.headers.get('content-type'), 'application/pdf');
