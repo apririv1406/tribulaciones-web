@@ -250,17 +250,6 @@ async function crearPDFSimple(lineas) {
   return new Blob([Uint8Array.from(pdf,ch=>ch.charCodeAt(0)&255)],{type:"application/pdf"});
 }
 
-function vTesoreria() {").replace(/[^\\x20-\\xff]/g,"?");
-  let contenido="BT /F1 10 Tf 40 800 Td 14 TL\\n";
-  lineas.forEach(linea=>{contenido+="("+limpiar(linea)+") Tj T*\\n";});
-  contenido+="ET";
-  const objetos=["<</Type/Catalog/Pages 2 0 R>>","<</Type/Pages/Kids[3 0 R]/Count 1>>","<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>","<</Length "+contenido.length+">>\\nstream\\n"+contenido+"\\nendstream","<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>"];
-  let pdf="%PDF-1.4\\n", offsets=[];
-  objetos.forEach((obj,i)=>{offsets.push(pdf.length);pdf+=(i+1)+" 0 obj\\n"+obj+"\\nendobj\\n";});
-  const inicio=pdf.length;pdf+="xref\\n0 6\\n0000000000 65535 f \\n"+offsets.map(n=>String(n).padStart(10,"0")+" 00000 n \\n").join("")+"trailer\\n<</Size 6/Root 1 0 R>>\\nstartxref\\n"+inicio+"\\n%%EOF";
-  return new Blob([Uint8Array.from(pdf,ch=>ch.charCodeAt(0)&255)],{type:"application/pdf"});
-}
-
 function vTesoreria() {
   const d = await api('GET', '/modulos/tesoreria');
   const ingresos=d.totales.ingresos, gastos=d.totales.gastos, saldo=Number(d.totales.saldo_centimos||0);
