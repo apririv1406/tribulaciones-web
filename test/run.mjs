@@ -138,6 +138,19 @@ r = await call('GET', '/api/modulos/sabados', null, adm); assert.equal(r.status,
 r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 2 }, adm); assert.equal(r.status, 200); assert.equal(r.data.turnos_sorteados, 1); assert.equal(r.data.asignaciones[0].hermana_ids.length, 2);
 r = await call('GET', '/api/modulos/cocina', null, adm); assert.equal(r.status, 200); assert.equal(r.data.alergias.length, 2); assert.ok(r.data.alergias.some(x => x.nombre.startsWith('Invitada 1 de ')));
 const turnoPrueba = r.data.turnos.find(t => t.fecha === '2099-01-03'); assert.ok(turnoPrueba); assert.equal(turnoPrueba.confirmadas, 1); assert.equal(turnoPrueba.invitadas, 3); assert.equal(turnoPrueba.presupuesto_calculado_centimos, 5000);
+const hermanasActivas = r.data.hermanas;
+const compañeraTurno = hermanasActivas.find(h => h.id !== aid);
+const sustituta = hermanasActivas.find(h => h.id !== aid && h.id !== compañeraTurno?.id);
+assert.ok(compañeraTurno && sustituta);
+await env.DB.prepare('DELETE FROM turnos_cocina_hermanas WHERE turno_id=?').bind(turnoPrueba.id).run();
+await env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(turnoPrueba.id,aid).run();
+await env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(turnoPrueba.id,compañeraTurno.id).run();
+r = await call('POST', '/api/modulos/cocina/'+turnoPrueba.id+'/cambio', { hermana_id: sustituta.id }, adm); assert.equal(r.status, 200);
+r = await call('GET', '/api/modulos/cocina', null, adm); assert.equal(r.status, 200);
+assert.ok(r.data.asignaciones.some(a => a.turno_id===turnoPrueba.id && a.hermana_id===sustituta.id));
+assert.ok(!r.data.asignaciones.some(a => a.turno_id===turnoPrueba.id && a.hermana_id===aid));
+assert.ok(r.data.cambios.some(x => x.turno_id===turnoPrueba.id && x.hermana_sale_id===aid && x.hermana_entra_id===sustituta.id));
+ok('cocina: cambio de turno entre hermanas con historial');
 r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 3 }, adm); assert.equal(r.status, 409); // no debe reemplazar asignaciones existentes
 r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.status, 200);
 const cargoSabado = r.data.cargos.find(x => String(x.source_key).startsWith('sabado:'+sid+':')); assert.ok(cargoSabado); assert.equal(cargoSabado.importe_centimos, 2000);
