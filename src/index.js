@@ -53,9 +53,17 @@ export default {
   },
   async fetch(req, env) {
     const url = new URL(req.url), p = url.pathname;
-    if (!p.startsWith('/api/') && !p.startsWith('/media/')) return env.ASSETS.fetch(req);
-    try { await init(env); return await route(req, env, url, p); }
-    catch (e) { console.error(e); return E('Error interno', 500); }
+    try {
+      if (p === '/sitemap.xml' && (req.method === 'GET' || req.method === 'HEAD')) {
+        await init(env); return await sitemapNoticias(env, url.origin);
+      }
+      const article = p.match(/^\\/noticias\\/(\\d+)\\/?$/);
+      if (article && (req.method === 'GET' || req.method === 'HEAD')) {
+        await init(env); return await paginaNoticia(env, +article[1], url.origin);
+      }
+      if (!p.startsWith('/api/') && !p.startsWith('/media/')) return env.ASSETS.fetch(req);
+      await init(env); return await route(req, env, url, p);
+    } catch (e) { console.error(e); return E('Error interno', 500); }
   },
 };
 
@@ -66,6 +74,7 @@ async function route(req, env, url, p) {
   let r;
   if (m === 'GET' && (r = p.match(/^\/media\/(\d+)$/))) return media(req, env, +r[1]);
   if (m === 'GET' && p === '/api/public') return publico(env);
+  if (m === 'GET' && p === '/api/noticias') return noticiasPublicas(env);
   if (m === 'GET' && p === '/api/auth/google') return gStart(req, env);
   if (m === 'GET' && p === '/api/auth/google/callback') return gCallback(req, env, url);
   const b = m === 'POST' || m === 'PUT' ? await req.json().catch(() => ({})) : {};
@@ -253,6 +262,28 @@ async function publico(env) {
     env.DB.prepare('SELECT anio,texto FROM hitos ORDER BY orden,id').all(),
   ]);
   return J({ hermanas: h.results, noticias: n.results, hitos: t.results }, 200, { 'Cache-Control': 'public, max-age=30' });
+}
+
+async function noticiasPublicas(env) {
+  const r = await env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen,url FROM noticias ORDER BY fecha DESC,id DESC').all();
+  return J(r.results, 200, { 'Cache-Control': 'public, max-age=60' });
+}
+const htmlEsc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+async function paginaNoticia(env, id, base) {
+  const n = await env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen,url FROM noticias WHERE id=?').bind(id).first();
+  if (!n) return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><title>Noticia no encontrada</title><h1>Noticia no encontrada</h1><a href="/noticias/">Volver a noticias</a></html>', { status:404, headers:{'Content-Type':'text/html; charset=utf-8'} });
+  const title = htmlEsc(n.titulo), desc = htmlEsc(String(n.texto || '').replace(/\\s+/g,' ').slice(0, 155)), canonical = base + '/noticias/' + n.id + '/';
+  const img = n.imagen ? base + '/media/' + n.imagen : base + '/logo.png';
+  const date = htmlEsc(n.fecha || '');
+  const original = n.url ? '<p><a class="btn" href="' + htmlEsc(n.url) + '" target="_blank" rel="noopener noreferrer">Ver publicación original ↗</a></p>' : '';
+  const body = '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + title + ' | Las Tribulaciones de Sara</title><meta name="description" content="' + desc + '"><link rel="canonical" href="' + canonical + '"><meta name="robots" content="index,follow"><meta property="og:type" content="article"><meta property="og:site_name" content="Las Tribulaciones de Sara"><meta property="og:title" content="' + title + '"><meta property="og:description" content="' + desc + '"><meta property="og:url" content="' + canonical + '"><meta property="og:image" content="' + img + '"><meta name="twitter:card" content="summary_large_image"><script type="application/ld+json">' + JSON.stringify({ '@context':'https://schema.org','@type':'NewsArticle','headline':n.titulo,'datePublished':n.fecha,'image':[img],'mainEntityOfPage':canonical,'publisher':{'@type':'Organization','name':'Las Tribulaciones de Sara','logo':{'@type':'ImageObject','url':base+'/logo.png'}} }).replace(/</g,'\\\\u003c') + '</script><link rel="icon" href="/logo.png"><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/estilos.css?v=20261112-9"><style>.article-wrap{max-width:900px;margin:0 auto;padding:48px 22px 80px}.article-wrap .cover{width:100%;max-height:560px;object-fit:cover;border-radius:20px;margin:24px 0}.article-wrap .copy{font-size:17px;line-height:1.85;white-space:pre-line}.article-wrap h1{font:700 clamp(36px,6vw,58px)/1.05 "Cormorant Garamond",Georgia,serif;color:var(--dk)}.back{display:inline-block;margin-bottom:26px;color:var(--br)}</style></head><body><header><nav><a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a><a class="dk" href="/">Inicio</a><a class="dk" href="/historia/">Historia</a><a class="dk" href="/noticias/">Noticias</a><a class="cta" href="/zona/">Zona hermana</a></nav></header><main class="article-wrap"><a class="back" href="/noticias/">← Todas las noticias</a><div class="tag">Crónicas · Las Tribulaciones de Sara</div><small class="mu">' + date + '</small><h1>' + title + '</h1>' + (n.imagen ? '<img class="cover" src="/media/' + n.imagen + '" alt="' + title + '">' : '') + '<div class="copy">' + htmlEsc(n.texto) + '</div>' + original + '</main><footer class="dkb ft"><div class="in"><b>Las Tribulaciones de Sara · Puente Genil · Desde 2007</b><a href="https://www.instagram.com/tribulacionesdesara/">Instagram · @tribulacionesdesara</a></div></footer></body></html>';
+  return new Response(body, { headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'public, max-age=120','X-Content-Type-Options':'nosniff'} });
+}
+async function sitemapNoticias(env, base) {
+  const r = await env.DB.prepare('SELECT id,fecha FROM noticias ORDER BY fecha DESC,id DESC').all();
+  const urls = [base+'/',base+'/historia/',base+'/noticias/',...r.results.map(n=>base+'/noticias/'+n.id+'/')];
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\\n' + urls.map(u=>'<url><loc>'+u.replace(/&/g,'&amp;')+'</loc></url>').join('\\n') + '\\n</urlset>';
+  return new Response(xml,{headers:{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'public, max-age=300'}});
 }
 
 /* ---------- administración ---------- */
