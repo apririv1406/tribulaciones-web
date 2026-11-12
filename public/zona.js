@@ -85,8 +85,8 @@ async function vSabados() {
   const proximos = ss.filter(s => new Date(`${s.fecha}T12:00:00`) >= hoy).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const celebrados = ss.filter(s => new Date(`${s.fecha}T12:00:00`) < hoy).sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const siguiente = proximos[0];
-  const precioSabado = Number(siguiente?.precio_sabado_centimos || 1000);
-  const precioInvitada = Number(siguiente?.precio_invitada_centimos || 1000);
+  const precioSabado = Number(siguiente?.precio_sabado_centimos ?? 1000);
+  const precioInvitada = Number(siguiente?.precio_invitada_centimos ?? 1000);
   const nombre = String(ME.nombre || '').split(' ')[0] || 'hermana';
   const limite = s => {
     const d = new Date(`${s.fecha}T12:00:00`);
@@ -121,7 +121,7 @@ async function vSabados() {
     const asiste = s.mi_asistencia !== 0;
     const invitadas = Math.max(0,Number(s.mis_acompanantes || 0));
     const plazas = Number(s.plazas_ocupadas ?? (Number(s.confirmadas||0)+Number(s.invitadas||0)));
-    const importe = (asiste ? Number(s.precio_sabado_centimos || precioSabado) : 0) + invitadas*Number(s.precio_invitada_centimos || precioInvitada);
+    const importe = (asiste ? Number(s.precio_sabado_centimos ?? precioSabado) : 0) + invitadas*Number(s.precio_invitada_centimos ?? precioInvitada);
     const alergias = campoAlergias(s,'hermana',0,'Yo');
     const alergiasInvitadas = Array.from({length:20},(_,i)=>campoAlergias(s,'invitada',i+1,'Invitada '+(i+1),i+1>invitadas)).join('');
     return `<article class="card sab ${pasado ? 'past' : abierto ? 'next' : ''}">
@@ -136,7 +136,7 @@ async function vSabados() {
           <div style="margin-top:14px"><b>Alergias o dietas</b><p class="mu" style="margin:4px 0 0">Indica las de cada persona, sin necesidad de poner nombres. Solo las verá el turno de cocina y la junta.</p>
           ${alergias}${alergiasInvitadas}</div>
           <label class="fl" style="margin-top:12px">Observaciones del sábado</label><textarea class="t" name="observaciones" rows="2">${esc(s.mi_observaciones || '')}</textarea>
-          <div class="pay" style="margin-top:12px"><span class="mu">${asiste?'Sábado '+euros(s.precio_sabado_centimos || precioSabado)+(invitadas?' · '+invitadas+' invitada(s) × '+euros(s.precio_invitada_centimos || precioInvitada):''):'Sin asistencia'}${!asiste&&invitadas?' · invitadas: '+invitadas:''}</span><b>${euros(importe)}</b></div>
+          <div class="pay" style="margin-top:12px"><span class="mu">${asiste?'Sábado '+euros(s.precio_sabado_centimos ?? precioSabado)+(invitadas?' · '+invitadas+' invitada(s) × '+euros(s.precio_invitada_centimos ?? precioInvitada):''):'Sin asistencia'}${!asiste&&invitadas?' · invitadas: '+invitadas:''}</span><b>${euros(importe)}</b></div>
           <div class="meter" style="margin-top:12px"><i style="width:${Math.min(100,plazas/40*100)}%"></i></div><div class="menu">${plazas} de 40 plazas ocupadas</div>
           <button class="btn" style="margin-top:12px">Guardar asistencia</button>
         </form>` : pasado && s.mi_asistencia === 1 ? `<p class="mu" style="margin:12px 0 6px">Apunta las consumiciones que tomaste después del sábado.</p><form data-f="sabado-consumos" data-id="${s.id}"><div class="row"><div style="flex:1 1 130px">${campo('copas','Copas','type="number" min="0" max="50" value="'+(s.mis_copas || 0)+'"')}</div><div style="flex:1 1 130px">${campo('refrescos','Refrescos','type="number" min="0" max="50" value="'+(s.mis_refrescos || 0)+'"')}</div></div><button class="btn" style="margin-top:10px">Guardar consumiciones</button></form>` : pasado ? '<p class="mu" style="margin:12px 0 0">No confirmaste asistencia a este sábado.</p>' : '<p class="mu" style="margin:14px 0 0">El plazo de confirmación terminó el jueves a las 23:00.</p>'}
