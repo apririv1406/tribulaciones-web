@@ -81,31 +81,70 @@ const readFileData = file => new Promise((resolve, reject) => { const r = new Fi
 
 async function vSabados() {
   const ss = await api('GET', '/modulos/sabados');
-  const fechaActual = new Date(); fechaActual.setHours(0,0,0,0);
-  const proximos = ss.filter(s => new Date(`${s.fecha}T12:00:00`) >= fechaActual);
-  const celebrados = ss.filter(s => new Date(`${s.fecha}T12:00:00`) < fechaActual);
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const proximos = ss.filter(s => new Date(`${s.fecha}T12:00:00`) >= hoy).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const celebrados = ss.filter(s => new Date(`${s.fecha}T12:00:00`) < hoy).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const siguiente = proximos[0];
+  const precioSabado = Number(siguiente?.precio_sabado_centimos || 1000);
+  const precioInvitada = Number(siguiente?.precio_invitada_centimos || 1000);
+  const nombre = String(ME.nombre || '').split(' ')[0] || 'hermana';
+  const limite = s => {
+    const d = new Date(`${s.fecha}T12:00:00`);
+    d.setDate(d.getDate()-2);
+    d.setHours(23,0,0,0);
+    return d;
+  };
+  const tags = (valor) => String(valor || '').split(/[,;\\n]/).map(x=>x.trim()).filter(Boolean);
+  const alergiasPersona = (s,tipo,numero) => (s.mis_alergias_personas || []).find(x=>x.persona_tipo===tipo && Number(x.persona_numero)===numero);
+  const campoAlergias = (s,tipo,numero,titulo,oculto=false) => {
+    const guardada = alergiasPersona(s,tipo,numero);
+    const perfil = tipo==='hermana';
+    const valores = tags(guardada?.alergias || (perfil ? s.mis_alergias : ''));
+    const nota = guardada?.observaciones || (perfil ? s.mi_alergias_observaciones : '');
+    const nombreCampo = tipo==='hermana' ? 'alergia_hermana_0' : 'alergia_invitada_'+numero;
+    const nombreNota = tipo==='hermana' ? 'alergia_extra_hermana_0' : 'alergia_extra_invitada_'+numero;
+    return `<div class="card" style="padding:12px;margin-top:9px;background:var(--bg)" ${tipo==='invitada' ? `data-guest-index="${numero}" style="display:${oculto?'none':'block'};padding:12px;margin-top:9px;background:var(--bg)"` : ''}>
+      <b>${titulo}</b><div class="wr" style="margin:8px 0 4px">${ALERGIAS_TAGS.map(t=>`<label class="chip ${valores.includes(t)?'on':''}" style="display:inline-flex;align-items:center;gap:7px"><input type="checkbox" name="${nombreCampo}" value="${esc(t)}" ${valores.includes(t)?'checked':''}> ${esc(t)}</label>`).join('')}</div>
+      <input class="t" name="${nombreNota}" placeholder="Otra alergia o aclaración (opcional)" value="${esc(nota || '')}">
+    </div>`;
+  };
   const tarjetas = lista => lista.map(s => {
     const fecha = new Date(`${s.fecha}T12:00:00`);
-    const pasado = fecha < fechaActual;
+    const pasado = fecha < hoy;
     const abierto = s.estado === 'abierto';
+    const puedeEditar = !pasado && abierto && (ME.admin || ME.tes || new Date() <= limite(s));
     const partes = String(s.fecha || '').split('-');
     const dia = partes.length === 3 ? partes[2] : '—';
-    const mes = partes.length === 3 ? new Date(`${s.fecha}T12:00:00`).toLocaleDateString('es-ES',{month:'short'}).replace('.','') : '';
+    const mes = partes.length === 3 ? fecha.toLocaleDateString('es-ES',{month:'short'}).replace('.','') : '';
+    const asiste = s.mi_asistencia !== 0;
+    const invitadas = Math.max(0,Number(s.mis_acompanantes || 0));
+    const plazas = Number(s.plazas_ocupadas ?? (Number(s.confirmadas||0)+Number(s.invitadas||0)));
+    const importe = (asiste ? Number(s.precio_sabado_centimos || precioSabado) : 0) + invitadas*Number(s.precio_invitada_centimos || precioInvitada);
+    const alergias = campoAlergias(s,'hermana',0,'Yo');
+    const alergiasInvitadas = Array.from({length:20},(_,i)=>campoAlergias(s,'invitada',i+1,'Invitada '+(i+1),i+1>invitadas)).join('');
     return `<article class="card sab ${pasado ? 'past' : abierto ? 'next' : ''}">
       <div class="date"><b>${esc(dia)}</b><span>${esc(mes)}</span></div>
       <div class="bd">
-        <div class="row" style="justify-content:space-between;align-items:center;gap:8px"><span class="pill ${abierto ? 'ok' : ''}">${pasado ? 'Celebrado' : abierto ? 'Confirmación abierta' : s.estado === 'cancelado' ? 'Cancelado' : 'Cerrado'}</span><span class="mu" style="font-size:13px">${esc(s.hora || '')}</span></div>
-        <h3 style="margin:8px 0 4px">${esc(s.titulo)}</h3><p class="mu" style="margin:0 0 8px">${esc(s.descripcion || '')}</p>
-        <div class="menu">${s.confirmadas || 0} confirmaciones · ${fechaBonita(s.fecha)}</div>
-        ${!pasado && abierto ? `<form data-f="sabado-rsvp" data-id="${s.id}" style="margin-top:14px"><label class="fl">¿Vas a asistir?</label><div class="seg"><button type="button" class="${s.mi_asistencia === 1 ? 'y' : ''}" data-a="rsvp-choice" data-value="1">Sí, asistiré</button><button type="button" class="${s.mi_asistencia === 0 ? 'n' : ''}" data-a="rsvp-choice" data-value="0">No podré asistir</button></div><input type="hidden" name="asiste" value="${s.mi_asistencia === 0 ? '0' : '1'}"><div class="row"><div style="flex:0 0 120px">${campo('acompanantes','Invitadas','type="number" min="0" max="20" value="'+(s.mis_acompanantes || 0)+'"')}</div></div><label class="fl">Alergias o dietas</label><div class="wr">${ALERGIAS_TAGS.map(t=>`<label class="chip" style="display:inline-flex;align-items:center;gap:7px"><input type="checkbox" name="alergia" value="${esc(t)}" ${String(s.mis_alergias||'').split(/[,;\\n]/).map(x=>x.trim()).includes(t)?'checked':''}> ${esc(t)}</label>`).join('')}</div><label class="fl">Otras alergias o aclaraciones</label><textarea class="t" name="alergias_extra" rows="2">${esc(s.mi_observaciones || '')}</textarea><label class="fl">Observaciones</label><textarea class="t" name="observaciones" rows="2">${esc(s.mi_observaciones || '')}</textarea><button class="btn" style="margin-top:12px">Guardar asistencia</button></form>` : ''}
-        ${pasado && s.mi_asistencia === 1 ? `<p class="mu" style="margin:12px 0 6px">Apunta las consumiciones que tomaste en este encuentro.</p><form data-f="sabado-consumos" data-id="${s.id}"><div class="row"><div style="flex:1 1 130px">${campo('copas','Copas','type="number" min="0" max="50" value="'+(s.mis_copas || 0)+'"')}</div><div style="flex:1 1 130px">${campo('refrescos','Refrescos','type="number" min="0" max="50" value="'+(s.mis_refrescos || 0)+'"')}</div></div><button class="btn" style="margin-top:10px">Guardar consumiciones</button></form>` : pasado ? '<p class="mu" style="margin:12px 0 0">No confirmaste asistencia a este sábado.</p>' : '<p class="mu" style="margin:14px 0 0">Este sábado ya no admite cambios.</p>'}
+        <div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">${esc(s.titulo)}</h3><span class="pill ${puedeEditar?'ok':''}">${pasado?'Celebrado':puedeEditar?'Abierto hasta jueves, 23:00':s.estado==='cancelado'?'Cancelado':'Confirmación cerrada'}</span></div>
+        <div class="menu" style="margin:6px 0 12px">${fechaBonita(s.fecha)}${s.hora?' · '+esc(s.hora):''}</div>
+        ${!pasado && abierto ? `<form data-f="sabado-rsvp" data-id="${s.id}" style="margin-top:10px">
+          <div class="seg"><button type="button" class="${asiste?'y':''}" data-a="rsvp-choice" data-value="1">Voy</button><button type="button" class="${!asiste?'n':''}" data-a="rsvp-choice" data-value="0">No voy</button></div>
+          <input type="hidden" name="asiste" value="${asiste?'1':'0'}">
+          <div class="st" style="margin-top:12px"><span>Invitadas</span><button type="button" data-a="rsvp-invitadas-step" data-delta="-1" aria-label="Quitar invitada">−</button><b data-invitadas-count>${invitadas}</b><button type="button" data-a="rsvp-invitadas-step" data-delta="1" aria-label="Añadir invitada">+</button><input type="hidden" name="acompanantes" value="${invitadas}"></div>
+          <div style="margin-top:14px"><b>Alergias o dietas</b><p class="mu" style="margin:4px 0 0">Indica las de cada persona, sin necesidad de poner nombres. Solo las verá el turno de cocina y la junta.</p>
+          ${alergias}${alergiasInvitadas}</div>
+          <label class="fl" style="margin-top:12px">Observaciones del sábado</label><textarea class="t" name="observaciones" rows="2">${esc(s.mi_observaciones || '')}</textarea>
+          <div class="pay" style="margin-top:12px"><span class="mu">${asiste?'Sábado '+euros(s.precio_sabado_centimos || precioSabado)+(invitadas?' · '+invitadas+' invitada(s) × '+euros(s.precio_invitada_centimos || precioInvitada):''):'Sin asistencia'}${!asiste&&invitadas?' · invitadas: '+invitadas:''}</span><b>${euros(importe)}</b></div>
+          <div class="meter" style="margin-top:12px"><i style="width:${Math.min(100,plazas/40*100)}%"></i></div><div class="menu">${plazas} de 40 plazas ocupadas</div>
+          <button class="btn" style="margin-top:12px">Guardar asistencia</button>
+        </form>` : pasado && s.mi_asistencia === 1 ? `<p class="mu" style="margin:12px 0 6px">Apunta las consumiciones que tomaste después del sábado.</p><form data-f="sabado-consumos" data-id="${s.id}"><div class="row"><div style="flex:1 1 130px">${campo('copas','Copas','type="number" min="0" max="50" value="'+(s.mis_copas || 0)+'"')}</div><div style="flex:1 1 130px">${campo('refrescos','Refrescos','type="number" min="0" max="50" value="'+(s.mis_refrescos || 0)+'"')}</div></div><button class="btn" style="margin-top:10px">Guardar consumiciones</button></form>` : pasado ? '<p class="mu" style="margin:12px 0 0">No confirmaste asistencia a este sábado.</p>' : '<p class="mu" style="margin:14px 0 0">El plazo de confirmación terminó el jueves a las 23:00.</p>'}
         ${ME.admin || ME.tes ? `<p style="margin:12px 0 0"><button class="chip" type="button" data-a="sabado-asistentes" data-id="${s.id}">Ver asistentes</button></p>` : ''}
       </div></article>`;
   }).join('');
-  return shell(`<div class="top"><div class="tag">Organización del cuartel</div><h2>Sábados y asistencia</h2><p class="mu" style="margin:0">Consulta los próximos encuentros, confirma tu asistencia y registra tus consumiciones después de cada sábado.</p></div>
-  ${ME.admin || ME.tes ? `<section class="card" style="margin:18px 0"><div class="tag">Agenda</div><h3>Organizar un sábado</h3><form data-f="sabado-new"><div class="row" style="align-items:flex-end"><div style="flex:1 1 150px">${campo('fecha','Fecha','type="date" required')}</div><div style="flex:1 1 120px">${campo('hora','Hora','type="time"')}</div><div style="flex:2 1 220px">${campo('titulo','Actividad','required maxlength="120"')}</div><div style="flex:1 1 150px"><label class="fl">Concepto de cobro</label><select class="t" name="categoria"><option>Cuaresma</option><option>Semana Santa</option><option>Otros</option></select></div><button class="btn">Publicar sábado</button></div><label class="fl">Información del encuentro</label><textarea class="t" name="descripcion" rows="2"></textarea></form></section>` : ''}
-  <div class="sub s2"><button type="button" class="${SAB_TAB === 'prox' ? 'on' : ''}" data-a="sabados-tab" data-tab="prox">Próximos sábados (${proximos.length})</button><button type="button" class="${SAB_TAB === 'ant' ? 'on' : ''}" data-a="sabados-tab" data-tab="ant">Ya celebrados (${celebrados.length})</button></div>
-  <section class="sec" style="padding-top:12px"><div style="margin-top:14px">${SAB_TAB === 'prox' ? (tarjetas(proximos) || '<div class="card"><p class="mu" style="margin:0">No hay próximos sábados publicados.</p></div>') : (tarjetas(celebrados) || '<div class="card"><p class="mu" style="margin:0">Todavía no hay sábados celebrados.</p></div>')}</div></section>`);
+  const cabecera = `<div class="top"><div class="tag">Cuaresma ${siguiente ? new Date(siguiente.fecha+'T12:00:00').getFullYear() : new Date().getFullYear()}</div><h2>Hola, ${esc(nombre)}</h2><p class="mu" style="margin:0">Confirma tu asistencia antes del jueves a las 23:00. El menú es sorpresa. Precio del sábado: ${euros(precioSabado)} · invitada: ${euros(precioInvitada)}.</p></div>`;
+  const resumen = siguiente ? `<div class="card" style="margin:16px 0;background:var(--gs);border-color:var(--go)"><b>Próximo: ${esc(siguiente.titulo)}, ${fechaBonita(siguiente.fecha)}</b><div class="meter"><i style="width:${Math.min(100,Number(siguiente.plazas_ocupadas||0)/40*100)}%"></i></div><span class="mu">${Number(siguiente.plazas_ocupadas||0)} de 40 plazas ocupadas</span></div>` : '';
+  const alta = ME.admin || ME.tes ? `<details class="card" style="margin:16px 0"><summary class="chip">Gestionar sábados</summary><form data-f="sabado-new" style="margin-top:14px"><div class="row" style="align-items:flex-end"><div style="flex:1 1 150px">${campo('fecha','Fecha','type="date" required')}</div><div style="flex:1 1 120px">${campo('hora','Hora','type="time"')}</div><div style="flex:2 1 220px">${campo('titulo','Actividad','required maxlength="120"')}</div><div style="flex:1 1 150px"><label class="fl">Concepto de cobro</label><select class="t" name="categoria"><option>Cuaresma</option><option>Semana Santa</option><option>Otros</option></select></div></div><label class="fl">Información del encuentro</label><textarea class="t" name="descripcion" rows="2"></textarea><button class="btn" style="margin-top:10px">Publicar sábado</button></form></details>` : '';
+  return shell(cabecera+resumen+alta+`<div class="sub s2"><button type="button" class="${SAB_TAB==='prox'?'on':''}" data-a="sabados-tab" data-tab="prox">Próximos sábados</button><button type="button" class="${SAB_TAB==='ant'?'on':''}" data-a="sabados-tab" data-tab="ant">Ya celebrados · apuntar bebidas</button></div><section class="sec" style="padding-top:12px">${SAB_TAB==='prox'?(tarjetas(proximos)||'<div class="card"><p class="mu" style="margin:0">No hay próximos sábados publicados.</p></div>'):(tarjetas(celebrados)||'<div class="card"><p class="mu" style="margin:0">Todavía no hay sábados celebrados.</p></div>')}</section>`);
 }
 
 async function vCuenta() {
@@ -349,7 +388,19 @@ const FORM = {
   async 'cargo-save'(f, d) { await api('PUT', '/admin/cargos/' + f.dataset.id, { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Guardado'); render(); },
   async 'noticia-new'(f, d) { const b = { titulo: d.get('titulo'), texto: d.get('texto') }; const fl = d.get('foto'); if (fl && fl.size) b.imagen = await reducir(fl, 1400, 0.8); await api('POST', '/admin/noticias', b); toast('Noticia publicada. Ya aparece en la web.'); render(); },
   async 'sabado-new'(f,d) { await api('POST','/modulos/sabados',{fecha:d.get('fecha'),hora:d.get('hora'),titulo:d.get('titulo'),categoria:d.get('categoria'),descripcion:d.get('descripcion')}); toast('Sábado creado'); render(); },
-  async 'sabado-rsvp'(f,d) { const alergias=d.getAll('alergia').concat(d.get('alergias_extra')||'').filter(Boolean).join(', '); await api('POST','/modulos/sabados/'+f.dataset.id+'/asistencia',{asiste:d.get('asiste')==='1',acompanantes:d.get('acompanantes'),detalle_acompanantes:'',alergias,observaciones:d.get('observaciones')}); toast('Asistencia guardada'); render(); },
+  async 'sabado-rsvp'(f,d) {
+    const personas=[];
+    const propias=d.getAll('alergia_hermana_0');
+    const notaPropia=d.get('alergia_extra_hermana_0')||'';
+    if(propias.length||notaPropia.trim()) personas.push({tipo:'hermana',numero:0,alergias:propias.join(', '),observaciones:notaPropia});
+    const invitadas=Math.max(0,Math.min(20,Number(d.get('acompanantes')||0)));
+    for(let i=1;i<=invitadas;i++){
+      const alergias=d.getAll('alergia_invitada_'+i),observaciones=d.get('alergia_extra_invitada_'+i)||'';
+      if(alergias.length||observaciones.trim()) personas.push({tipo:'invitada',numero:i,alergias:alergias.join(', '),observaciones});
+    }
+    await api('POST','/modulos/sabados/'+f.dataset.id+'/asistencia',{asiste:d.get('asiste')==='1',acompanantes:invitadas,personas,observaciones:d.get('observaciones')});
+    toast('Asistencia guardada'); render();
+  },
   async 'sabado-consumos'(f,d) { await api('POST','/modulos/sabados/'+f.dataset.id+'/consumos',{copas:d.get('copas'),refrescos:d.get('refrescos')}); toast('Consumiciones guardadas'); render(); },
   async 'cuenta-pago'(f,d) { await api('POST','/modulos/cuenta/pagos',{categoria:d.get('categoria'),importe:d.get('importe'),fecha_pago:d.get('fecha_pago'),metodo:d.get('metodo'),concepto:d.get('concepto')}); PAGO_MODAL=false; toast('Pago registrado y pendiente de revisión'); render(); },
   async 'cocina-new'(f,d) { await api('POST','/modulos/cocina',{fecha:d.get('fecha'),turno:d.get('turno'),responsable:d.get('responsable'),presupuesto:d.get('presupuesto'),menu:d.get('menu'),observaciones:d.get('observaciones')}); toast('Turno añadido'); render(); },
