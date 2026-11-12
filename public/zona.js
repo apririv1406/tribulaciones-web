@@ -373,7 +373,7 @@ async function vTesoreria() {
     const situationRows=`<tr><td>Banco</td><td class="r">${euros(d.totales.banco_centimos)}</td></tr><tr><td>Caja fuerte</td><td class="r">${euros(d.totales.caja_centimos)}</td></tr><tr><td>Pendiente de cobro a hermanas</td><td class="r">${euros(pendienteCobro)}</td></tr>`;
     const years=[...new Set((d.informes||[]).map(x=>String(x.anio)))].sort().reverse();
     if(!years.includes(anio)) years.unshift(anio);
-    contenido=`<div class="pr tes-report-brand"><img src="/logo.png" style="height:48px"><h2 style="margin:6px 0 0">Las Tribulaciones de Sara</h2><p>Informe de tesorería · ${anio}</p></div><div class="noprint" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px"><div style="display:flex;gap:6px">${years.map(y=>`<button class="chip ${anio===y?'on':''}" data-a="tes-report-year" data-year="${y}">${y}</button>`).join('')}</div><button class="btn" data-a="tes-export">Exportar a PDF</button></div>
+    contenido=`<div class="pr tes-report-brand"><img src="/logo.png" style="height:48px"><h2 style="margin:6px 0 0">Las Tribulaciones de Sara</h2><p>Informe de tesorería · ${anio}</p></div><div class="noprint" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px"><div style="display:flex;gap:6px">${years.map(y=>`<button class="chip ${anio===y?'on':''}" data-a="tes-report-year" data-year="${y}">${y}</button>`).join('')}</div><button class="btn" data-a="tes-report-export">Generar informe PDF</button></div>
     <div class="kp report-kp tes-report-kp"><div class="card"><span class="mu">Ingresos</span><b style="color:var(--ok)">${euros(totalIngresos)}</b></div><div class="card"><span class="mu">Gastos</span><b style="color:var(--ko)">${euros(totalGastos)}</b></div><div class="card"><span class="mu">Resultado</span><b>${euros(totalIngresos-totalGastos)}</b></div></div>
     <div class="g2">${tabla('Ingresos por categoría',['Categoría','Importe','%'],catRows(ingresosCats,totalIngresos),`<td>Total ingresos</td><td class="r">${euros(totalIngresos)}</td><td class="r">100 %</td>`)}${tabla('Gastos por categoría',['Categoría','Importe','%'],catRows(gastosCats,totalGastos),`<td>Total gastos</td><td class="r">${euros(totalGastos)}</td><td class="r">100 %</td>`)}${tabla('Resultado por meses',['Mes','Ingresos','Gastos','Resultado'],monthRows,`<td>Total</td><td class="r">${euros(totalIngresos)}</td><td class="r">${euros(totalGastos)}</td><td class="r">${euros(totalIngresos-totalGastos)}</td>`)}${tabla('Cocina: presupuesto y gasto por sábado',['Sábado','Presupuesto','Gastado','Diferencia'],kitchenRows)}${tabla('Situación actual · '+new Date().toLocaleDateString('es-ES'),['Concepto','Importe'],situationRows,`<td>Total disponible (banco y caja)</td><td class="r">${euros(Number(d.totales.banco_centimos||0)+Number(d.totales.caja_centimos||0))}</td>`)}</div>`;
   }
@@ -561,6 +561,72 @@ const ACT = {
 
   async 'tes-ticket-reject'(el) { if(!confirm('¿Rechazar este ticket?')) return; await api('PUT','/modulos/tesoreria/tickets/'+el.dataset.id,{estado:'rechazado'}); toast('Ticket rechazado'); render(); },
   'tes-report-year'(el) { TES_REPORT_YEAR=el.dataset.year; render(); },
+  async 'tes-report-export'() {
+    if(!window.jspdf?.jsPDF) throw new Error('No se ha podido cargar el generador de PDF.');
+    const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const anio=document.querySelector('.tes-report-brand p')?.innerText.match(/\\d{4}/)?.[0]||new Date().getFullYear();
+    const fecha=new Date().toLocaleDateString('es-ES'),margen=12,ancho=273;
+    const color=[65,55,43],oro=[173,133,49],gris=[112,105,95];
+    const cabecera=(subtitulo)=>{
+      doc.setFont('helvetica','bold');doc.setFontSize(17);doc.setTextColor(...color);
+      doc.text('LAS TRIBULACIONES DE SARA',margen,15);
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...gris);
+      doc.text('INFORME DE TESORERÍA · '+anio+' · '+fecha,margen,21);
+      if(subtitulo){doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...color);doc.text(subtitulo,margen,31);}
+      doc.setDrawColor(...oro);doc.setLineWidth(.6);doc.line(margen,25,ancho+margen,25);
+    };
+    cabecera('Resumen económico');
+    let y=34;
+    const kpis=[...document.querySelectorAll('.tes-report-kp>.card')].map(c=>[c.querySelector('span')?.innerText||'',c.querySelector('b')?.innerText||'']);
+    const kw=ancho/Math.max(kpis.length,1);
+    kpis.forEach((k,i)=>{
+      const x=margen+i*kw;doc.setFillColor(246,242,234);doc.roundedRect(x,y,kw-3,17,2,2,'F');
+      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...gris);doc.text(k[0],x+4,y+6);
+      doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...color);doc.text(k[1],x+4,y+13);
+    });
+    y+=25;
+    const tablas=[...document.querySelectorAll('.tes-content .g2 .card table, .tes-content .g2>div table')];
+    if(!tablas.length) throw new Error('El informe no contiene tablas para exportar.');
+    for(const tabla of tablas){
+      const card=tabla.closest('.card')||tabla.parentElement;
+      const titulo=card.querySelector('h3')?.innerText.trim()||'Detalle';
+      const head=[...tabla.querySelectorAll('thead tr:first-child th')].map(x=>x.innerText.trim());
+      const body=[...tabla.querySelectorAll('tbody tr')].map(tr=>[...tr.querySelectorAll('td')].map(td=>td.innerText.replace(/\\s+/g,' ').trim()));
+      const foot=[...tabla.querySelectorAll('tfoot tr:last-child td')].map(x=>x.innerText.trim());
+      if(y>170){doc.addPage();cabecera(titulo);y=37;}
+      else {doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...color);doc.text(titulo,margen,y);y+=3;}
+      doc.autoTable({startY:y,head:[head],body,foot:foot.length?[foot]:undefined,theme:'grid',
+        styles:{font:'helvetica',fontSize:8,cellPadding:2.2,textColor:gris,lineColor:[224,216,202],lineWidth:.15},
+        headStyles:{fillColor:[65,55,43],textColor:[255,255,255],fontStyle:'bold'},
+        footStyles:{fillColor:[246,242,234],textColor:color,fontStyle:'bold'},
+        alternateRowStyles:{fillColor:[250,248,244]},margin:{left:margen,right:margen},
+        didDrawPage:()=>{if(doc.internal.getNumberOfPages()>1){doc.setFontSize(7);doc.setTextColor(...gris);doc.text('Las Tribulaciones de Sara · Informe de tesorería '+anio, margen, 202);}}
+      });
+      y=doc.lastAutoTable.finalY+11;
+    }
+    const situacion=[...document.querySelectorAll('.tes-content .g2 .card')].find(c=>c.innerText.includes('Situación actual'));
+    if(situacion){
+      const t=situacion.querySelector('table');
+      if(t){
+        if(y>175){doc.addPage();cabecera('Situación actual');y=37;}
+        else {doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...color);doc.text('Situación actual',margen,y);y+=3;}
+        const head=[...t.querySelectorAll('thead th')].map(x=>x.innerText.trim());
+        const body=[...t.querySelectorAll('tbody tr')].map(tr=>[...tr.querySelectorAll('td')].map(td=>td.innerText.trim()));
+        const foot=[...t.querySelectorAll('tfoot tr:last-child td')].map(x=>x.innerText.trim());
+        doc.autoTable({startY:y,head:[head],body,foot:foot.length?[foot]:undefined,theme:'grid',styles:{fontSize:8,cellPadding:2.5},headStyles:{fillColor:[65,55,43]},footStyles:{fillColor:[246,242,234],textColor:color,fontStyle:'bold'},margin:{left:margen,right:margen}});
+      }
+    }
+    const blob=doc.output('blob'),file=new File([blob],'Informe_Tesoreria_'+anio+'.pdf',{type:'application/pdf'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:'Informe de tesorería',text:'Informe anual de tesorería de Las Tribulaciones de Sara.'});return;}
+      catch(e){if(e?.name==='AbortError')return;}
+    }
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    window.open('https://wa.me/?text='+encodeURIComponent('Te comparto el informe de tesorería. Adjunta el PDF que se acaba de descargar.'),'_blank','noopener,noreferrer');
+    toast('Informe PDF generado y descargado. Adjunta el archivo en WhatsApp.');
+  },
+
   async 'tes-export'() {
     const tabla=document.querySelector('.tes-debt-table table');
     if(!tabla) throw new Error('No se encuentra la tabla de cuotas pendientes.');
