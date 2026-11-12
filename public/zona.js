@@ -447,6 +447,13 @@ const ACT = {
     f.querySelector('[data-invitadas-count]').textContent=String(cantidad);
     f.querySelectorAll('[data-guest-index]').forEach(x=>{x.style.display=Number(x.dataset.guestIndex)<=cantidad?'block':'none';});
   },
+  'rsvp-invitadas-step'(el) {
+    const f=el.closest('form'), input=f.querySelector('[name=acompanantes]');
+    const cantidad=Math.max(0,Math.min(20,Number(input.value||0)+Number(el.dataset.delta||0)));
+    input.value=String(cantidad);
+    f.querySelector('[data-invitadas-count]').textContent=String(cantidad);
+    f.querySelectorAll('[data-guest-index]').forEach(x=>{x.style.display=Number(x.dataset.guestIndex)<=cantidad?'block':'none';});
+  },
   menu() { MENU = !MENU; shell(LAST); },
   async salir() { await api('POST', '/auth/logout').catch(() => {}); ME = null; location.hash = '#/'; render(); },
   async 'her-invitar'(el) { const r=await api('POST','/admin/hermanas/'+el.dataset.id+'/invitar'); toast(r.enviado?'Correo de bienvenida enviado':'No se ha podido enviar el correo',!r.enviado); render(); },
