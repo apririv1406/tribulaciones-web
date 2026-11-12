@@ -447,7 +447,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         ((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado')) pagado_centimos,
         MAX(0,x.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado'))) restante_centimos
         FROM cargos_hermanas x JOIN hermanas h ON h.id=x.hermana_id
-        WHERE x.importe_centimos>(SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')
+        WHERE x.importe_centimos>((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado'))
         ORDER BY h.nombre,x.categoria,x.id`));
       const saldoCfg=await rows(env.DB.prepare("SELECT clave,valor FROM config WHERE clave IN ('saldo_inicial_fecha','saldo_inicial_banco_centimos','saldo_inicial_caja_centimos')"));
       const saldosCfg=Object.fromEntries(saldoCfg.map(x=>[x.clave,x.valor]));
