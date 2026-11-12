@@ -158,7 +158,7 @@ export async function routeModulos(req, env, me, method, path, body) {
       env.DB.prepare(`INSERT INTO asistencias_sabado(sabado_id,hermana_id,asiste,acompanantes,detalle_acompanantes,alergias,observaciones,actualizado)
         VALUES(?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(sabado_id,hermana_id) DO UPDATE SET asiste=excluded.asiste,acompanantes=excluded.acompanantes,
         detalle_acompanantes=NULL,alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`)
-        .bind(id, me.id, asiste, acomp, null, txt(propia.alergias, 1000) || null, txt(propia.observaciones, 1000) || null),
+        .bind(id, me.id, asiste, acomp, null, txt(propia.alergias, 1000) || null, txt(body.observaciones, 1000) || null),
       env.DB.prepare('DELETE FROM lts_alergias_evento WHERE sabado_id=? AND hermana_id=?').bind(id, me.id),
     ];
     for (const persona of personas) {
