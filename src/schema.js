@@ -102,7 +102,35 @@ export const MIGRATIONS = [
     `ALTER TABLE movimientos ADD COLUMN periodo_fijo TEXT`,
     `CREATE UNIQUE INDEX IF NOT EXISTS ux_movimientos_gasto_fijo_periodo ON movimientos(gasto_fijo_id,periodo_fijo) WHERE gasto_fijo_id IS NOT NULL`,
   ]},
+  { v: 12, sql: [
+    `CREATE TABLE IF NOT EXISTS lts_alergias_evento(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sabado_id INTEGER NOT NULL REFERENCES sabados(id) ON DELETE CASCADE,
+      hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,
+      persona_tipo TEXT NOT NULL CHECK(persona_tipo IN('hermana','invitada')),
+      persona_numero INTEGER NOT NULL DEFAULT 0 CHECK(persona_numero>=0),
+      alergias TEXT NOT NULL DEFAULT '',
+      observaciones TEXT,
+      actualizado TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(sabado_id,hermana_id,persona_tipo,persona_numero)
+    )`,
+    `CREATE INDEX IF NOT EXISTS ix_lts_alergias_evento ON lts_alergias_evento(sabado_id,hermana_id)`,
+    `CREATE TABLE IF NOT EXISTS lts_perfil_alergias(
+      hermana_id INTEGER PRIMARY KEY REFERENCES hermanas(id) ON DELETE CASCADE,
+      alergias TEXT NOT NULL DEFAULT '',
+      observaciones TEXT,
+      actualizado TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+  ]},
+
 ]; 
+
+async function ensureColumn(db, table, column, definition) {
+  const info = await db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!(info.results || []).some(x => x.name === column)) {
+    await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
+  }
+}
 
 export async function ensureSchema(db) {
   await db.prepare('CREATE TABLE IF NOT EXISTS meta(clave TEXT PRIMARY KEY,valor TEXT)').run();
@@ -114,5 +142,48 @@ export async function ensureSchema(db) {
       await db.prepare("INSERT OR REPLACE INTO meta(clave,valor) VALUES('schema',?)").bind(String(m.v)).run();
       cur = m.v;
     }
+  }
+
+  // Compatibilidad con tablas de sábados creadas por versiones anteriores.
+  // Añade únicamente columnas ausentes; nunca borra ni reemplaza datos.
+  const columnas = {
+    sabados: {
+      hora: 'TEXT',
+      titulo: "TEXT NOT NULL DEFAULT 'Sábado'",
+      descripcion: 'TEXT',
+      categoria: "TEXT NOT NULL DEFAULT 'Cuaresma'",
+      estado: "TEXT NOT NULL DEFAULT 'abierto'",
+      creado_por: 'INTEGER',
+    },
+    asistencias_sabado: {
+      asiste: 'INTEGER NOT NULL DEFAULT 1',
+      acompanantes: 'INTEGER NOT NULL DEFAULT 0',
+      detalle_acompanantes: 'TEXT',
+      alergias: "TEXT NOT NULL DEFAULT ''",
+      observaciones: 'TEXT',
+      actualizado: "TEXT NOT NULL DEFAULT ''",
+    },
+    consumos_sabado: {
+      copas: 'INTEGER NOT NULL DEFAULT 0',
+      refrescos: 'INTEGER NOT NULL DEFAULT 0',
+      actualizado: "TEXT NOT NULL DEFAULT ''",
+    },
+  };
+  for (const [tabla, campos] of Object.entries(columnas)) {
+    for (const [columna, definicion] of Object.entries(campos)) {
+      await ensureColumn(db, tabla, columna, definicion);
+    }
+  }
+
+  // Copia histórica de alergias a las tablas nuevas una sola vez.
+  const migradas = await db.prepare("SELECT valor FROM meta WHERE clave='lts_alergias_migradas'").first();
+  if (!migradas) {
+    await db.prepare(`INSERT OR IGNORE INTO lts_perfil_alergias(hermana_id,alergias,observaciones)
+      SELECT hermana_id,COALESCE(alergias,''),observaciones FROM alergias_hermanas`).run();
+    await db.prepare(`INSERT OR IGNORE INTO lts_alergias_evento(sabado_id,hermana_id,persona_tipo,persona_numero,alergias,observaciones)
+      SELECT sabado_id,hermana_id,'hermana',0,COALESCE(alergias,''),observaciones
+      FROM asistencias_sabado
+      WHERE COALESCE(alergias,'')<>'' OR COALESCE(observaciones,'')<>''`).run();
+    await db.prepare("INSERT OR REPLACE INTO meta(clave,valor) VALUES('lts_alergias_migradas','1')").run();
   }
 }
