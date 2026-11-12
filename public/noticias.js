@@ -4,11 +4,12 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&l
 const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const fecha = f => { const p=String(f || '').split('-'); return p.length===3 ? p[2].replace(/^0/,'')+' de '+meses[+p[1]-1]+' de '+p[0] : (f || ''); };
 const resumen = t => { const s=String(t || '').replace(/\s+/g,' ').trim(); return s.length>185 ? s.slice(0,182).trimEnd()+'…' : s; };
-const menu = abrir => {
-  $('#mn').innerHTML = abrir ? '<div class="sc" data-c="1"></div><div class="mn"><button class="x" data-c="1" aria-label="Cerrar">✕</button><a href="/">Inicio</a><a href="/historia/">Historia</a><a href="/noticias/">Noticias</a><a href="/zona/">Zona hermana</a></div>' : '';
-};
-$('#hb').addEventListener('click',()=>menu(true));
-document.addEventListener('click',e=>{if(e.target.closest('[data-c]')||e.target.closest('.mn a'))menu(false);});
+const links = [['/', 'Inicio'], ['/historia/', 'Historia'], ['/#hermandad', 'Hermandad'], ['/#cuaresma', 'Cuaresma'], ['/#hermanas', 'Hermanas'], ['/noticias/', 'Noticias'], ['/cronicas/', 'Crónicas'], ['/zona/', 'Zona hermana']];
+function menu(abrir) {
+  $('#mn').innerHTML = abrir ? `<div class="sc" data-c="1"></div><div class="mn"><button class="x" data-c="1" aria-label="Cerrar">✕</button>${links.map(([h, t]) => `<a href="${h}">${t}</a>`).join('')}</div>` : '';
+}
+$('#hb').addEventListener('click', () => menu(true));
+document.addEventListener('click', e => { if (e.target.closest('[data-c]') || e.target.closest('.mn a')) menu(false); });
 fetch('/api/noticias').then(r=>{if(!r.ok)throw new Error('No se han podido cargar las noticias');return r.json();}).then(items=>{
  const root=$('#news-archive');
  if(!items.length){root.innerHTML='<p class="empty-news">Todavía no hay noticias publicadas. Pronto compartiremos aquí nuevas crónicas y recuerdos.</p>';return;}
