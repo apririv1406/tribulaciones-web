@@ -259,7 +259,7 @@ async function media(req, env, id) {
 async function publico(env) {
   const [h, n, t] = await Promise.all([
     env.DB.prepare("SELECT h.nombre,c.nombre cargo,h.anio_entrada anio,h.foto_id foto FROM hermanas h LEFT JOIN cargos c ON c.id=h.cargo_id WHERE h.visible_web=1 AND h.estado!='Baja' ORDER BY COALESCE(c.orden,99),h.nombre").all(),
-    env.DB.prepare("SELECT id,titulo,texto,fecha,imagen_id imagen,url,tipo FROM noticias WHERE tipo='noticia' ORDER BY fecha DESC,id DESC LIMIT 12").all(),
+    env.DB.prepare("SELECT id,titulo,texto,fecha,imagen_id imagen,url,tipo FROM noticias ORDER BY fecha DESC,id DESC LIMIT 12").all(),
     env.DB.prepare('SELECT anio,texto FROM hitos ORDER BY orden,id').all(),
   ]);
   return J({ hermanas: h.results, noticias: n.results, hitos: t.results }, 200, { 'Cache-Control': 'public, max-age=30' });
