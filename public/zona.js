@@ -561,7 +561,72 @@ const ACT = {
 
   async 'tes-ticket-reject'(el) { if(!confirm('¿Rechazar este ticket?')) return; await api('PUT','/modulos/tesoreria/tickets/'+el.dataset.id,{estado:'rechazado'}); toast('Ticket rechazado'); render(); },
   'tes-report-year'(el) { TES_REPORT_YEAR=el.dataset.year; render(); },
-  'tes-export'() { window.print(); },
+  async 'tes-export'() {
+    const tabla=document.querySelector('.tes-debt-table table');
+    if(!tabla) throw new Error('No se encuentra la tabla de cuotas pendientes.');
+    if(!window.jspdf?.jsPDF) throw new Error('No se ha podido cargar el generador de PDF. Comprueba tu conexión y vuelve a intentarlo.');
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const fecha=new Date().toLocaleDateString('es-ES');
+    const nombre='Estado_de_cuentas_Las_Tribulaciones_'+new Date().toISOString().slice(0,10)+'.pdf';
+    const azul=[65,55,43], oro=[173,133,49], gris=[112,105,95], linea=[224,216,202];
+    const margen=12, ancho=273;
+    const columnas=[63,47,38,43,43,39];
+    const titulos=['Hermana','Cuotas mensuales','Cuaresma','Semana Santa','Otros conceptos','Total'];
+    const filas=[...tabla.querySelectorAll('tbody tr')].map(tr=>[...tr.querySelectorAll('td')].map(td=>td.innerText.replace(/\s+/g,' ').trim()));
+    const totales=[...tabla.querySelectorAll('tfoot td')].map(td=>td.innerText.replace(/\s+/g,' ').trim());
+    let y=15;
+    const cabecera=()=>{
+      doc.setFont('helvetica','bold');doc.setFontSize(17);doc.setTextColor(...azul);
+      doc.text('LAS TRIBULACIONES DE SARA',margen,y);
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...gris);
+      doc.text('Relación de cuotas y conceptos pendientes · '+fecha,margen,y+6);
+      doc.setDrawColor(...oro);doc.setLineWidth(.6);doc.line(margen,y+10,ancho+margen,y+10);
+      y+=16;
+      doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...azul);
+      let x=margen;
+      titulos.forEach((t,i)=>{doc.text(t,x+2,y+5);x+=columnas[i];});
+      doc.setFillColor(246,242,234);doc.rect(margen,y,ancho,9,'F');
+      x=margen;titulos.forEach((t,i)=>{doc.text(t,x+2,y+5.7);x+=columnas[i];});
+      y+=9;
+    };
+    cabecera();
+    doc.setFontSize(8.5);
+    filas.forEach((fila,idx)=>{
+      if(fila.length<6)return;
+      const celdas=fila.map((v,i)=>doc.splitTextToSize(v||'—',columnas[i]-4));
+      const alto=Math.max(9,...celdas.map(c=>c.length*3.7+3));
+      if(y+alto>190){doc.addPage();y=15;cabecera();}
+      if(idx%2===1){doc.setFillColor(250,248,244);doc.rect(margen,y,ancho,alto,'F');}
+      doc.setDrawColor(...linea);doc.setLineWidth(.15);doc.line(margen,y+alto,ancho+margen,y+alto);
+      let x=margen;
+      celdas.forEach((c,i)=>{
+        doc.setFont('helvetica',i===0||i===5?'bold':'normal');
+        doc.setTextColor(...(i===5?azul:gris));
+        doc.text(c,x+2,y+4.5,{baseline:'top'});
+        x+=columnas[i];
+      });
+      y+=alto;
+    });
+    if(y+13>190){doc.addPage();y=15;}
+    doc.setFillColor(246,242,234);doc.rect(margen,y,ancho,10,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...azul);
+    let x=margen;totales.slice(0,6).forEach((v,i)=>{doc.text(v||'',x+2,y+6.3);x+=columnas[i];});
+    y+=16;
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...gris);
+    doc.text('Este documento refleja las cantidades pendientes. Los pagos pendientes de validar no se descuentan hasta su confirmación.',margen,y);
+    const blob=doc.output('blob');
+    const archivo=new File([blob],nombre,{type:'application/pdf'});
+    if(navigator.canShare&&navigator.canShare({files:[archivo]})){
+      try{await navigator.share({files:[archivo],title:'Estado de cuentas',text:'Relación de cuotas y conceptos pendientes de Las Tribulaciones de Sara.'});return;}
+      catch(e){if(e?.name==='AbortError')return;}
+    }
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=nombre;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    window.open('https://wa.me/?text='+encodeURIComponent('Te comparto el estado de cuentas pendientes de Las Tribulaciones de Sara. Adjunta el PDF que se acaba de descargar.'),'_blank','noopener,noreferrer');
+    toast('PDF generado y descargado. Adjunta el archivo en WhatsApp.');
+  },
 
   async 'cocina-del'(el) { if(!confirm('¿Eliminar este turno?')) return; await api('DELETE','/modulos/cocina/'+el.dataset.id); render(); },
   async 'junta-del'(el) { if(!confirm('¿Eliminar esta junta y su acta?')) return; await api('DELETE','/modulos/actas/juntas/'+el.dataset.id); render(); },
