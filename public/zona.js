@@ -2,8 +2,9 @@
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(''));
+const fechaHoyLocal = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.600 2.400 30.200 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.800 6.100C12.300 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.500 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.700c-.6 3-2.300 5.500-4.800 7.200l7.500 5.800c4.400-4.100 7.100-10.100 7.100-17.500z"/><path fill="#FBBC05" d="M10.400 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.9-4.700l-7.800-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.800-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.700-4.100-13.600-9.800l-7.800 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
-let ME = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_YEAR = '2026', TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
+let ME = null, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_YEAR = '2026', TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
 
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
@@ -460,7 +461,19 @@ async function vAdmin(tab) {
   }
   if(tab==='noticias') {
     const d=await api('GET','/admin/noticias');
-    return shell(adm(tab,`<div class="card"><h3>Publicar contenido</h3><form data-f="noticia-new"><label class="fl">Tipo de publicación</label><select class="t" name="tipo"><option value="noticia">Noticia</option><option value="cronica">Crónica de un sábado</option></select>${campo('titulo','Título','required maxlength="150"')}<label class="fl">Texto</label><textarea class="t" name="texto" rows="6" required maxlength="6000"></textarea>${campo('url','Enlace a Instagram o Facebook','type="url" placeholder="https://www.instagram.com/p/… o https://www.facebook.com/…"')}<small class="mu" style="display:block;margin-top:-8px;margin-bottom:12px">Opcional. Al publicar, aparecerá en la sección correspondiente. Puedes enlazar la publicación original.</small><label class="fl">Foto (opcional)</label><input type="file" name="foto" accept="image/*"><p style="margin:18px 0 0"><button class="btn">Publicar en la web</button></p></form></div><div class="card" style="margin-top:16px"><h3>Publicaciones realizadas</h3>${d.map(n=>`<div class="mv">${n.imagen?`<img src="/media/${n.imagen}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:10px">`:''}<div class="x"><b>${n.tipo==='cronica'?'CRÓNICA':'NOTICIA'} · ${esc(n.titulo)}</b><br><small class="mu">${esc(n.fecha)}</small><br><a href="/${n.tipo==='cronica'?'cronicas':'noticias'}/${n.id}/" target="_blank" rel="noopener noreferrer" class="mu">Ver en la web ↗</a>${n.url?`<br><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer" class="mu">Abrir publicación ↗</a>`:''}</div><button class="chip" data-a="noticia-del" data-id="${n.id}">Eliminar</button></div>`).join('')||'<p class="mu">Todavía no hay noticias.</p>'}</div>`));
+    const ed=NOTICIA_EDITANDO;
+    const formId=ed ? 'noticia-save' : 'noticia-new';
+    return shell(adm(tab,`<div class="card"><h3>${ed?'Editar publicación':'Publicar contenido'}</h3><form data-f="${formId}" ${ed?'data-id="'+ed.id+'"':''}>
+      <label class="fl">Tipo de publicación</label><select class="t" name="tipo"><option value="noticia" ${ed?.tipo!=='cronica'?'selected':''}>Noticia</option><option value="cronica" ${ed?.tipo==='cronica'?'selected':''}>Crónica de un sábado</option></select>
+      ${campo('titulo','Título','required maxlength="150" value="'+esc(ed?.titulo||'')+'"')}
+      <label class="fl">Fecha de publicación</label><input class="t" type="date" name="fecha" required value="${esc(ed?.fecha||fechaHoyLocal())}">
+      <label class="fl">Texto</label><textarea class="t" name="texto" rows="6" required maxlength="6000">${esc(ed?.texto||'')}</textarea>
+      ${campo('url','Enlace a Instagram o Facebook','type="url" placeholder="https://www.instagram.com/p/… o https://www.facebook.com/…" value="'+esc(ed?.url||'')+'"')}
+      <small class="mu" style="display:block;margin-top:-8px;margin-bottom:12px">Opcional. La publicación aparecerá en la sección correspondiente.</small>
+      ${ed?.imagen?`<div class="row" style="align-items:center;margin:10px 0"><img src="/media/${ed.imagen}" alt="" style="width:76px;height:76px;object-fit:cover;border-radius:10px"><label class="mu"><input type="checkbox" name="quitar_imagen"> Quitar fotografía actual</label></div>`:''}
+      <label class="fl">${ed?.imagen?'Cambiar fotografía':'Fotografía (opcional)'}</label><input type="file" name="foto" accept="image/*">
+      <p style="margin:18px 0 0"><button class="btn">${ed?'Guardar cambios':'Publicar en la web'}</button> ${ed?'<button type="button" class="chip" data-a="noticia-edit-cancel">Cancelar</button>':''}</p>
+    </form></div><div class="card" style="margin-top:16px"><h3>Publicaciones realizadas</h3>${d.map(n=>`<div class="mv">${n.imagen?`<img src="/media/${n.imagen}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:10px">`:''}<div class="x"><b>${n.tipo==='cronica'?'CRÓNICA':'NOTICIA'} · ${esc(n.titulo)}</b><br><small class="mu">${esc(n.fecha)}</small><br><a href="/${n.tipo==='cronica'?'cronicas':'noticias'}/${n.id}/" target="_blank" rel="noopener noreferrer" class="mu">Ver en la web ↗</a>${n.url?`<br><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer" class="mu">Abrir publicación ↗</a>`:''}</div><button class="chip" data-a="noticia-edit" data-id="${n.id}">Editar</button><button class="chip" data-a="noticia-del" data-id="${n.id}">Eliminar</button></div>`).join('')||'<p class="mu">Todavía no hay publicaciones.</p>'}</div>`));
   }
   if(tab==='historia') {
     const d=await api('GET','/public');
@@ -491,7 +504,8 @@ const FORM = {
   },
   async 'cargo-new'(f, d) { await api('POST', '/admin/cargos', { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Cargo creado'); render(); },
   async 'cargo-save'(f, d) { await api('PUT', '/admin/cargos/' + f.dataset.id, { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Guardado'); render(); },
-  async 'noticia-new'(f, d) { const b = { tipo: d.get('tipo'), titulo: d.get('titulo'), texto: d.get('texto'), url: d.get('url') }; const fl = d.get('foto'); if (fl && fl.size) b.imagen = await reducir(fl, 1400, 0.8); await api('POST', '/admin/noticias', b); toast(b.tipo==='cronica'?'Crónica publicada.':'Noticia publicada.'); render(); },
+  async 'noticia-new'(f, d) { const b = { tipo:d.get('tipo'), titulo:d.get('titulo'), texto:d.get('texto'), fecha:d.get('fecha'), url:d.get('url') }; const fl=d.get('foto'); if(fl&&fl.size)b.imagen=await reducir(fl,1400,0.8); await api('POST','/admin/noticias',b); toast(b.tipo==='cronica'?'Crónica publicada.':'Noticia publicada.'); render(); },
+  async 'noticia-save'(f,d) { const b={tipo:d.get('tipo'),titulo:d.get('titulo'),texto:d.get('texto'),fecha:d.get('fecha'),url:d.get('url'),quitar_imagen:d.get('quitar_imagen')==='on'}; const fl=d.get('foto'); if(fl&&fl.size)b.imagen=await reducir(fl,1400,0.8); await api('PUT','/admin/noticias/'+f.dataset.id,b); NOTICIA_EDITANDO=null; toast('Publicación actualizada'); render(); },
   async 'sabado-new'(f,d) { await api('POST','/modulos/sabados',{fecha:d.get('fecha'),hora:d.get('hora'),titulo:d.get('titulo'),categoria:d.get('categoria'),descripcion:d.get('descripcion')}); toast('Sábado creado'); render(); },
   async 'sabado-rsvp'(f,d) {
     const personas=[];
@@ -581,7 +595,9 @@ const ACT = {
   async 'her-reset'(el) { const r=await api('POST','/admin/hermanas/'+el.dataset.id+'/reset'); toast(r.enviado?'Correo para restablecer contraseña enviado':'No se ha podido enviar el correo',!r.enviado); render(); },
   async 'her-quitar-foto'(el) { await api('PUT', '/admin/hermanas/' + el.dataset.id, { quitar_foto: true }); toast('Foto quitada'); render(); },
   async 'cargo-del'(el) { if (!confirm('¿Borrar este cargo?')) return; await api('DELETE', '/admin/cargos/' + el.dataset.id); render(); },
-  async 'noticia-del'(el) { if (!confirm('¿Eliminar esta noticia?')) return; await api('DELETE', '/admin/noticias/' + el.dataset.id); render(); },
+  async 'noticia-del'(el) { if (!confirm('¿Eliminar esta publicación?')) return; await api('DELETE','/admin/noticias/'+el.dataset.id); if(NOTICIA_EDITANDO?.id===Number(el.dataset.id))NOTICIA_EDITANDO=null; toast('Publicación eliminada'); render(); },
+  async 'noticia-edit'(el) { const d=await api('GET','/admin/noticias'); NOTICIA_EDITANDO=d.find(n=>n.id===Number(el.dataset.id))||null; if(!NOTICIA_EDITANDO)throw new Error('No se ha encontrado la publicación'); render(); },
+  'noticia-edit-cancel'() { NOTICIA_EDITANDO=null; render(); },
   async 'sabado-asistentes'(el) { const a=await api('GET','/modulos/sabados/'+el.dataset.id+'/asistencias'); alert(a.length ? a.map(x=>`${x.nombre}: ${x.asiste?'Asiste':'No asiste'}${x.acompanantes?' + '+x.acompanantes+' acompañantes':''}${x.alergias?' · Alergias: '+x.alergias:''}`).join('\n') : 'Todavía no hay confirmaciones.'); },
   'sabados-tab'(el) { SAB_TAB=el.dataset.tab==='ant'?'ant':'prox'; render(); },
   async 'pago-confirm'(el) { if(!confirm('¿Confirmar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/confirmar'); toast('Pago confirmado'); render(); },
