@@ -131,3 +131,23 @@ nav a.cta{background:var(--dk);color:#fff;margin-left:6px}
 nav a.dk{display:inline-block;color:var(--mu);text-decoration:none;font-weight:500;padding:8px 12px;border-radius:99px;white-space:nowrap}
 nav a.dk.on,nav a.dk:hover{color:var(--dk);background:var(--gs)}
 nav a.cta{background:var(--dk);color:#fff;margin-left:6px}
+
+
+/* Ajustes de navegación y presentación de la Zona hermana */
+nav img{margin-right:12px}
+nav{justify-content:flex-start}
+.zona #app{max-width:1480px;margin:0 auto;padding:0 clamp(16px,4vw,64px) 100px}
+.zona #app .login{min-height:calc(100vh - 90px);padding:34px 16px}
+.zona #app .login .card{width:min(100%,430px);background:var(--pa);border:1px solid var(--ln);box-shadow:0 16px 45px rgba(91,70,40,.10)}
+.zona #app .top{padding:30px 0 12px}
+.zona #app .top p{max-width:760px}
+.zona #app .sec{padding:26px 0}
+.zona #app .card{border-radius:18px}
+.zona #app input.t,.zona #app select.t,.zona #app textarea.t{border:1px solid #e4d8c1;border-radius:11px;padding:11px 13px;transition:border-color .15s,box-shadow .15s}
+.zona #app input.t:focus,.zona #app select.t:focus,.zona #app textarea.t:focus{outline:none;border-color:var(--gd);box-shadow:0 0 0 3px rgba(201,151,26,.13)}
+.zona #app button.btn{border-radius:12px}
+.zona #app .hero2{box-shadow:0 12px 30px rgba(59,44,28,.12)}
+.zona #app .tabs,.zona #app .sub{margin-top:20px}
+.zona #app .mv{gap:16px}
+.zona #app .wrap{max-width:100%;overflow-x:auto}
+@media(max-width:1100px){.zona nav img{margin-right:auto}.zona nav{justify-content:space-between}}
