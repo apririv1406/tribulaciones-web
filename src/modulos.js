@@ -256,7 +256,7 @@ export async function routeModulos(req, env, me, method, path, body) {
           JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND (asb.asiste=1 OR asb.acompanantes>0)
           JOIN lts_alergias_evento l ON l.sabado_id=s.id AND l.hermana_id=asb.hermana_id
           JOIN hermanas h ON h.id=asb.hermana_id
-          WHERE h.estado!='Baja' AND (l.alergias<>'' OR COALESCE(l.observaciones,'')<>'')
+          WHERE h.estado!='Baja' AND ((l.persona_tipo='hermana' AND asb.asiste=1) OR (l.persona_tipo='invitada' AND l.persona_numero<=asb.acompanantes)) AND (l.alergias<>'' OR COALESCE(l.observaciones,'')<>'')
           ORDER BY tc.fecha,h.nombre,l.persona_tipo,l.persona_numero`))
       : await rows(env.DB.prepare(`SELECT DISTINCT l.hermana_id,
           CASE WHEN l.persona_tipo='invitada' THEN 'Invitada '||l.persona_numero||' de '||h.nombre ELSE h.nombre END nombre,
@@ -266,7 +266,7 @@ export async function routeModulos(req, env, me, method, path, body) {
           JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND (asb.asiste=1 OR asb.acompanantes>0)
           JOIN lts_alergias_evento l ON l.sabado_id=s.id AND l.hermana_id=asb.hermana_id
           JOIN hermanas h ON h.id=asb.hermana_id
-          WHERE mine.hermana_id=? AND (l.alergias<>'' OR COALESCE(l.observaciones,'')<>'')
+          WHERE mine.hermana_id=? AND ((l.persona_tipo='hermana' AND asb.asiste=1) OR (l.persona_tipo='invitada' AND l.persona_numero<=asb.acompanantes)) AND (l.alergias<>'' OR COALESCE(l.observaciones,'')<>'')
           ORDER BY tc.fecha,h.nombre,l.persona_tipo,l.persona_numero`).bind(me.id)),
       tes(me)
         ? rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado,h.nombre subido_por_nombre FROM tickets t LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 100`))
