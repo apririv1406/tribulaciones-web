@@ -249,7 +249,7 @@ async function media(req, env, id) {
 async function publico(env) {
   const [h, n, t] = await Promise.all([
     env.DB.prepare("SELECT h.nombre,c.nombre cargo,h.anio_entrada anio,h.foto_id foto FROM hermanas h LEFT JOIN cargos c ON c.id=h.cargo_id WHERE h.visible_web=1 AND h.estado!='Baja' ORDER BY COALESCE(c.orden,99),h.nombre").all(),
-    env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen FROM noticias ORDER BY fecha DESC,id DESC LIMIT 12').all(),
+    env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen,url FROM noticias ORDER BY fecha DESC,id DESC LIMIT 12').all(),
     env.DB.prepare('SELECT anio,texto FROM hitos ORDER BY orden,id').all(),
   ]);
   return J({ hermanas: h.results, noticias: n.results, hitos: t.results }, 200, { 'Cache-Control': 'public, max-age=30' });
@@ -386,16 +386,25 @@ async function noticiaGuardar(env, me, id, b) {
   const titulo = String(b.titulo || '').trim(), texto = String(b.texto || '').trim();
   if (titulo.length < 3 || titulo.length > 150) return E('Escribe un título');
   if (texto.length < 3 || texto.length > 6000) return E('Escribe el texto de la noticia');
+  const url = String(b.url || '').trim();
+  if (url) {
+    if (url.length > 500) return E('El enlace es demasiado largo');
+    let u;
+    try { u = new URL(url); } catch { return E('Introduce una URL válida de Instagram o Facebook'); }
+    const host = u.hostname.toLowerCase();
+    const social = host === 'instagram.com' || host.endsWith('.instagram.com') || host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.watch' || host.endsWith('.fb.watch') || host === 'fb.com' || host.endsWith('.fb.com');
+    if (u.protocol !== 'https:' || !social) return E('El enlace debe ser de Instagram o Facebook y comenzar por https://');
+  }
   let img = null;
   if (b.imagen) { img = await guardarImagen(env, b.imagen); if (!img) return E('La foto no es válida o pesa demasiado'); }
   if (!id) {
-    const r = await env.DB.prepare('INSERT INTO noticias(titulo,texto,imagen_id,autor_id) VALUES(?,?,?,?)').bind(titulo, texto, img, me.id).run();
+    const r = await env.DB.prepare('INSERT INTO noticias(titulo,texto,imagen_id,autor_id,url) VALUES(?,?,?,?,?)').bind(titulo, texto, img, me.id, url || null).run();
     return J({ ok: true, id: r.meta.last_row_id });
   }
   const cur = await env.DB.prepare('SELECT imagen_id FROM noticias WHERE id=?').bind(id).first();
   if (!cur) return E('No encontrada', 404);
   let nueva = cur.imagen_id;
   if (b.quitar_imagen || img) { await borrarImagen(env, cur.imagen_id); nueva = img; }
-  await env.DB.prepare('UPDATE noticias SET titulo=?,texto=?,imagen_id=? WHERE id=?').bind(titulo, texto, nueva, id).run();
+  await env.DB.prepare('UPDATE noticias SET titulo=?,texto=?,imagen_id=?,url=? WHERE id=?').bind(titulo, texto, nueva, url || null, id).run();
   return J({ ok: true });
 }
