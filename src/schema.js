@@ -141,7 +141,7 @@ export const MIGRATIONS = [
     `ALTER TABLE movimientos ADD COLUMN confirmado_por INTEGER REFERENCES hermanas(id)`,
     `ALTER TABLE movimientos ADD COLUMN confirmado TEXT`,
     `CREATE INDEX IF NOT EXISTS ix_movimientos_estado_fecha ON movimientos(estado,fecha)`,
-  ]},,
+  ]},
   { v: 15, sql: [
     `ALTER TABLE noticias ADD COLUMN url TEXT`,
   ]},
