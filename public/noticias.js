@@ -4,9 +4,15 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&l
 const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const fecha = f => { const p=String(f || '').split('-'); return p.length===3 ? p[2].replace(/^0/,'')+' de '+meses[+p[1]-1]+' de '+p[0] : (f || ''); };
 const resumen = t => { const s=String(t || '').replace(/\s+/g,' ').trim(); return s.length>185 ? s.slice(0,182).trimEnd()+'…' : s; };
-const links = [{label:'Inicio',href:'/'},{label:'Historia',href:'/historia/',group:'Historia'},{label:'Hermandad',href:'/#hermandad',group:'Historia'},{label:'Cuaresma',href:'/#cuaresma'},{label:'Noticias',href:'/noticias/',group:'Publicaciones'},{label:'Crónicas',href:'/cronicas/',group:'Publicaciones'},{label:'Zona hermana',href:'/zona/'}];
+const menuItems = [
+  { label:'Inicio', href:'/' },
+  { group:'Historia', items:[['Nuestra historia','/historia/'],['Hermandad','/#hermandad']] },
+  { label:'Cuaresma', href:'/#cuaresma' },
+  { group:'Publicaciones', items:[['Noticias','/noticias/'],['Crónicas','/cronicas/']] },
+  { label:'Zona hermana', href:'/zona/' }
+];
 function menu(abrir) {
-  $('#mn').innerHTML = abrir ? `<div class="sc" data-c="1"></div><div class="mn"><button class="x" data-c="1" aria-label="Cerrar">✕</button>${links.map(x => `<a class="${x.group ? 'mn-sub' : ''}" href="${x.href}">${x.label}</a>`).join('')}</div>` : '';
+  $('#mn').innerHTML = abrir ? `<div class="sc" data-c="1"></div><div class="mn"><button class="x" data-c="1" aria-label="Cerrar">✕</button>${menuItems.map(x => x.group ? `<div class="mn-group"><span>${x.group}</span>${x.items.map(([label,href])=>`<a href="${href}">${label}</a>`).join('')}</div>` : `<a class="mn-main" href="${x.href}">${x.label}</a>`).join('')}</div>` : '';
 }
 $('#hb').addEventListener('click', () => menu(true));
 document.addEventListener('click', e => { if (e.target.closest('[data-c]') || e.target.closest('.mn a')) menu(false); });
