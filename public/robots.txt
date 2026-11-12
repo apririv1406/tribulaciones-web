@@ -1,3 +1,4 @@
 User-agent: *
 Disallow: /zona/
 Disallow: /api/
+Sitemap: https://tribulaciones-web.aprstudio.workers.dev/sitemap.xml
