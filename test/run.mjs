@@ -55,13 +55,13 @@ r = await call('POST', '/api/setup', { key: 'clave-de-prueba', password: 'OtraCl
 r = await call('POST', '/api/auth/login', { email: 'alba@ejemplo.com', password: 'mal' }); assert.equal(r.status, 401);
 r = await call('POST', '/api/auth/login', { email: 'ALBA@ejemplo.com', password: 'MiClaveSegura1' }); assert.equal(r.status, 200); ok('login correcto e incorrecto');
 // 5 crear hermana e invitar
-r = await call('POST', '/api/admin/hermanas', { nombre: 'Laura Bascón', email: 'laura@ejemplo.com' }, adm); assert.equal(r.status, 200); const lid = r.data.id;
+r = await call('POST', '/api/admin/hermanas', { nombre: 'Laura Bascón', email: 'laura@ejemplo.com', telefono: '+34600111222' }, adm); assert.equal(r.status, 200); const lid = r.data.id;
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Otra', email: 'LAURA@ejemplo.com' }, adm); assert.equal(r.status, 409);
-r = await call('POST', `/api/admin/hermanas/${lid}/invitar`, null, adm); assert.equal(r.data.enviado, true);
-let mail = correos.at(-1); assert.equal(mail.to[0], 'laura@ejemplo.com'); assert.match(mail.html, /Crear mi contraseña/); const tok = /#\/clave\/([\w-]+)/.exec(mail.html)[1];
+r = await call('POST', `/api/admin/hermanas/${lid}/invitar`, null, adm); assert.equal(r.status, 200); assert.match(r.data.whatsapp, /^https:\/\/wa\.me\//);
+const mensajeBienvenida = new URL(r.data.whatsapp).searchParams.get('text'); assert.match(mensajeBienvenida, /bienvenida/i); const tok = /#\/clave\/([\w-]+)/.exec(mensajeBienvenida)[1];
 r = await call('GET', '/api/admin/hermanas', null, adm); assert.equal(r.data.find(h => h.id === lid).cuenta, 'invitada');
 r = await call('POST', '/api/auth/password/set', { token: tok, password: 'Laura-2026-ok' }); assert.equal(r.status, 200); const lau = r.cookie;
-r = await call('POST', '/api/auth/password/set', { token: tok, password: 'Laura-2026-ok' }); assert.equal(r.status, 410); ok('bienvenida por correo → crea contraseña → el enlace no se puede reutilizar');
+r = await call('POST', '/api/auth/password/set', { token: tok, password: 'Laura-2026-ok' }); assert.equal(r.status, 410); ok('bienvenida por WhatsApp → crea contraseña → el enlace no se puede reutilizar');
 r = await call('GET', '/api/admin/hermanas', null, adm); assert.equal(r.data.find(h => h.id === lid).cuenta, 'activa');
 // 6 permisos
 r = await call('GET', '/api/admin/hermanas', null, lau); assert.equal(r.status, 403);
