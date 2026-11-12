@@ -419,8 +419,11 @@ async function cargoBorrar(env, id) {
 async function noticiaGuardar(env, me, id, b) {
   const titulo = String(b.titulo || '').trim(), texto = String(b.texto || '').trim();
   const tipo = b.tipo === 'cronica' ? 'cronica' : 'noticia';
+  const fecha = String(b.fecha || '').trim() || new Date().toISOString().slice(0,10);
   if (titulo.length < 3 || titulo.length > 150) return E('Escribe un título');
-  if (texto.length < 3 || texto.length > 6000) return E('Escribe el texto de la noticia');
+  if (texto.length < 3 || texto.length > 6000) return E('Escribe el texto de la publicación');
+  const fechaValida = /^\\d{4}-\\d{2}-\\d{2}$/.test(fecha) && !Number.isNaN(Date.parse(fecha+'T00:00:00Z')) && new Date(fecha+'T00:00:00Z').toISOString().slice(0,10) === fecha;
+  if (!fechaValida) return E('Selecciona una fecha válida');
   const url = String(b.url || '').trim();
   if (url) {
     if (url.length > 500) return E('El enlace es demasiado largo');
@@ -433,13 +436,13 @@ async function noticiaGuardar(env, me, id, b) {
   let img = null;
   if (b.imagen) { img = await guardarImagen(env, b.imagen); if (!img) return E('La foto no es válida o pesa demasiado'); }
   if (!id) {
-    const r = await env.DB.prepare('INSERT INTO noticias(titulo,texto,imagen_id,autor_id,url,tipo) VALUES(?,?,?,?,?,?)').bind(titulo, texto, img, me.id, url || null, tipo).run();
+    const r = await env.DB.prepare('INSERT INTO noticias(titulo,texto,fecha,imagen_id,autor_id,url,tipo) VALUES(?,?,?,?,?,?,?)').bind(titulo, texto, fecha, img, me.id, url || null, tipo).run();
     return J({ ok: true, id: r.meta.last_row_id });
   }
   const cur = await env.DB.prepare('SELECT imagen_id FROM noticias WHERE id=?').bind(id).first();
   if (!cur) return E('No encontrada', 404);
   let nueva = cur.imagen_id;
   if (b.quitar_imagen || img) { await borrarImagen(env, cur.imagen_id); nueva = img; }
-  await env.DB.prepare('UPDATE noticias SET titulo=?,texto=?,imagen_id=?,url=?,tipo=? WHERE id=?').bind(titulo, texto, nueva, url || null, tipo, id).run();
+  await env.DB.prepare('UPDATE noticias SET titulo=?,texto=?,fecha=?,imagen_id=?,url=?,tipo=? WHERE id=?').bind(titulo, texto, fecha, nueva, url || null, tipo, id).run();
   return J({ ok: true });
 }
