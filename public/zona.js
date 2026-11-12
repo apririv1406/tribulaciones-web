@@ -182,6 +182,13 @@ async function vCuenta() {
 }
 
 
+
+function cambioTurnoMarkup(turno,miTurno,disponibles,cambios) {
+  const formulario=miTurno && turno.fecha>=new Date().toISOString().slice(0,10) && disponibles.length ? `<details style="margin-top:12px"><summary class="chip">Cambiar mi turno</summary><form data-f="cocina-cambio" data-id="${turno.id}" style="margin-top:12px"><label class="fl">Hermana que me sustituye</label><select class="t" name="hermana_id" required><option value="">Selecciona una hermana</option>${disponibles.map(h=>`<option value="${h.id}">${esc(h.nombre)}</option>`).join("")}</select><p class="mu">Al confirmar, la sustitución quedará anotada en el historial del turno.</p><button class="btn" style="margin-top:8px">Confirmar cambio</button></form></details>` : "";
+  const historial=cambios.length ? `<div class="sec" style="padding:12px 0 0"><b>Historial de cambios</b>${cambios.map(x=>`<div class="mv"><div class="x"><b>${esc(x.hermana_sale)}</b><br><small class="mu">Sustituida por ${esc(x.hermana_entra)} · ${fechaBonita((x.creado||"").slice(0,10))}</small></div></div>`).join("")}</div>` : "";
+  return formulario+historial;
+}
+
 async function vCocina() {
   const d = await api('GET', '/modulos/cocina');
   const admin = ME.admin || ME.tes;
@@ -191,8 +198,12 @@ async function vCocina() {
     const comensales=Number(t.confirmadas||0)+Number(t.invitadas||0);
     const presupuesto=Number(t.presupuesto_calculado_centimos||0);
     const gastos=d.tickets.filter(x=>x.turno_cocina_id===t.id);
+    const miTurno=asignadas.some(a=>a.hermana_id===ME.id);
+    const cambiosTurno=(d.cambios||[]).filter(x=>x.turno_id===t.id);
+    const disponibles=(d.hermanas||[]).filter(h=>!asignadas.some(a=>a.hermana_id===h.id));
     const alergiasTurno=d.alergias.filter(a=>!a.fecha || a.fecha===t.fecha);
     return `<article class="card"><div class="row" style="justify-content:space-between;align-items:center"><span class="tag">${esc(t.turno || 'Encuentro')}</span><span class="pill">${fechaBonita(t.fecha)}</span></div><h3 style="margin-top:10px">${esc(t.responsable || 'Turno de cocina')}</h3><div class="kp" style="margin-top:12px"><div class="card"><small class="mu">Comensales confirmados</small><b>${comensales}</b><small class="mu">${t.confirmadas||0} hermanas · ${t.invitadas||0} invitadas</small></div><div class="card"><small class="mu">Presupuesto automático</small><b>${euros(presupuesto)}</b><small class="mu">${euros(Number(t.precio_persona_centimos||0))} por comensal</small></div></div>${t.observaciones ? `<p class="mu" style="margin:12px 0 0">${esc(t.observaciones)}</p>` : ''}${asignadas.length ? `<p class="mu" style="margin-top:12px"><b>Hermanas asignadas:</b> ${asignadas.map(a=>esc(a.nombre)).join(', ')}</p>` : '<p class="mu" style="margin-top:12px">Turno pendiente de asignación.</p>'}
+    ${cambioTurnoMarkup(t,miTurno,disponibles,cambiosTurno)}
     ${alergiasTurno.length && (ME.admin || ME.actas || asignadas.some(a=>a.hermana_id===ME.id)) ? `<div class="sec"><div class="tag">Información alimentaria · uso exclusivo del turno</div>${alergiasTurno.map(a=>`<div class="mv"><div class="x"><b>${esc(a.nombre)}</b><br><small>${esc(a.alergias||'Sin alergias indicadas')} ${esc(a.observaciones||'')}</small></div></div>`).join('')}</div>` : ''}
     ${admin ? `<div class="sec" style="padding:14px 0 0"><b>Gestionar asignación</b><form data-f="cocina-asignar" data-id="${t.id}" style="margin-top:8px"><div class="grid">${d.hermanas.map(h=>`<label class="mu"><input type="checkbox" name="hermana" value="${h.id}" ${asignadas.some(a=>a.hermana_id===h.id)?'checked':''}> ${esc(h.nombre)}</label>`).join('')}</div><button class="chip on" style="margin-top:10px">Guardar asignación</button></form>
     <details style="margin-top:14px"><summary class="chip">Editar turno</summary><form data-f="cocina-edit" data-id="${t.id}" style="margin-top:12px"><div class="row"><div style="flex:1 1 140px">${campo('fecha','Fecha','type="date" required value="'+esc(t.fecha)+'"')}</div><div style="flex:1 1 130px">${campo('turno','Turno','value="'+esc(t.turno || '')+'"')}</div><div style="flex:1 1 180px">${campo('responsable','Responsable','value="'+esc(t.responsable || '')+'"')}</div></div><label class="fl">Menú</label><textarea class="t" name="menu" rows="3">${esc(t.menu || '')}</textarea><label class="fl">Observaciones</label><textarea class="t" name="observaciones" rows="2">${esc(t.observaciones || '')}</textarea><button class="chip on" style="margin-top:10px">Guardar cambios</button></form></details><p style="margin:14px 0 0"><button class="chip" data-a="cocina-del" data-id="${t.id}">Eliminar turno</button></p></div>` : ''}
@@ -418,6 +429,7 @@ const FORM = {
   async 'sabado-consumos'(f,d) { await api('POST','/modulos/sabados/'+f.dataset.id+'/consumos',{copas:d.get('copas'),refrescos:d.get('refrescos')}); toast('Consumiciones guardadas'); render(); },
   async 'cuenta-pago'(f,d) { await api('POST','/modulos/cuenta/pagos',{categoria:d.get('categoria'),importe:d.get('importe'),fecha_pago:d.get('fecha_pago'),metodo:d.get('metodo'),concepto:d.get('concepto')}); PAGO_MODAL=false; toast('Pago registrado y pendiente de revisión'); render(); },
   async 'cocina-new'(f,d) { await api('POST','/modulos/cocina',{fecha:d.get('fecha'),turno:d.get('turno'),responsable:d.get('responsable'),presupuesto:d.get('presupuesto'),menu:d.get('menu'),observaciones:d.get('observaciones')}); toast('Turno añadido'); render(); },
+  async 'cocina-cambio'(f,d) { const id=f.dataset.id; const hermana_id=d.get('hermana_id'); if(!hermana_id) throw new Error('Selecciona la hermana que te sustituye'); if(!confirm('¿Confirmas el cambio de turno? La otra hermana quedará asignada en tu lugar.')) return; await api('POST','/modulos/cocina/'+id+'/cambio',{hermana_id:Number(hermana_id)}); toast('Cambio de turno registrado'); render(); },
   async 'cocina-asignar'(f,d) { await api('PUT','/modulos/cocina/'+f.dataset.id+'/asignacion',{hermanas:d.getAll('hermana')}); toast('Asignación de cocina guardada'); render(); },
   async 'cocina-edit'(f,d) { await api('PUT','/modulos/cocina/'+f.dataset.id,{fecha:d.get('fecha'),turno:d.get('turno'),responsable:d.get('responsable'),presupuesto:d.get('presupuesto'),menu:d.get('menu'),observaciones:d.get('observaciones')}); toast('Turno actualizado'); render(); },
   async 'cocina-ticket'(f,d) { const file=d.get('ticket'); if(!file || !file.size) throw new Error('Selecciona un ticket'); if(file.size>1024*1024) throw new Error('El archivo no puede superar 1 MB'); const datos=await readFileData(file); await api('POST','/modulos/cocina/tickets',{turno_cocina_id:d.get('turno_cocina_id')||null,nombre_archivo:file.name,comercio:d.get('comercio'),importe:d.get('importe'),forma_pago:d.get('forma_pago'),datos}); toast('Ticket enviado a Tesorería'); render(); },
