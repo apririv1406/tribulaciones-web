@@ -105,7 +105,7 @@ const e2 = { ...env, RESEND_API_KEY: undefined };
 const w = await worker.fetch(new Request('https://ejemplo.es/api/admin/hermanas/' + aid + '/invitar', { method: 'POST', headers: { 'X-Requested-With': 'fetch', cookie: adm, 'Content-Type': 'application/json' } }), e2);
 console.log('  ·', w.status, 'sin Resend:', (await w.json()).error ?? 'responde con aviso');
 // 16 parámetros configurables, sorteo equilibrado y presupuesto automático de cocina
-r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com' }, adm); assert.equal(r.status, 200); const hermanaInvitadasId = r.data.id;
+r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com', telefono: '+34600111223' }, adm); assert.equal(r.status, 200); const hermanaInvitadasId = r.data.id;
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 2', email: 'prueba2@ejemplo.com' }, adm); assert.equal(r.status, 200); const hermanaDosId = r.data.id;
 r = await call('POST', '/api/modulos/actas/juntas', { fecha: '2099-01-02', hora: '12:00', lugar: 'Cuartel', convocatoria: 'Junta de prueba', orden_dia: 'Tesorería y organización' }, adm); assert.equal(r.status, 200); const juntaPruebaId = r.data.id; assert.ok(r.data.correos_enviados >= 3);
 r = await call('PUT', '/api/modulos/actas/juntas/'+juntaPruebaId+'/asistencia', { hermanas: [aid, hermanaInvitadasId, hermanaDosId] }, adm); assert.equal(r.status, 200); assert.equal(r.data.total, 3);
@@ -118,7 +118,7 @@ const actaArchivo = await worker.fetch(new Request('https://ejemplo.es/api/modul
 r = await call('POST', '/api/modulos/actas/juntas/historica', { fecha: '2026-02-14', lugar: 'Junta histórica', orden_dia: 'Archivo de prueba' }, adm); assert.equal(r.status, 200); const juntaHistoricaId = r.data.id;
 r = await call('PUT', '/api/modulos/actas/juntas/'+juntaHistoricaId+'/archivo', { nombre: 'Acta_historica.pdf', datos: actaPdf }, adm); assert.equal(r.status, 200);
 r = await call('POST', '/api/modulos/actas/juntas/historica', { fecha: 'fecha incorrecta' }, adm); assert.equal(r.status, 400);
-r = await call('POST', '/api/auth/login', { email: 'laura@ejemplo.com', password: 'Nueva-Clave-77' }); assert.equal(r.status, 200); const lau2 = r.cookie;
+const invitacionPrueba = await call('POST', '/api/admin/hermanas/'+hermanaInvitadasId+'/invitar', null, adm); assert.equal(invitacionPrueba.status, 200); const textoInvitacion = new URL(invitacionPrueba.data.whatsapp).searchParams.get('text'); const tokenPrueba = textoInvitacion.split('/zona/#/clave/')[1].split(' ')[0]; r = await call('POST', '/api/auth/password/set', { token: tokenPrueba, password: 'Prueba-2026-ok' }); assert.equal(r.status, 200); const lau2 = r.cookie;
 r = await call('GET', '/api/modulos/actas', null, lau2); assert.equal(r.status, 200); assert.equal(r.data.solo_lectura, true); assert.ok(r.data.documentos.some(x => Number(x.junta_id) === juntaPruebaId));
 const actaArchivoHermana = await worker.fetch(new Request('https://ejemplo.es/api/modulos/actas/juntas/'+juntaPruebaId+'/archivo', { headers: { 'X-Requested-With': 'fetch', cookie: lau2 } }), env); assert.equal(actaArchivoHermana.status, 200);
 r = await call('PUT', '/api/modulos/actas/juntas/'+juntaPruebaId+'/archivo', { nombre: 'No_permitido.pdf', datos: actaPdf }, lau2); assert.equal(r.status, 403);
