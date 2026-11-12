@@ -123,3 +123,11 @@ nav a.cta{background:var(--dk);color:#fff;margin-left:6px}
 
 /* Los selectores de alergias se muestran como chips, igual que en la maqueta. */
 .chip input[type=checkbox]{display:none}
+
+/* Corrección de imágenes de la web pública: nunca deben desbordar sus tarjetas. */
+.phb{position:relative;overflow:hidden;font-size:0}
+.phb img{position:absolute;inset:0;display:block;width:100%;height:100%;max-width:100%;object-fit:cover;object-position:center}
+/* Navegación pública y privada: apariencia coherente aunque se sirva CSS recién actualizado. */
+nav a.dk{display:inline-block;color:var(--mu);text-decoration:none;font-weight:500;padding:8px 12px;border-radius:99px;white-space:nowrap}
+nav a.dk.on,nav a.dk:hover{color:var(--dk);background:var(--gs)}
+nav a.cta{background:var(--dk);color:#fff;margin-left:6px}
