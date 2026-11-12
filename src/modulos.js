@@ -105,8 +105,8 @@ export async function routeModulos(req, env, me, method, path, body) {
     const precios = Object.fromEntries(cfg.map(x => [x.clave, Number(x.valor || 0)]));
     for (const s of data) {
       s.mis_alergias_personas = alergiasEvento.filter(x => x.sabado_id === s.id);
-      s.precio_sabado_centimos = precios.sabado_precio_centimos || 1000;
-      s.precio_invitada_centimos = precios.invitada_precio_centimos || 1000;
+      s.precio_sabado_centimos = precios.sabado_precio_centimos ?? 1000;
+      s.precio_invitada_centimos = precios.invitada_precio_centimos ?? 1000;
     }
     return J(data);
   }
@@ -249,7 +249,7 @@ export async function routeModulos(req, env, me, method, path, body) {
            (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado'))) presupuesto_calculado_centimos
         FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC LIMIT 100`)),
       actas(me)
-      ? await rows(env.DB.prepare(`SELECT l.hermana_id,
+      ? await rows(env.DB.prepare(`SELECT DISTINCT l.hermana_id,
           CASE WHEN l.persona_tipo='invitada' THEN 'Invitada '||l.persona_numero||' de '||h.nombre ELSE h.nombre END nombre,
           tc.fecha fecha,l.alergias,l.observaciones
           FROM turnos_cocina tc JOIN sabados s ON s.fecha=tc.fecha
@@ -258,7 +258,7 @@ export async function routeModulos(req, env, me, method, path, body) {
           JOIN hermanas h ON h.id=asb.hermana_id
           WHERE h.estado!='Baja' AND (l.alergias<>'' OR COALESCE(l.observaciones,'')<>'')
           ORDER BY tc.fecha,h.nombre,l.persona_tipo,l.persona_numero`))
-      : await rows(env.DB.prepare(`SELECT l.hermana_id,
+      : await rows(env.DB.prepare(`SELECT DISTINCT l.hermana_id,
           CASE WHEN l.persona_tipo='invitada' THEN 'Invitada '||l.persona_numero||' de '||h.nombre ELSE h.nombre END nombre,
           tc.fecha fecha,l.alergias,l.observaciones
           FROM turnos_cocina_hermanas mine JOIN turnos_cocina tc ON tc.id=mine.turno_id
