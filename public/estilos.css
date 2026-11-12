@@ -151,3 +151,37 @@ nav{justify-content:flex-start}
 .zona #app .mv{gap:16px}
 .zona #app .wrap{max-width:100%;overflow-x:auto}
 @media(max-width:1100px){.zona nav img{margin-right:auto}.zona nav{justify-content:space-between}}
+
+/* Tesorería: panel compacto y jerarquía visual */
+.zona #app .tesoreria{max-width:1280px;margin:0 auto}
+.zona #app .tes-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 0 14px}
+.zona #app .tes-heading h2{margin:3px 0 4px}
+.zona #app .tes-pending-summary{display:flex;align-items:center;gap:10px;padding:10px 15px;border:1px solid var(--ln);border-radius:14px;background:var(--pa);white-space:nowrap}
+.zona #app .tes-pending-summary b{font-size:23px;color:var(--gd)}
+.zona #app .tes-pending-summary span{font-size:12px;color:var(--mu)}
+.zona #app .tes-balance{display:grid;grid-template-columns:minmax(210px,.8fr) 2fr;gap:24px;align-items:center;padding:20px 24px;margin:0;border-radius:18px}
+.zona #app .tes-balance-total{display:flex;flex-direction:column;gap:4px}
+.zona #app .tes-balance-total span{font-size:13px;color:rgba(255,255,255,.76)}
+.zona #app .tes-balance-total b{font-size:clamp(27px,3vw,38px);line-height:1.15;color:#fff}
+.zona #app .tes-balance-accounts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.zona #app .tes-balance-accounts>div{display:flex;flex-direction:column;gap:4px;padding-left:13px;border-left:1px solid rgba(255,255,255,.2)}
+.zona #app .tes-balance-accounts small{font-size:11px;color:rgba(255,255,255,.7)}
+.zona #app .tes-balance-accounts b{font-size:16px;color:#fff}
+.zona #app .tesoreria>.sub{display:flex;gap:22px;overflow-x:auto;white-space:nowrap;margin:14px 0 18px;padding:0 2px}
+.zona #app .tesoreria>.sub button{padding:11px 2px;font-size:13px}
+.zona #app .tes-content .kp{gap:12px;margin:0}
+.zona #app .tes-content .kp .card{padding:15px 18px}
+.zona #app .tes-content .kp b{font-size:25px}
+.zona #app .tes-content .grid{gap:12px}
+.zona #app .tes-content .cols{gap:8px;min-height:190px;align-items:end}
+.zona #app .tes-content .col{min-width:34px}
+.zona #app .tes-content .card{padding:17px 19px}
+.zona #app .tes-content h3{margin:0 0 8px;font-size:17px}
+.zona #app .tes-content .mu{font-size:12px;line-height:1.5}
+.zona #app .tes-content .formgrid{gap:10px 14px}
+.zona #app .tes-content .formgrid .fl{font-size:11px;margin-bottom:4px}
+.zona #app .tes-content .formgrid .t{padding:9px 10px!important}
+.zona #app .tes-content .mv{gap:12px;padding:11px 2px}
+.zona #app .tes-content .sub{margin:12px 0 16px}
+@media(max-width:850px){.zona #app .tes-balance{grid-template-columns:1fr;gap:14px}.zona #app .tes-balance-accounts{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:560px){.zona #app .tes-heading{align-items:flex-start}.zona #app .tes-pending-summary{padding:8px 10px}.zona #app .tes-pending-summary span{max-width:72px;white-space:normal}.zona #app .tes-balance{padding:17px}.zona #app .tes-balance-accounts{grid-template-columns:repeat(2,minmax(0,1fr))}.zona #app .tes-content .card{padding:14px}}
