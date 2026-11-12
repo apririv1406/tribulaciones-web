@@ -347,13 +347,21 @@ async function editarHermana(env, id, b) {
   return J({ ok: true, foto });
 }
 async function enviarA(env, req, id, que) {
-  const h = await env.DB.prepare('SELECT id,nombre,email,estado FROM hermanas WHERE id=?').bind(id).first();
+  const h = await env.DB.prepare('SELECT id,nombre,email,telefono,estado FROM hermanas WHERE id=?').bind(id).first();
   if (!h) return E('No encontrada', 404);
   if (h.estado === 'Baja') return E('Está dada de baja');
+  if (que === 'invitar') {
+    if (!h.telefono) return E('Añade primero el teléfono de WhatsApp de esta hermana');
+    const tok = rand(32), horas = 168;
+    await env.DB.prepare('DELETE FROM tokens WHERE hermana_id=?').bind(h.id).run();
+    await env.DB.prepare('INSERT INTO tokens VALUES(?,?,?,?)').bind(await sha(tok), h.id, 'invitacion', Date.now() + horas * 36e5).run();
+    const link = `${origin(env, req)}/zona/#/clave/${tok}`;
+    await env.DB.prepare("UPDATE hermanas SET invitada=datetime('now') WHERE id=?").bind(h.id).run();
+    const mensaje = `¡Hola, ${h.nombre}! Te damos la bienvenida a la Zona hermana de Las Tribulaciones de Sara. Desde aquí podrás consultar la información y realizar las gestiones del cuartel. Para activar tu acceso y crear tu contraseña, entra en este enlace personal (válido durante 7 días): ${link}`;
+    return J({ ok:true, whatsapp:`https://wa.me/${h.telefono}?text=${encodeURIComponent(mensaje)}` });
+  }
   if (!h.email) return E('Añade primero el correo electrónico de esta hermana');
-  if (!env.RESEND_API_KEY || !env.MAIL_FROM) return J({ ok:true,enviado:false,aviso:'El correo todavía no está configurado (faltan RESEND_API_KEY y MAIL_FROM).' });
-  const tipo = que === 'reset' ? 'reset' : 'invitacion';
-  const res = await enviarEnlace(env, req, h, tipo);
+  const res = await enviarEnlace(env, req, h, 'reset');
   return J({ ok:true,enviado:res.ok,aviso:res.aviso||null });
 }
 async function cargoGuardar(env, id, b) {
