@@ -315,24 +315,44 @@ async function vTesoreria() {
   if(TES_TAB==='pen') {
     const cuotas=d.cuotas_pendientes||[], cargos=d.cargos_pendientes||[];
     const personas=(d.hermanas||[]).map(h=>{
-      const qs=cuotas.filter(x=>x.hermana_id===h.id);
-      const cs=cargos.filter(x=>x.hermana_id===h.id);
+      const qs=cuotas.filter(x=>x.hermana_id===h.id&&Number(x.restante_centimos||0)>0);
+      const cs=cargos.filter(x=>x.hermana_id===h.id&&Number(x.restante_centimos||0)>0);
       const importeCuotas=qs.reduce((a,x)=>a+Number(x.restante_centimos||0),0);
       const importe=(cat)=>cs.filter(x=>x.categoria===cat).reduce((a,x)=>a+Number(x.restante_centimos||0),0);
       const conceptos=(cat)=>cs.filter(x=>x.categoria===cat).map(x=>x.concepto).filter(Boolean);
       const cuaresma=importe('Cuaresma'), semana=importe('Semana Santa'), otros=importe('Otros');
-      return {id:h.id,nombre:h.nombre,cuotas:importeCuotas,meses:qs.map(x=>x.periodo).sort(),cuaresma,semana,otros,notas:{cuaresma:conceptos('Cuaresma'),semana:conceptos('Semana Santa'),otros:conceptos('Otros')},total:importeCuotas+cuaresma+semana+otros};
-    });
-    const conDeuda=personas.filter(x=>x.total>0).sort((a,b)=>b.total-a.total||a.nombre.localeCompare(b.nombre));
-    const alDia=personas.filter(x=>x.total===0).map(x=>x.nombre);
+      const detalleCuotas=qs.sort((a,b)=>a.periodo.localeCompare(b.periodo)).map(x=>{
+        const [y,m]=String(x.periodo||'').split('-');
+        const mes=y&&m?new Date(Number(y),Number(m)-1,1).toLocaleDateString('es-ES',{month:'short',year:'numeric'}):x.periodo;
+        return mes+' · '+euros(x.restante_centimos);
+      });
+      return {id:h.id,nombre:h.nombre,cuotas:importeCuotas,detalleCuotas,cuaresma,semana,otros,
+        notas:{cuaresma:conceptos('Cuaresma'),semana:conceptos('Semana Santa'),otros:conceptos('Otros')},
+        total:importeCuotas+cuaresma+semana+otros};
+    }).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+    const conDeuda=personas.filter(x=>x.total>0);
+    const alDia=personas.filter(x=>x.total===0);
     const suma=k=>personas.reduce((a,x)=>a+x[k],0);
-    const eurCell=(n,detail='')=>n?`<b>${euros(n)}</b>${detail?`<br><small class="mu">${esc(detail)}</small>`:''}`:'<span class="mu">—</span>';
-    const rows=conDeuda.map(p=>{
-      const cuotaDetalle=p.meses.length?`${p.meses.length} cuotas · ${p.meses.map(v=>{const [y,m]=v.split('-');return new Date(Number(y),Number(m)-1,1).toLocaleDateString('es-ES',{month:'short',year:'numeric'});}).join(', ')}`:'';
-      return `<tr><td><b>${esc(p.nombre)}</b></td><td class="r">${eurCell(p.cuotas,cuotaDetalle)}</td><td class="r">${eurCell(p.cuaresma,p.notas.cuaresma.join(' · '))}</td><td class="r">${eurCell(p.semana,p.notas.semana.join(' · '))}</td><td class="r">${eurCell(p.otros,p.notas.otros.join(' · '))}</td><td class="r"><b>${euros(p.total)}</b></td></tr>`;
+    const eurCell=(n,detail='')=>n?'<b>'+euros(n)+'</b>'+(detail?'<br><small class="mu">'+esc(detail)+'</small>':''):'<span class="mu">—</span>';
+    const rows=personas.map(p=>{
+      const cuotaDetalle=p.detalleCuotas.join(' · ');
+      const cuaresmaDetalle=p.notas.cuaresma.join(' · ');
+      const semanaDetalle=p.notas.semana.join(' · ');
+      const otrosDetalle=p.notas.otros.join(' · ');
+      return '<tr class="'+(p.total?'':'tes-debt-paid')+'"><td><b>'+esc(p.nombre)+'</b></td>'+
+        '<td class="r">'+eurCell(p.cuotas,cuotaDetalle)+'</td>'+
+        '<td class="r">'+eurCell(p.cuaresma,cuaresmaDetalle)+'</td>'+
+        '<td class="r">'+eurCell(p.semana,semanaDetalle)+'</td>'+
+        '<td class="r">'+eurCell(p.otros,otrosDetalle)+'</td>'+
+        '<td class="r"><b>'+euros(p.total)+'</b></td></tr>';
     }).join('');
-    const mensajePendientes=['LAS TRIBULACIONES DE SARA','Resumen de cuotas pendientes',...conDeuda.map(p=>p.nombre+': '+euros(p.total)+' · Cuotas '+euros(p.cuotas)+' · Cuaresma '+euros(p.cuaresma)+' · Semana Santa '+euros(p.semana)+' · Otros '+euros(p.otros)),'TOTAL PENDIENTE: '+euros(suma('total'))].join('\\n');
-    contenido=`<div class="kp tes-debt-kp"><div class="card"><span class="mu">Hermanas con deuda</span><b>${conDeuda.length}</b></div><div class="card"><span class="mu">Al día</span><b>${alDia.length}</b></div><div class="card"><span class="mu">Total pendiente</span><b>${euros(suma('total'))}</b></div></div><div class="card wrap tes-debt-table"><div class="row tes-debt-table-head"><h3 style="margin:0">Resumen de cuotas pendientes</h3><div class="wr noprint"><button class="chip" data-a="tes-export">Exportar a PDF</button><button class="chip on" data-a="tes-pendientes-whatsapp" data-text="${encodeURIComponent(mensajePendientes)}">Compartir por WhatsApp</button></div></div><table class="rt"><thead><tr><th>Hermana</th><th class="r">Cuotas</th><th class="r">Cuaresma</th><th class="r">Semana Santa</th><th class="r">Otros</th><th class="r">Total</th></tr></thead><tbody>${rows||'<tr><td colspan="6">No hay importes pendientes.</td></tr>'}</tbody><tfoot><tr><td>Total pendiente</td><td class="r">${euros(suma('cuotas'))}</td><td class="r">${euros(suma('cuaresma'))}</td><td class="r">${euros(suma('semana'))}</td><td class="r">${euros(suma('otros'))}</td><td class="r">${euros(suma('total'))}</td></tr></tfoot></table></div><p class="mu">Al día: ${alDia.length?alDia.map(esc).join(', '):'ninguna'}.</p>`;
+    contenido=`<div class="kp tes-debt-kp"><div class="card"><span class="mu">Hermanas con deuda</span><b>${conDeuda.length}</b></div><div class="card"><span class="mu">Al día</span><b>${alDia.length}</b></div><div class="card"><span class="mu">Total pendiente</span><b>${euros(suma('total'))}</b></div></div>
+    <div class="card wrap tes-debt-table"><div class="pr tes-debt-brand"><img src="/logo.png" alt="" style="height:42px"><div><h2>Las Tribulaciones de Sara</h2><p>Relación de cuotas y conceptos pendientes · ${new Date().toLocaleDateString('es-ES')}</p></div></div>
+    <div class="row tes-debt-table-head"><div><div class="tag">Tesorería</div><h3 style="margin:0">Estado de cuentas por hermana</h3><p class="mu" style="margin:3px 0 0">Se incluyen cuotas mensuales y todos los cargos extraordinarios pendientes.</p></div><div class="wr noprint"><button class="btn" data-a="tes-export">Exportar PDF</button></div></div>
+    <table class="rt"><thead><tr><th>Hermana</th><th class="r">Cuotas mensuales</th><th class="r">Cuaresma</th><th class="r">Semana Santa</th><th class="r">Otros conceptos</th><th class="r">Total</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="6">No hay hermanas registradas.</td></tr>'}</tbody>
+    <tfoot><tr><td>Total pendiente</td><td class="r">${euros(suma('cuotas'))}</td><td class="r">${euros(suma('cuaresma'))}</td><td class="r">${euros(suma('semana'))}</td><td class="r">${euros(suma('otros'))}</td><td class="r">${euros(suma('total'))}</td></tr></tfoot></table>
+    <p class="mu tes-debt-foot">Los importes reflejan únicamente cantidades pendientes. Los pagos pendientes de validar no se descuentan hasta su confirmación.</p></div>`;
   }
   if(TES_TAB==='inf') {
     const anio=TES_REPORT_YEAR;
@@ -542,7 +562,7 @@ const ACT = {
   async 'tes-ticket-reject'(el) { if(!confirm('¿Rechazar este ticket?')) return; await api('PUT','/modulos/tesoreria/tickets/'+el.dataset.id,{estado:'rechazado'}); toast('Ticket rechazado'); render(); },
   'tes-report-year'(el) { TES_REPORT_YEAR=el.dataset.year; render(); },
   'tes-export'() { window.print(); },
-  async 'tes-pendientes-whatsapp'(el) { const texto=decodeURIComponent(el.dataset.text||''); const pdf=crearPDFSimple(texto.split('\\n')); const archivo=new File([pdf],'Resumen_pendientes_LTS.pdf',{type:'application/pdf'}); if(navigator.canShare&&navigator.canShare({files:[archivo]})){try{await navigator.share({files:[archivo],text:'Resumen de cuotas pendientes de Las Tribulaciones de Sara'});return;}catch(e){if(e&&e.name==='AbortError')return;}} const url=URL.createObjectURL(pdf),a=document.createElement('a');a.href=url;a.download='Resumen_pendientes_LTS.pdf';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);window.open('https://wa.me/?text='+encodeURIComponent('Te adjunto el resumen de cuotas pendientes de Las Tribulaciones de Sara.'),'_blank','noopener,noreferrer'); toast('PDF descargado. Adjunta el archivo en WhatsApp.'); },
+
   async 'cocina-del'(el) { if(!confirm('¿Eliminar este turno?')) return; await api('DELETE','/modulos/cocina/'+el.dataset.id); render(); },
   async 'junta-del'(el) { if(!confirm('¿Eliminar esta junta y su acta?')) return; await api('DELETE','/modulos/actas/juntas/'+el.dataset.id); render(); },
   'hito-add'() { $('#hitos').insertAdjacentHTML('beforeend', hitoRow({ anio: '', texto: '' })); },
