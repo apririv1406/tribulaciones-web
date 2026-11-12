@@ -389,3 +389,9 @@ nav{justify-content:flex-start}
   header nav>.hb{display:grid!important;flex:0 0 46px}
   header nav>.logo{min-width:0;margin-right:auto}
 }
+
+
+/* Los submenús mantienen el desplazamiento horizontal cuando hace falta, pero nunca muestran scroll vertical. */
+.sub,
+.zona #app .tesoreria>.sub,
+.zona #app .tes-content .sub{overflow-y:hidden!important}
