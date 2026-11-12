@@ -94,7 +94,7 @@ async function vSabados() {
     d.setHours(23,0,0,0);
     return d;
   };
-  const tags = (valor) => String(valor || '').split(/[,;\\n]/).map(x=>x.trim()).filter(Boolean);
+  const tags = (valor) => String(valor || '').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean);
   const alergiasPersona = (s,tipo,numero) => (s.mis_alergias_personas || []).find(x=>x.persona_tipo===tipo && Number(x.persona_numero)===numero);
   const campoAlergias = (s,tipo,numero,titulo,oculto=false) => {
     const guardada = alergiasPersona(s,tipo,numero);
@@ -159,7 +159,7 @@ async function vCuenta() {
   const pendienteRevision=d.pagos.filter(p=>p.estado==='pendiente').reduce((a,p)=>a+Number(p.importe_centimos||0),0);
   const deudaTrasRevision=Math.max(0,totalPendiente-pendienteRevision);
   const TAGS=ALERGIAS_TAGS;
-  const alergiasActuales=String(d.alergias?.alergias||'').split(/[,;\\n]/).map(x=>x.trim()).filter(Boolean);
+  const alergiasActuales=String(d.alergias?.alergias||'').split(/[,;\n]/).map(x=>x.trim()).filter(Boolean);
   const mes=p=>{const [y,m]=String(p||'').split('-');return m?new Date(Number(y),Number(m)-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'}):p;};
   const estado=p=>p.estado==='confirmado'?'<span class="pill ok">Confirmado</span>':p.estado==='rechazado'?'<span class="pill">Rechazado</span>':'<span class="pill warn">Pendiente</span>';
   let contenido='';
