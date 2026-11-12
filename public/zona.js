@@ -103,7 +103,9 @@ async function vSabados() {
     const nota = guardada?.observaciones || (perfil ? s.mi_alergias_observaciones : '');
     const nombreCampo = tipo==='hermana' ? 'alergia_hermana_0' : 'alergia_invitada_'+numero;
     const nombreNota = tipo==='hermana' ? 'alergia_extra_hermana_0' : 'alergia_extra_invitada_'+numero;
-    return `<div class="card" style="padding:12px;margin-top:9px;background:var(--bg)" ${tipo==='invitada' ? `data-guest-index="${numero}" style="display:${oculto?'none':'block'};padding:12px;margin-top:9px;background:var(--bg)"` : ''}>
+    const guestAttr = tipo==='invitada' ? `data-guest-index="${numero}"` : '';
+    const display = tipo==='invitada' && oculto ? 'none' : 'block';
+    return `<div class="card" ${guestAttr} style="display:${display};padding:12px;margin-top:9px;background:var(--bg)">
       <b>${titulo}</b><div class="wr" style="margin:8px 0 4px">${ALERGIAS_TAGS.map(t=>`<label class="chip ${valores.includes(t)?'on':''}" style="display:inline-flex;align-items:center;gap:7px"><input type="checkbox" name="${nombreCampo}" value="${esc(t)}" ${valores.includes(t)?'checked':''}> ${esc(t)}</label>`).join('')}</div>
       <input class="t" name="${nombreNota}" placeholder="Otra alergia o aclaración (opcional)" value="${esc(nota || '')}">
     </div>`;
@@ -438,6 +440,13 @@ const ACT = {
   'cuenta-pago-close'() { PAGO_MODAL=false; render(); },
   'cuenta-pago-stop'() {},
   'rsvp-choice'(el) { const f = el.closest('form'); f.querySelector('[name=asiste]').value = el.dataset.value; f.querySelectorAll('[data-a=\"rsvp-choice\"]').forEach(b => b.classList.remove('y','n')); el.classList.add(el.dataset.value === '1' ? 'y' : 'n'); },
+  'rsvp-invitadas-step'(el) {
+    const f=el.closest('form'), input=f.querySelector('[name=acompanantes]');
+    const cantidad=Math.max(0,Math.min(20,Number(input.value||0)+Number(el.dataset.delta||0)));
+    input.value=String(cantidad);
+    f.querySelector('[data-invitadas-count]').textContent=String(cantidad);
+    f.querySelectorAll('[data-guest-index]').forEach(x=>{x.style.display=Number(x.dataset.guestIndex)<=cantidad?'block':'none';});
+  },
   menu() { MENU = !MENU; shell(LAST); },
   async salir() { await api('POST', '/auth/logout').catch(() => {}); ME = null; location.hash = '#/'; render(); },
   async 'her-invitar'(el) { const r=await api('POST','/admin/hermanas/'+el.dataset.id+'/invitar'); toast(r.enviado?'Correo de bienvenida enviado':'No se ha podido enviar el correo',!r.enviado); render(); },
