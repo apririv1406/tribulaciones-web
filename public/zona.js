@@ -585,7 +585,8 @@ const ACT = {
   'tes-report-year'(el) { TES_REPORT_YEAR=el.dataset.year; render(); },
   async 'tes-report-export'() {
     if(!window.jspdf?.jsPDF) throw new Error('No se ha podido cargar el generador de PDF.');
-    const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});\n    if(typeof doc.autoTable!=='function') throw new Error('No se ha podido cargar el complemento de tablas PDF. Recarga la página y vuelve a intentarlo.');
+    const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    if(typeof doc.autoTable!=='function') throw new Error('No se ha podido cargar el complemento de tablas PDF. Recarga la página y vuelve a intentarlo.');
     const anio=document.querySelector('.tes-report-brand p')?.innerText.match(/\d{4}/)?.[0]||new Date().getFullYear();
     const fecha=new Date().toLocaleDateString('es-ES'),margen=12,ancho=273;
     const color=[65,55,43],oro=[173,133,49],gris=[112,105,95];
