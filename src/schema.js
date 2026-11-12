@@ -123,6 +123,19 @@ export const MIGRATIONS = [
     )`,
   ]},
 
+
+  { v: 13, sql: [
+    `CREATE TABLE IF NOT EXISTS lts_cambios_cocina(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      turno_id INTEGER NOT NULL REFERENCES turnos_cocina(id) ON DELETE CASCADE,
+      hermana_sale_id INTEGER NOT NULL REFERENCES hermanas(id),
+      hermana_entra_id INTEGER NOT NULL REFERENCES hermanas(id),
+      registrado_por INTEGER NOT NULL REFERENCES hermanas(id),
+      creado TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    `CREATE INDEX IF NOT EXISTS ix_lts_cambios_cocina_turno ON lts_cambios_cocina(turno_id,creado)`,
+  ]},
+
 ]; 
 
 async function ensureColumn(db, table, column, definition) {
