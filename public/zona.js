@@ -584,10 +584,8 @@ const ACT = {
       doc.setDrawColor(...oro);doc.setLineWidth(.6);doc.line(margen,y+10,ancho+margen,y+10);
       y+=16;
       doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...azul);
-      let x=margen;
-      titulos.forEach((t,i)=>{doc.text(t,x+2,y+5);x+=columnas[i];});
       doc.setFillColor(246,242,234);doc.rect(margen,y,ancho,9,'F');
-      x=margen;titulos.forEach((t,i)=>{doc.text(t,x+2,y+5.7);x+=columnas[i];});
+      let x=margen;titulos.forEach((t,i)=>{doc.text(t,x+2,y+5.7);x+=columnas[i];});
       y+=9;
     };
     cabecera();
