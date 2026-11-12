@@ -433,7 +433,7 @@ function vPerfil() {
 /* ---------- administración ---------- */
 const PERM = { none: 'Solo zona hermana', tes: 'Tesorería', actas: 'Actas' };
 const CUENTA = { sin: 'Sin invitar', invitada: 'Invitación preparada', activa: 'Cuenta activa' };
-const TABS = [['noticias', 'Noticias'], ['historia', 'Historia'], ['actas', 'Actas'], ['cocina', 'Sorteo de turnos'], ['hermanas', 'Hermanas y cargos']];
+const TABS = [['noticias', 'Publicaciones'], ['historia', 'Historia'], ['actas', 'Actas'], ['cocina', 'Sorteo de turnos'], ['hermanas', 'Hermanas y cargos']];
 const adm = (tab, html) => `<div class="top"><div class="tag">Panel privado</div><h2>Administración</h2></div><div class="sub" style="margin-top:14px">${TABS.map(([k, t]) => `<a class="${k === tab ? 'on' : ''}" href="#/admin/${k}">${t}</a>`).join('')}</div>${html}`;
 async function vAdmin(tab) {
   if(tab==='actas') return await vActas();
