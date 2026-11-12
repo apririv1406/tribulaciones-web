@@ -310,3 +310,53 @@ nav{justify-content:flex-start}
 .zona #app .tes-content .tes-modal-backdrop{z-index:100}
 @media(max-width:760px){.zona #app .tes-review-grid{grid-template-columns:1fr}.zona #app .tes-review-wide{grid-column:auto}.zona #app .tes-review-row{grid-template-columns:minmax(0,1fr) auto}.zona #app .tes-review-actions{grid-column:1/-1;justify-content:flex-end}.zona #app .tes-ticket-form{grid-template-columns:1fr 1fr}.zona #app .tes-section-intro{align-items:flex-start}}
 @media(max-width:520px){.zona #app .tes-ticket-form{grid-template-columns:1fr}.zona #app .tes-ticket-actions{grid-column:auto}.zona #app .tes-ticket-info{align-items:flex-start}.zona #app .tes-review-row>strong{font-size:14px}}
+
+/* Remate visual de Tesorería: estadísticas, deuda, informe y parámetros */
+.zona #app .tes-stats-kp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 12px}
+.zona #app .tes-stats-kp>.card{padding:13px 16px;min-height:84px}
+.zona #app .tes-stats-kp>.card b{font:700 27px "Cormorant Garamond",serif;display:block;margin-top:3px}
+.zona #app .tes-month-chart{padding:15px 18px;margin:0 0 12px!important}
+.zona #app .tes-month-chart h3{margin:0 0 8px}
+.zona #app .tes-month-chart .cols{height:190px;gap:8px;padding:8px 4px 0}
+.zona #app .tes-month-chart .col{min-width:0}
+.zona #app .tes-month-chart .pair{height:128px;gap:3px}
+.zona #app .tes-month-chart .col small{font-size:10px}
+.zona #app .tes-month-chart .col>span{font-size:10px;white-space:nowrap}
+.zona #app .tes-donuts{gap:12px;margin-top:0!important}
+.zona #app .tes-donuts>.card{padding:14px 18px;min-width:0}
+.zona #app .tes-debt-kp{gap:10px;margin:0 0 12px}
+.zona #app .tes-debt-kp>.card{padding:12px 15px;min-height:76px}
+.zona #app .tes-debt-kp>.card b{display:block;font:700 26px "Cormorant Garamond",serif;margin-top:3px}
+.zona #app .tes-debt-table{padding:0;margin:0!important}
+.zona #app .tes-debt-table-head{justify-content:space-between;align-items:center;padding:12px 16px 8px;gap:10px}
+.zona #app .tes-debt-table-head h3{margin:0}
+.zona #app .tes-debt-table .rt th,.zona #app .tes-debt-table .rt td{padding:8px 10px;font-size:12px}
+.zona #app .tes-debt-table .rt td small{font-size:10px}
+.zona #app .tes-report-brand{padding:0 0 12px;margin-bottom:12px;border-bottom:1px solid var(--ln)}
+.zona #app .tes-report-brand h2{font-size:24px}
+.zona #app .tes-report-brand p{margin:2px 0 0;font-size:12px;color:var(--mu)}
+.zona #app .tes-report-kp{gap:10px;margin:0 0 12px!important}
+.zona #app .tes-report-kp>.card{padding:12px 15px;min-height:74px}
+.zona #app .tes-report-kp>.card b{font:700 25px "Cormorant Garamond",serif}
+.zona #app .tes-content .g2{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.zona #app .tes-content .g2>.card{min-width:0}
+.zona #app .tes-content .g2>.card h3{font-size:16px;padding:11px 14px 6px}
+.zona #app .tes-config-intro{margin:0 0 8px}
+.zona #app .tes-config-intro h3{margin:0 0 3px;font-size:21px}
+.zona #app .tes-config-intro p{margin:0}
+.zona #app .tes-config-card{padding:16px 18px}
+.zona #app .tes-config-card h3{margin:0 0 4px}
+.zona #app .tes-config-card>p.mu{max-width:780px;margin-bottom:12px}
+.zona #app .tes-config-card .formgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 14px}
+.zona #app .tes-config-card .formgrid>div{padding:0;background:none;min-width:0}
+.zona #app .tes-config-card .formgrid .fl{font-size:12px;margin:4px 0}
+.zona #app .tes-config-card .formgrid .t{padding:9px 11px!important}
+.zona #app .tes-config-card .formgrid>button{align-self:end;justify-self:start}
+.zona #app .tes-import-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;align-items:start}
+.zona #app .tes-import-card{padding:16px 18px;min-width:0}
+.zona #app .tes-import-card h3{margin:0 0 5px}
+.zona #app .tes-import-card p.mu{margin:0 0 10px}
+.zona #app .tes-import-card .formgrid{grid-template-columns:1fr 1fr;gap:8px 12px}
+.zona #app .tes-import-card .formgrid>div{padding:0;background:none}
+@media(max-width:760px){.zona #app .tes-import-grid{grid-template-columns:1fr}.zona #app .tes-content .g2{grid-template-columns:1fr}}
+@media(max-width:560px){.zona #app .tes-stats-kp,.zona #app .tes-debt-kp,.zona #app .tes-report-kp{grid-template-columns:1fr 1fr}.zona #app .tes-stats-kp>.card:last-child,.zona #app .tes-debt-kp>.card:last-child,.zona #app .tes-report-kp>.card:last-child{grid-column:1/-1}.zona #app .tes-config-card .formgrid{grid-template-columns:1fr}}
