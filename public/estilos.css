@@ -259,3 +259,54 @@ nav{justify-content:flex-start}
 .zona #app .tes-content .sub button{padding:8px 1px;font-size:13px}
 @media(max-width:850px){.zona #app .tes-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.zona #app .tes-balance{grid-template-columns:1fr;gap:12px}}
 @media(max-width:560px){.zona #app .tes-heading,.zona #app .tes-mov-toolbar{align-items:flex-start;flex-direction:column}.zona #app .tes-mov-toolbar .wr{width:100%}.zona #app .tes-filter-grid{grid-template-columns:1fr 1fr}.zona #app .tes-modal-backdrop{padding:10px;align-items:flex-end}.zona #app .tes-modal{padding:17px;border-radius:18px 18px 10px 10px}.zona #app .tes-modal .two{grid-template-columns:1fr}}
+
+/* Tesorería: bandejas, tablas e informes compactos */
+.zona #app .tes-section-intro{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:2px 0 12px}
+.zona #app .tes-section-intro h3{margin:1px 0 3px;font-size:22px}
+.zona #app .tes-section-intro p{margin:0}
+.zona #app .tes-review-count{display:flex;align-items:center;gap:9px;padding:8px 13px;border:1px solid var(--ln);background:var(--pa);border-radius:13px;color:var(--mu);font-size:12px}
+.zona #app .tes-review-count b{font:700 25px "Cormorant Garamond",serif;color:var(--dk)}
+.zona #app .tes-review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.zona #app .tes-review-group{padding:15px 18px;margin:0!important;min-width:0}
+.zona #app .tes-review-group header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:9px;border-bottom:1px solid var(--ln);margin-bottom:3px}
+.zona #app .tes-review-group header h3{margin:0 0 3px}
+.zona #app .tes-review-group header p{margin:0}
+.zona #app .tes-count{display:inline-flex;align-items:center;justify-content:center;min-width:27px;height:27px;padding:0 8px;border-radius:99px;background:var(--gs);font-size:12px;font-weight:700}
+.zona #app .tes-review-wide{grid-column:1/-1}
+.zona #app .tes-review-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--ln)}
+.zona #app .tes-review-row:last-child{border-bottom:0}
+.zona #app .tes-review-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+.zona #app .tes-review-main small,.zona #app .tes-ticket-info small{color:var(--mu);font-size:12px}
+.zona #app .tes-review-row>strong{font-size:15px;white-space:nowrap}
+.zona #app .tes-review-actions{display:flex;gap:6px}
+.zona #app .tes-empty{margin:0;padding:13px 2px;color:var(--mu);font-size:13px}
+.zona #app .tes-ticket-list{padding:0 18px}
+.zona #app .tes-ticket-row{padding:14px 0;border-bottom:1px solid var(--ln)}
+.zona #app .tes-ticket-row:last-child{border-bottom:0}
+.zona #app .tes-ticket-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.zona #app .tes-ticket-info>div{display:flex;flex-direction:column;gap:3px;flex:1;min-width:180px}
+.zona #app .tes-ticket-info>strong{font-size:17px;white-space:nowrap}
+.zona #app .tes-ticket-form{display:grid;grid-template-columns:repeat(3,minmax(130px,1fr));gap:8px 12px;align-items:end;margin-top:11px;padding:11px 13px;background:var(--gs);border-radius:12px}
+.zona #app .tes-ticket-form .fl{font-size:11px;margin:0 0 3px}
+.zona #app .tes-ticket-form .t{padding:8px 10px!important;font-size:13px}
+.zona #app .tes-ticket-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:7px}
+.zona #app .tes-ticket-archive{margin-top:12px;padding:12px 16px}
+.zona #app .tes-ticket-archive summary{cursor:pointer;font-weight:600;display:flex;justify-content:space-between}
+.zona #app .tes-ticket-archive summary span{color:var(--mu);font-weight:400}
+.zona #app .tes-content .rt{font-size:12px}
+.zona #app .tes-content .rt th,.zona #app .tes-content .rt td{padding:9px 11px}
+.zona #app .tes-content .wrap{overflow-x:auto}
+.zona #app .tes-content .kp .card{min-width:0}
+.zona #app .tes-content .report-kp{margin-bottom:12px!important}
+.zona #app .tes-content .g2{gap:12px}
+.zona #app .tes-content .g2>.card{padding:0 0 4px}
+.zona #app .tes-content .g2>.card h3{padding:13px 16px 7px}
+.zona #app .tes-content form.formgrid{gap:8px 12px}
+.zona #app .tes-content form.formgrid .fl{font-size:12px;margin:5px 0 3px}
+.zona #app .tes-content form.formgrid .t{padding:9px 11px!important}
+.zona #app .tes-content> .card{padding:16px 18px}
+.zona #app .tes-content .tes-fixed-toolbar{padding:12px 16px}
+.zona #app .tes-content .tes-fixed-toolbar .btn{white-space:nowrap}
+.zona #app .tes-content .tes-modal-backdrop{z-index:100}
+@media(max-width:760px){.zona #app .tes-review-grid{grid-template-columns:1fr}.zona #app .tes-review-wide{grid-column:auto}.zona #app .tes-review-row{grid-template-columns:minmax(0,1fr) auto}.zona #app .tes-review-actions{grid-column:1/-1;justify-content:flex-end}.zona #app .tes-ticket-form{grid-template-columns:1fr 1fr}.zona #app .tes-section-intro{align-items:flex-start}}
+@media(max-width:520px){.zona #app .tes-ticket-form{grid-template-columns:1fr}.zona #app .tes-ticket-actions{grid-column:auto}.zona #app .tes-ticket-info{align-items:flex-start}.zona #app .tes-review-row>strong{font-size:14px}}
