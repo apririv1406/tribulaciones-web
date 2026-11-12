@@ -250,7 +250,7 @@ async function crearPDFSimple(lineas) {
   return new Blob([Uint8Array.from(pdf,ch=>ch.charCodeAt(0)&255)],{type:"application/pdf"});
 }
 
-function vTesoreria() {
+async function vTesoreria() {
   const d = await api('GET', '/modulos/tesoreria');
   const ingresos=d.totales.ingresos, gastos=d.totales.gastos, saldo=Number(d.totales.saldo_centimos||0);
   const aniosMov=[...new Set(d.movimientos.map(x=>String(x.fecha||'').slice(0,4)).filter(Boolean))].sort().reverse();
