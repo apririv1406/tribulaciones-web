@@ -422,7 +422,7 @@ async function noticiaGuardar(env, me, id, b) {
   const fecha = String(b.fecha || '').trim() || new Date().toISOString().slice(0,10);
   if (titulo.length < 3 || titulo.length > 150) return E('Escribe un título');
   if (texto.length < 3 || texto.length > 6000) return E('Escribe el texto de la publicación');
-  const fechaValida = /^\\d{4}-\\d{2}-\\d{2}$/.test(fecha) && !Number.isNaN(Date.parse(fecha+'T00:00:00Z')) && new Date(fecha+'T00:00:00Z').toISOString().slice(0,10) === fecha;
+  const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fecha) && !Number.isNaN(Date.parse(fecha+'T00:00:00Z')) && new Date(fecha+'T00:00:00Z').toISOString().slice(0,10) === fecha;
   if (!fechaValida) return E('Selecciona una fecha válida');
   const url = String(b.url || '').trim();
   if (url) {
