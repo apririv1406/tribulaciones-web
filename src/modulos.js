@@ -166,7 +166,7 @@ export async function routeModulos(req, env, me, method, path, body) {
       const numero = tipo === 'hermana' ? 0 : num(persona.numero);
       if (!tipo || (tipo === 'invitada' && (!Number.isInteger(numero) || numero < 1 || numero > acomp))) continue;
       const alergias = txt(persona.alergias, 1000), observaciones = txt(persona.observaciones, 1000);
-      if (!alergias && !observaciones) continue;
+      if (!alergias && !observaciones && tipo === 'invitada') continue;
       ops.push(env.DB.prepare(`INSERT INTO lts_alergias_evento(sabado_id,hermana_id,persona_tipo,persona_numero,alergias,observaciones)
         VALUES(?,?,?,?,?,?)`).bind(id, me.id, tipo, numero, alergias, observaciones || null));
     }
