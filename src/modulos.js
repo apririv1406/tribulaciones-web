@@ -85,15 +85,16 @@ export async function routeModulos(req, env, me, method, path, body) {
   if (path === '/api/modulos/sabados' && method === 'GET') {
     await syncCargosHermanas(env.DB);
     const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,
-      COALESCE(a.alergias,ah.alergias,'') mis_alergias,a.observaciones mi_observaciones,
+      COALESCE(a.alergias,ah.alergias,ah_old.alergias,'') mis_alergias,a.observaciones mi_observaciones,
       COALESCE(c.copas,0) mis_copas,COALESCE(c.refrescos,0) mis_refrescos,
       (SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1) confirmadas,
       (SELECT COALESCE(SUM(x.acompanantes),0) FROM asistencias_sabado x WHERE x.sabado_id=s.id) invitadas,
       ((SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1)+
        (SELECT COALESCE(SUM(x.acompanantes),0) FROM asistencias_sabado x WHERE x.sabado_id=s.id)) plazas_ocupadas
       FROM sabados s LEFT JOIN asistencias_sabado a ON a.sabado_id=s.id AND a.hermana_id=?
-      LEFT JOIN alergias_hermanas ah ON ah.hermana_id=?
-      LEFT JOIN consumos_sabado c ON c.sabado_id=s.id AND c.hermana_id=? ORDER BY s.fecha DESC,s.id DESC LIMIT 40`).bind(me.id,me.id,me.id));
+      LEFT JOIN lts_perfil_alergias ah ON ah.hermana_id=?
+      LEFT JOIN alergias_hermanas ah_old ON ah_old.hermana_id=?
+      LEFT JOIN consumos_sabado c ON c.sabado_id=s.id AND c.hermana_id=? ORDER BY s.fecha DESC,s.id DESC LIMIT 40`).bind(me.id,me.id,me.id,me.id));
     const alergiasEvento = await rows(env.DB.prepare(`SELECT sabado_id,persona_tipo,persona_numero,alergias,observaciones
       FROM lts_alergias_evento WHERE hermana_id=?
       AND sabado_id IN (SELECT id FROM sabados ORDER BY fecha DESC,id DESC LIMIT 40)
@@ -196,7 +197,9 @@ export async function routeModulos(req, env, me, method, path, body) {
       MAX(0,x.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cargo_id=x.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=x.id AND p.estado='confirmado'))) restante_centimos
       FROM cargos_hermanas x WHERE x.hermana_id=? ORDER BY CASE x.categoria WHEN 'Cuaresma' THEN 1 WHEN 'Semana Santa' THEN 2 ELSE 3 END,x.id`).bind(me.id));
     const pagos = await rows(env.DB.prepare('SELECT p.*,c.periodo,x.concepto cargo_concepto FROM pagos p LEFT JOIN cuotas c ON c.id=p.cuota_id LEFT JOIN cargos_hermanas x ON x.id=p.cargo_id WHERE p.hermana_id=? ORDER BY p.fecha_pago DESC,p.id DESC').bind(me.id));
-    const alergias = await env.DB.prepare('SELECT alergias,observaciones FROM alergias_hermanas WHERE hermana_id=?').bind(me.id).first();
+    const alergias = await env.DB.prepare(`SELECT COALESCE(p.alergias,a.alergias,'') alergias,COALESCE(p.observaciones,a.observaciones,'') observaciones
+      FROM hermanas h LEFT JOIN lts_perfil_alergias p ON p.hermana_id=h.id
+      LEFT JOIN alergias_hermanas a ON a.hermana_id=h.id WHERE h.id=?`).bind(me.id).first();
     return J({ cuotas, cargos, pagos, alergias: alergias || { alergias: '', observaciones: '' } });
   }
   if (path === '/api/modulos/cuenta/pagos' && method === 'POST') {
@@ -238,16 +241,25 @@ export async function routeModulos(req, env, me, method, path, body) {
            (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado'))) presupuesto_calculado_centimos
         FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC LIMIT 100`)),
       actas(me)
-      ? await rows(env.DB.prepare(`SELECT DISTINCT asb.hermana_id,h.nombre,tc.fecha fecha,COALESCE(NULLIF(asb.alergias,''),a.alergias,'') alergias,COALESCE(NULLIF(asb.observaciones,''),a.observaciones,'') observaciones
+      ? await rows(env.DB.prepare(`SELECT l.hermana_id,
+          CASE WHEN l.persona_tipo='invitada' THEN 'Invitada '||l.persona_numero||' de '||h.nombre ELSE h.nombre END nombre,
+          tc.fecha fecha,l.alergias,l.observaciones
           FROM turnos_cocina tc JOIN sabados s ON s.fecha=tc.fecha
-          JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND asb.asiste=1
-          JOIN hermanas h ON h.id=asb.hermana_id LEFT JOIN alergias_hermanas a ON a.hermana_id=h.id
-          WHERE h.estado!='Baja' ORDER BY tc.fecha,h.nombre`))
-      : await rows(env.DB.prepare(`SELECT DISTINCT asb.hermana_id,h.nombre,tc.fecha fecha,COALESCE(NULLIF(asb.alergias,''),a.alergias,'') alergias,COALESCE(NULLIF(asb.observaciones,''),a.observaciones,'') observaciones
+          JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND (asb.asiste=1 OR asb.acompanantes>0)
+          JOIN lts_alergias_evento l ON l.sabado_id=s.id AND l.hermana_id=asb.hermana_id
+          JOIN hermanas h ON h.id=asb.hermana_id
+          WHERE h.estado!='Baja' AND (l.alergias<>'' OR COALESCE(l.observaciones,'')<>'')
+          ORDER BY tc.fecha,h.nombre,l.persona_tipo,l.persona_numero`))
+      : await rows(env.DB.prepare(`SELECT l.hermana_id,
+          CASE WHEN l.persona_tipo='invitada' THEN 'Invitada '||l.persona_numero||' de '||h.nombre ELSE h.nombre END nombre,
+          tc.fecha fecha,l.alergias,l.observaciones
           FROM turnos_cocina_hermanas mine JOIN turnos_cocina tc ON tc.id=mine.turno_id
-          JOIN sabados s ON s.fecha=tc.fecha JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND asb.asiste=1
-          JOIN hermanas h ON h.id=asb.hermana_id LEFT JOIN alergias_hermanas a ON a.hermana_id=h.id
-          WHERE mine.hermana_id=? ORDER BY tc.fecha,h.nombre`).bind(me.id)),
+          JOIN sabados s ON s.fecha=tc.fecha
+          JOIN asistencias_sabado asb ON asb.sabado_id=s.id AND (asb.asiste=1 OR asb.acompanantes>0)
+          JOIN lts_alergias_evento l ON l.sabado_id=s.id AND l.hermana_id=asb.hermana_id
+          JOIN hermanas h ON h.id=asb.hermana_id
+          WHERE mine.hermana_id=? AND (l.alergias<>'' OR COALESCE(l.observaciones,'')<>'')
+          ORDER BY tc.fecha,h.nombre,l.persona_tipo,l.persona_numero`).bind(me.id)),
       tes(me)
         ? rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado,h.nombre subido_por_nombre FROM tickets t LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 100`))
         : rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado
@@ -354,9 +366,15 @@ export async function routeModulos(req, env, me, method, path, body) {
     return J({ ok: true });
   }
   if (path === '/api/modulos/alergias' && method === 'PUT') {
-    await env.DB.prepare(`INSERT INTO alergias_hermanas(hermana_id,alergias,observaciones,actualizado) VALUES(?,?,?,datetime('now'))
-      ON CONFLICT(hermana_id) DO UPDATE SET alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`)
-      .bind(me.id, txt(body.alergias, 1000), txt(body.observaciones, 1000) || null).run();
+    const alergias = txt(body.alergias, 1000), observaciones = txt(body.observaciones, 1000) || null;
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO alergias_hermanas(hermana_id,alergias,observaciones,actualizado) VALUES(?,?,?,datetime('now'))
+        ON CONFLICT(hermana_id) DO UPDATE SET alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`)
+        .bind(me.id, alergias, observaciones),
+      env.DB.prepare(`INSERT INTO lts_perfil_alergias(hermana_id,alergias,observaciones,actualizado) VALUES(?,?,?,datetime('now'))
+        ON CONFLICT(hermana_id) DO UPDATE SET alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`)
+        .bind(me.id, alergias, observaciones),
+    ]);
     return J({ ok: true });
   }
 
