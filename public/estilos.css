@@ -395,3 +395,20 @@ nav{justify-content:flex-start}
 .sub,
 .zona #app .tesoreria>.sub,
 .zona #app .tes-content .sub{overflow-y:hidden!important}
+
+
+/* Navegación pública: submenús de Historia y Publicaciones */
+nav .nav-drop{position:relative;display:flex;align-items:center}
+nav .nav-trigger{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--mu);font:500 14px Inter,system-ui,sans-serif;padding:8px 12px;border-radius:99px;white-space:nowrap}
+nav .nav-trigger span{font-size:13px;color:var(--gd);transition:transform .18s}
+nav .nav-drop:hover .nav-trigger,nav .nav-drop:focus-within .nav-trigger{background:var(--gs);color:var(--dk)}
+nav .nav-drop:hover .nav-trigger span,nav .nav-drop:focus-within .nav-trigger span{transform:rotate(180deg)}
+nav .nav-menu{position:absolute;top:calc(100% + 8px);left:0;min-width:178px;padding:7px;background:var(--pa);border:1px solid var(--ln);border-radius:14px;box-shadow:0 12px 32px rgba(59,44,28,.14);display:none;z-index:20}
+nav .nav-drop:hover .nav-menu,nav .nav-drop:focus-within .nav-menu{display:flex;flex-direction:column}
+nav .nav-menu a{display:block;padding:10px 12px;border-radius:9px;color:var(--tx);text-decoration:none;font-size:13px;white-space:nowrap}
+nav .nav-menu a:hover{background:var(--gs);color:var(--dk)}
+.mn a{display:block;padding:12px 14px;border-radius:12px;color:var(--tx);text-decoration:none;font-size:16px;font-weight:500}
+.mn a:hover{background:var(--gs)}
+.mn a.mn-sub{margin-left:14px;padding:9px 14px;font-size:14px;color:var(--mu);border-left:2px solid var(--go);border-radius:0 10px 10px 0}
+.mn a.mn-sub:first-of-type{margin-top:0}
+@media(max-width:1100px){header nav .nav-drop{display:none!important}}
