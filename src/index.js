@@ -292,6 +292,10 @@ async function sitemapNoticias(env, base) {
 const cuentaDe = r => (r.tiene_pass || r.ultimo_acceso ? 'activa' : r.invitada ? 'invitada' : 'sin');
 async function admin(req, env, me, m, p, b) {
   let r;
+  if (m === 'POST' && p === '/api/admin/hermanas/publicar-activas') {
+    await env.DB.prepare("UPDATE hermanas SET visible_web=1 WHERE estado='Activa'").run();
+    return J({ ok: true });
+  }
   if (m === 'GET' && p === '/api/admin/hermanas') {
     const rs = (await env.DB.prepare("SELECT h.id,h.nombre,h.email,h.telefono,h.cargo_id,c.nombre cargo,h.estado,h.es_admin,h.anio_entrada,h.visible_web,h.foto_id,h.pass_hash IS NOT NULL tiene_pass,h.invitada,h.ultimo_acceso FROM hermanas h LEFT JOIN cargos c ON c.id=h.cargo_id ORDER BY h.estado='Baja',h.nombre").all()).results;
     return J(rs.map(x => ({ id: x.id, nombre: x.nombre, email: x.email, telefono: x.telefono || '', cargo_id: x.cargo_id, cargo: x.cargo, estado: x.estado, es_admin: !!x.es_admin, anio_entrada: x.anio_entrada, visible_web: !!x.visible_web, foto: x.foto_id, cuenta: cuentaDe(x) })));
