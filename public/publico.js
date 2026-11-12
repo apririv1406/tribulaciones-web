@@ -8,16 +8,17 @@ const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(
 // Si falta una foto en /img, se queda el recuadro de relleno
 document.querySelectorAll('.phi img').forEach(i => i.addEventListener('error', () => i.remove()));
 
-const links = [['/', 'Inicio'], ['/historia/', 'Historia'], ['/#hermandad', 'Hermandad'], ['/#cuaresma', 'Cuaresma'], ['/#hermanas', 'Hermanas'], ['/noticias/', 'Noticias'], ['/cronicas/', 'Crónicas'], ['/zona/', 'Zona hermana']];
+const links = [{label:'Inicio',href:'/'},{label:'Historia',href:'/historia/',group:'Historia'},{label:'Hermandad',href:'/#hermandad',group:'Historia'},{label:'Cuaresma',href:'/#cuaresma'},{label:'Noticias',href:'/noticias/',group:'Publicaciones'},{label:'Crónicas',href:'/cronicas/',group:'Publicaciones'},{label:'Zona hermana',href:'/zona/'}];
 function menu(abrir) {
-  $('#mn').innerHTML = abrir ? `<div class="sc" data-c="1"></div><div class="mn"><button class="x" data-c="1" aria-label="Cerrar">✕</button>${links.map(([h, t]) => `<a href="${h}">${t}</a>`).join('')}</div>` : '';
+  $('#mn').innerHTML = abrir ? `<div class="sc" data-c="1"></div><div class="mn"><button class="x" data-c="1" aria-label="Cerrar">✕</button>${links.map(x => `<a class="${x.group ? 'mn-sub' : ''}" href="${x.href}">${x.label}</a>`).join('')}</div>` : '';
 }
 $('#hb').addEventListener('click', () => menu(true));
 document.addEventListener('click', e => { if (e.target.closest('[data-c]') || e.target.closest('.mn a')) menu(false); });
 
 // Datos que se editan desde la zona hermana
 fetch('/api/public').then(r => r.json()).then(d => {
-  $('#hitos').innerHTML = d.hitos.map(h => `<div><b>${esc(h.anio)}</b><br>${esc(h.texto)}</div>`).join('');
+  const hitos = $('#hitos');
+  if (hitos) hitos.innerHTML = (d.hitos || []).map(h => `<div><b>${esc(h.anio)}</b><br>${esc(h.texto)}</div>`).join('');
   if (d.hermanas.length) {
     $('#hermanas-l').innerHTML = d.hermanas.map(h => `<div class="card" style="text-align:center;padding:22px 14px"><div class="av">${h.foto ? `<img src="/media/${h.foto}" alt="${esc(h.nombre)}" loading="lazy">` : iniciales(h.nombre)}</div><b>${esc(h.nombre)}</b><br><span class="mu">${esc(h.cargo || 'Hermana')}</span>${h.anio ? `<br><small class="mu">En el cuartel desde ${h.anio}</small>` : ''}</div>`).join('');
   } else $('#hermanas-l').innerHTML = '<p class="mu">Estamos preparando este espacio. Las hermanas que tengan activada la opción «Aparece en la web» se mostrarán aquí.</p>';
