@@ -16,6 +16,16 @@ function menu(abrir) {
 }
 $('#hb').addEventListener('click', () => menu(true));
 document.addEventListener('click', e => { if (e.target.closest('[data-c]') || e.target.closest('.mn a')) menu(false); });
+document.querySelectorAll('.nav-trigger').forEach(button => button.addEventListener('click', e => {
+  e.stopPropagation();
+  const item = button.closest('.nav-drop');
+  const open = !item.classList.contains('open');
+  document.querySelectorAll('.nav-drop.open').forEach(x => { x.classList.remove('open'); x.querySelector('.nav-trigger')?.setAttribute('aria-expanded','false'); });
+  item.classList.toggle('open', open);
+  button.setAttribute('aria-expanded', String(open));
+}));
+document.addEventListener('click', e => { if (!e.target.closest('.nav-drop')) document.querySelectorAll('.nav-drop.open').forEach(x => { x.classList.remove('open'); x.querySelector('.nav-trigger')?.setAttribute('aria-expanded','false'); }); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.nav-drop.open').forEach(x => { x.classList.remove('open'); x.querySelector('.nav-trigger')?.setAttribute('aria-expanded','false'); }); });
 fetch('/api/cronicas').then(r=>{if(!r.ok)throw new Error('No se han podido cargar las crónicas');return r.json();}).then(items=>{
  const root=$('#news-archive');
  if(!items.length){root.innerHTML='<p class="empty-news">Todavía no hay crónicas publicadas. Pronto compartiremos aquí nuevas crónicas y recuerdos.</p>';return;}
