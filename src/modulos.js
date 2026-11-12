@@ -321,7 +321,7 @@ export async function routeModulos(req, env, me, method, path, body) {
     for(let i=0;i<ops.length;i+=100) await env.DB.batch(ops.slice(i,i+100));
     return J({ ok: true, personas_por_turno: personas, turnos_sorteados: asignaciones.length, turnos_omitidos: omitidos.length, asignaciones: asignaciones.map(a => ({ turno_id:a.turno_id, hermana_ids:a.hermana_ids, hermanas:a.hermana_ids })) });
   }
-  if ((m = path.match(/^\\/api\\/modulos\\/cocina\\/(\\d+)\\/cambio$/)) && method === 'POST') {
+  if ((m = path.match(/^\/api\/modulos\/cocina\/(\d+)\/cambio$/)) && method === 'POST') {
     const turnoId = Number(m[1]);
     const turno = await env.DB.prepare('SELECT id,fecha FROM turnos_cocina WHERE id=?').bind(turnoId).first();
     if (!turno) return E('Turno de cocina no encontrado', 404);
