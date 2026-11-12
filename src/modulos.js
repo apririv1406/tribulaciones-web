@@ -87,10 +87,24 @@ export async function routeModulos(req, env, me, method, path, body) {
     const data = await rows(env.DB.prepare(`SELECT s.*,a.asiste mi_asistencia,a.acompanantes mis_acompanantes,a.detalle_acompanantes,
       COALESCE(a.alergias,ah.alergias,'') mis_alergias,a.observaciones mi_observaciones,
       COALESCE(c.copas,0) mis_copas,COALESCE(c.refrescos,0) mis_refrescos,
-      (SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1) confirmadas
+      (SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1) confirmadas,
+      (SELECT COALESCE(SUM(x.acompanantes),0) FROM asistencias_sabado x WHERE x.sabado_id=s.id) invitadas,
+      ((SELECT COUNT(*) FROM asistencias_sabado x WHERE x.sabado_id=s.id AND x.asiste=1)+
+       (SELECT COALESCE(SUM(x.acompanantes),0) FROM asistencias_sabado x WHERE x.sabado_id=s.id)) plazas_ocupadas
       FROM sabados s LEFT JOIN asistencias_sabado a ON a.sabado_id=s.id AND a.hermana_id=?
       LEFT JOIN alergias_hermanas ah ON ah.hermana_id=?
       LEFT JOIN consumos_sabado c ON c.sabado_id=s.id AND c.hermana_id=? ORDER BY s.fecha DESC,s.id DESC LIMIT 40`).bind(me.id,me.id,me.id));
+    const alergiasEvento = await rows(env.DB.prepare(`SELECT sabado_id,persona_tipo,persona_numero,alergias,observaciones
+      FROM lts_alergias_evento WHERE hermana_id=?
+      AND sabado_id IN (SELECT id FROM sabados ORDER BY fecha DESC,id DESC LIMIT 40)
+      ORDER BY sabado_id,persona_tipo,persona_numero`).bind(me.id));
+    const cfg = await rows(env.DB.prepare("SELECT clave,valor FROM config WHERE clave IN ('sabado_precio_centimos','invitada_precio_centimos')"));
+    const precios = Object.fromEntries(cfg.map(x => [x.clave, Number(x.valor || 0)]));
+    for (const s of data) {
+      s.mis_alergias_personas = alergiasEvento.filter(x => x.sabado_id === s.id);
+      s.precio_sabado_centimos = precios.sabado_precio_centimos || 1000;
+      s.precio_invitada_centimos = precios.invitada_precio_centimos || 1000;
+    }
     return J(data);
   }
   if (path === '/api/modulos/sabados' && method === 'POST') {
@@ -118,15 +132,36 @@ export async function routeModulos(req, env, me, method, path, body) {
     return J({ ok: true });
   }
   if ((m = path.match(/^\/api\/modulos\/sabados\/(\d+)\/asistencia$/)) && method === 'POST') {
-    const id = +m[1], s = await env.DB.prepare('SELECT id,estado FROM sabados WHERE id=?').bind(id).first();
+    const id = +m[1], s = await env.DB.prepare('SELECT id,estado,fecha FROM sabados WHERE id=?').bind(id).first();
     if (!s) return E('Sábado no encontrado', 404);
     if (s.estado !== 'abierto') return E('Este sábado ya no admite cambios', 409);
+    const fechaEvento = new Date(`${s.fecha}T12:00:00`);
+    fechaEvento.setDate(fechaEvento.getDate() - 2);
+    fechaEvento.setHours(23, 0, 0, 0);
+    if (!me.admin && !tes(me) && Date.now() > fechaEvento.getTime()) return E('El plazo de confirmación terminó el jueves a las 23:00', 409);
     const asiste = body.asiste ? 1 : 0, acomp = Math.max(0, Math.min(20, num(body.acompanantes || 0)));
-    if (!Number.isInteger(acomp)) return E('Número de acompañantes no válido');
-    await env.DB.prepare(`INSERT INTO asistencias_sabado(sabado_id,hermana_id,asiste,acompanantes,detalle_acompanantes,alergias,observaciones,actualizado)
-      VALUES(?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(sabado_id,hermana_id) DO UPDATE SET asiste=excluded.asiste,acompanantes=excluded.acompanantes,
-      detalle_acompanantes=excluded.detalle_acompanantes,alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`)
-      .bind(id, me.id, asiste, acomp, txt(body.detalle_acompanantes, 1000) || null, txt(body.alergias, 1000) || null, txt(body.observaciones, 1000) || null).run();
+    if (!Number.isInteger(acomp)) return E('Número de invitadas no válido');
+    const personas = Array.isArray(body.personas) ? body.personas : [{
+      tipo: 'hermana', numero: 0, alergias: body.alergias || '', observaciones: body.observaciones || ''
+    }];
+    const propia = personas.find(x => x.tipo === 'hermana' && Number(x.numero || 0) === 0) || {};
+    const ops = [
+      env.DB.prepare(`INSERT INTO asistencias_sabado(sabado_id,hermana_id,asiste,acompanantes,detalle_acompanantes,alergias,observaciones,actualizado)
+        VALUES(?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(sabado_id,hermana_id) DO UPDATE SET asiste=excluded.asiste,acompanantes=excluded.acompanantes,
+        detalle_acompanantes=NULL,alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`)
+        .bind(id, me.id, asiste, acomp, null, txt(propia.alergias, 1000) || null, txt(propia.observaciones, 1000) || null),
+      env.DB.prepare('DELETE FROM lts_alergias_evento WHERE sabado_id=? AND hermana_id=?').bind(id, me.id),
+    ];
+    for (const persona of personas) {
+      const tipo = persona.tipo === 'invitada' ? 'invitada' : persona.tipo === 'hermana' ? 'hermana' : '';
+      const numero = tipo === 'hermana' ? 0 : num(persona.numero);
+      if (!tipo || (tipo === 'invitada' && (!Number.isInteger(numero) || numero < 1 || numero > acomp))) continue;
+      const alergias = txt(persona.alergias, 1000), observaciones = txt(persona.observaciones, 1000);
+      if (!alergias && !observaciones) continue;
+      ops.push(env.DB.prepare(`INSERT INTO lts_alergias_evento(sabado_id,hermana_id,persona_tipo,persona_numero,alergias,observaciones)
+        VALUES(?,?,?,?,?,?)`).bind(id, me.id, tipo, numero, alergias, observaciones || null));
+    }
+    await env.DB.batch(ops);
     await syncCargosHermanas(env.DB);
     return J({ ok: true });
   }
