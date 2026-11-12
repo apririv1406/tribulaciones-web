@@ -145,6 +145,10 @@ export const MIGRATIONS = [
   { v: 15, sql: [
     `ALTER TABLE noticias ADD COLUMN url TEXT`,
   ]},
+  { v: 16, sql: [
+    `ALTER TABLE noticias ADD COLUMN tipo TEXT NOT NULL DEFAULT 'noticia' CHECK(tipo IN ('noticia','cronica'))`,
+    `CREATE INDEX IF NOT EXISTS ix_noticias_tipo_fecha ON noticias(tipo,fecha,id)`,
+  ]},
 ]; 
 
 async function ensureColumn(db, table, column, definition) {
