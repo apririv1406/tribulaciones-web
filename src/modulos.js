@@ -735,22 +735,46 @@ export async function routeModulos(req, env, me, method, path, body) {
     return J({ok:true});
   }
 
+  // Los PDF de cada acta se guardan asociados a su junta. Todas las hermanas pueden consultarlos.
+  if ((m = path.match(/^\/api\/modulos\/actas\/juntas\/(\d+)\/archivo$/)) && method === 'GET') {
+    const doc = await env.DB.prepare('SELECT nombre,datos FROM documentos WHERE clave=?').bind('acta:' + Number(m[1])).first();
+    if (!doc) return E('Todavía no hay un PDF para esta acta', 404);
+    const bytes = Uint8Array.from(atob(doc.datos), ch => ch.charCodeAt(0));
+    const nombre = txt(doc.nombre, 120).replace(/[\\r\\n"\\\\]/g, '_');
+    return new Response(bytes, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${nombre}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
+  }
+  if ((m = path.match(/^\/api\/modulos\/actas\/juntas\/(\d+)\/archivo$/)) && method === 'PUT') {
+    if (!actas(me)) return E('No tienes permiso para subir actas', 403);
+    const juntaId = Number(m[1]);
+    if (!await env.DB.prepare('SELECT id FROM juntas WHERE id=?').bind(juntaId).first()) return E('Junta no encontrada', 404);
+    const match = /^data:application\/pdf;base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos || ''));
+    if (!match || !match[1].startsWith('JVBERi0') || match[1].length > 1400000) return E('El archivo debe ser un PDF válido de 1 MB como máximo');
+    const nombre = txt(body.nombre, 120) || ('Acta_' + juntaId + '.pdf');
+    await env.DB.prepare(`INSERT INTO documentos(clave,nombre,mime,datos,tamano,subido_por) VALUES(?,?,'application/pdf',?,?,?)
+      ON CONFLICT(clave) DO UPDATE SET nombre=excluded.nombre,mime=excluded.mime,datos=excluded.datos,tamano=excluded.tamano,subido_por=excluded.subido_por,creado=datetime('now')`)
+      .bind('acta:' + juntaId, nombre, match[1], Math.floor(match[1].length * 3 / 4), me.id).run();
+    await env.DB.prepare("UPDATE juntas SET estado='celebrada' WHERE id=?").bind(juntaId).run();
+    return J({ ok: true });
+  }
+
   // Consulta de actas: disponible para todas las hermanas. La edición sigue reservada a Secretaría/Administración.
   if (path === '/api/modulos/actas' && method === 'GET') {
     if (actas(me)) {
-      const [juntas, actasRows, hermanas, asistencias] = await Promise.all([
+      const [juntas, actasRows, hermanas, asistencias, documentosActa] = await Promise.all([
         rows(env.DB.prepare(`SELECT j.*,(SELECT COUNT(*) FROM asistencia_junta a WHERE a.junta_id=j.id AND a.asiste=1) asistentes FROM juntas j ORDER BY j.fecha DESC,j.id DESC LIMIT 100`)),
         rows(env.DB.prepare('SELECT * FROM actas ORDER BY actualizada DESC')),
         rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado!='Baja' ORDER BY nombre")),
         rows(env.DB.prepare('SELECT junta_id,hermana_id FROM asistencia_junta WHERE asiste=1')),
+        rows(env.DB.prepare("SELECT REPLACE(clave,'acta:','') junta_id,nombre,tamano,creado FROM documentos WHERE clave LIKE 'acta:%'")),
       ]);
-      return J({ juntas, actas: actasRows, hermanas, asistencias, solo_lectura: false });
+      return J({ juntas, actas: actasRows, hermanas, asistencias, documentos: documentosActa, solo_lectura: false });
     }
-    const [juntas, actasRows] = await Promise.all([
+    const [juntas, actasRows, documentosActa] = await Promise.all([
       rows(env.DB.prepare('SELECT id,fecha,hora,lugar,convocatoria,orden_dia,estado FROM juntas ORDER BY fecha DESC,id DESC LIMIT 100')),
       rows(env.DB.prepare('SELECT junta_id,texto,acuerdos,actualizada FROM actas ORDER BY actualizada DESC')),
+      rows(env.DB.prepare("SELECT REPLACE(clave,'acta:','') junta_id,nombre,tamano,creado FROM documentos WHERE clave LIKE 'acta:%'")),
     ]);
-    return J({ juntas, actas: actasRows, hermanas: [], asistencias: [], solo_lectura: true });
+    return J({ juntas, actas: actasRows, documentos: documentosActa, hermanas: [], asistencias: [], solo_lectura: true });
   }
 
   // ACTAS Y JUNTAS: las operaciones de edición requieren permiso de Secretaría o Administración.
@@ -764,6 +788,13 @@ export async function routeModulos(req, env, me, method, path, body) {
         rows(env.DB.prepare('SELECT junta_id,hermana_id FROM asistencia_junta WHERE asiste=1')),
       ]);
       return J({ juntas, actas: actasRows, hermanas, asistencias });
+    }
+    if (path === '/api/modulos/actas/juntas/historica' && method === 'POST') {
+      const fecha = txt(body.fecha, 10), lugar = txt(body.lugar, 180), orden = txt(body.orden_dia, 4000);
+      if (!isoDate(fecha)) return E('Indica una fecha válida');
+      const r = await env.DB.prepare("INSERT INTO juntas(fecha,lugar,orden_dia,estado,creado_por) VALUES(?,?,?,'celebrada',?)")
+        .bind(fecha, lugar || 'Junta', orden || null, me.id).run();
+      return J({ ok: true, id: r.meta.last_row_id });
     }
     if (path === '/api/modulos/actas/juntas' && method === 'POST') {
       const fecha = txt(body.fecha, 10);
