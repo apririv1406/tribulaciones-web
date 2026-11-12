@@ -211,3 +211,51 @@ nav{justify-content:flex-start}
 .zona #app .tes-content .formgrid{margin-top:8px;gap:10px 14px}
 .zona #app .tes-content .formgrid>div{padding:0;background:transparent;border-radius:0;min-width:0}
 .zona #app .tes-content .formgrid .fl{margin:5px 0 4px}
+
+/* Tesorería: composición compacta, siguiendo la maqueta */
+.zona #app .tes-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 0 8px}
+.zona #app .tes-pending-summary{display:flex;align-items:center;gap:10px;padding:9px 14px;border:1px solid var(--ln);border-radius:14px;background:var(--pa);color:var(--mu);font-size:13px}
+.zona #app .tes-pending-summary b{font:700 25px "Cormorant Garamond",serif;color:var(--dk)}
+.zona #app .tes-balance{display:grid;grid-template-columns:minmax(210px,.8fr) 1.2fr;align-items:center;gap:28px;margin-top:12px;padding:20px 24px;border-radius:20px}
+.zona #app .tes-balance-total span{font-size:13px;opacity:.78}
+.zona #app .tes-balance-total b{display:block;font:700 clamp(34px,5vw,48px) "Cormorant Garamond",serif;color:var(--go);line-height:1.08}
+.zona #app .tes-balance-accounts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.zona #app .tes-balance-accounts>div{padding:11px 14px;background:rgba(255,255,255,.1);border-radius:12px}
+.zona #app .tes-balance-accounts small{display:block;font-size:12px;opacity:.76}
+.zona #app .tes-balance-accounts b{display:block;font-size:20px}
+.zona #app .tes-content{min-width:0}
+.zona #app .tes-content>.card{margin:0 0 12px}
+.zona #app .tes-content .kp{gap:10px;margin:0 0 12px}
+.zona #app .tes-content .kp .card{padding:13px 16px}
+.zona #app .tes-content .kp b{font-size:25px}
+.zona #app .tes-content .card h3{margin:0 0 6px;font-size:19px}
+.zona #app .tes-content .card p.mu{margin:0 0 10px;font-size:13px;line-height:1.45}
+.zona #app .tes-mov-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:0 0 12px}
+.zona #app .tes-mov-toolbar h3{margin:0 0 3px;font-size:20px}
+.zona #app .tes-mov-toolbar p{margin:0}
+.zona #app .tes-filter-card{padding:13px 16px;margin-bottom:10px}
+.zona #app .tes-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:8px 12px;align-items:end}
+.zona #app .tes-filter-grid>div{min-width:0}
+.zona #app .tes-filter-grid .fl{display:block;font-size:11px;margin:0 0 3px}
+.zona #app .tes-filter-grid .t{width:100%;min-width:0;padding:8px 10px!important;font-size:13px}
+.zona #app .tes-list-summary{display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--ln);margin-top:10px;padding-top:8px;color:var(--mu);font-size:12px}
+.zona #app .tes-list-summary b{color:var(--tx)}
+.zona #app .tes-mov-list{padding:8px 18px}
+.zona #app .tes-mov-list .mv{padding:10px 2px;gap:12px}
+.zona #app .tes-modal-backdrop{position:fixed;inset:0;z-index:60;background:rgba(35,25,15,.52);display:flex;align-items:center;justify-content:center;padding:18px}
+.zona #app .tes-modal{width:min(650px,100%);max-height:90vh;overflow:auto;background:var(--pa);border:1px solid var(--ln);border-radius:20px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.24)}
+.zona #app .tes-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.zona #app .tes-modal-head h3{margin:0;font-size:23px}
+.zona #app .tes-modal .formgrid{gap:8px 14px;margin-top:10px}
+.zona #app .tes-modal .formgrid>div{padding:0;background:transparent;border-radius:0;min-width:0}
+.zona #app .tes-modal .fl{margin:5px 0 3px;font-size:12px}
+.zona #app .tes-modal .t{padding:9px 11px!important}
+.zona #app .tes-type-choice{display:flex;gap:8px;margin:12px 0;padding:4px;background:var(--gs);border-radius:12px}
+.zona #app .tes-type-choice label{flex:1;text-align:center;padding:9px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer}
+.zona #app .tes-type-choice input{accent-color:var(--gd)}
+.zona #app .tes-fixed-toolbar{margin-bottom:10px}
+.zona #app .tes-fixed-list .mv{padding:10px 3px}
+.zona #app .tes-content .sub{margin:12px 0 14px;gap:20px}
+.zona #app .tes-content .sub button{padding:8px 1px;font-size:13px}
+@media(max-width:850px){.zona #app .tes-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.zona #app .tes-balance{grid-template-columns:1fr;gap:12px}}
+@media(max-width:560px){.zona #app .tes-heading,.zona #app .tes-mov-toolbar{align-items:flex-start;flex-direction:column}.zona #app .tes-mov-toolbar .wr{width:100%}.zona #app .tes-filter-grid{grid-template-columns:1fr 1fr}.zona #app .tes-modal-backdrop{padding:10px;align-items:flex-end}.zona #app .tes-modal{padding:17px;border-radius:18px 18px 10px 10px}.zona #app .tes-modal .two{grid-template-columns:1fr}}
