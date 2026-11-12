@@ -239,7 +239,18 @@ async function vActas() {
 function extraRow(x={}) { return `<div class="extra-row card" style="margin:10px 0;padding:12px"><div class="two formgrid"><div>${campo('nombre','Concepto','required value="'+esc(x.nombre||'')+'"')}</div><div><label class="fl">Categoría</label><select class="t" name="categoria"><option ${x.categoria==='Cuaresma'?'selected':''}>Cuaresma</option><option ${x.categoria==='Semana Santa'?'selected':''}>Semana Santa</option><option ${!x.categoria||x.categoria==='Otros'?'selected':''}>Otros</option></select></div><div>${campo('importe','Importe (€)','type="number" min="0" step="0.01" value="'+(Number(x.importe_centimos||0)/100)+'"')}</div><div><label class="fl">Aplicación</label><select class="t" name="tipo"><option value="una_vez" ${x.tipo==='una_vez'?'selected':''}>Una sola vez</option><option value="por_sabado" ${x.tipo==='por_sabado'?'selected':''}>Cada sábado que asista</option></select></div></div><button type="button" class="chip" data-a="extra-del" style="margin-top:8px">Eliminar concepto</button></div>`; }
 
 async function crearPDFSimple(lineas) {
-  const limpiar=t=>String(t).replace(/€ /g,"\\x80 ").replace(/[()\\\\]/g,"\\\\function vTesoreria() {").replace(/[^\\x20-\\xff]/g,"?");
+  const limpiar=t=>String(t).replace(/€/g,"\x80").replace(/[()\\]/g,ch=>"\\"+ch).replace(/[^\x20-\xff]/g,"?");
+  let contenido="BT /F1 10 Tf 40 800 Td 14 TL\n";
+  lineas.forEach(linea=>{contenido+="("+limpiar(linea)+") Tj T*\n";});
+  contenido+="ET";
+  const objetos=["<</Type/Catalog/Pages 2 0 R>>","<</Type/Pages/Kids[3 0 R]/Count 1>>","<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>","<</Length "+contenido.length+">>\nstream\n"+contenido+"\nendstream","<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>"];
+  let pdf="%PDF-1.4\n", offsets=[];
+  objetos.forEach((obj,i)=>{offsets.push(pdf.length);pdf+=(i+1)+" 0 obj\n"+obj+"\nendobj\n";});
+  const inicio=pdf.length;pdf+="xref\n0 6\n0000000000 65535 f \n"+offsets.map(n=>String(n).padStart(10,"0")+" 00000 n \n").join("")+"trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n"+inicio+"\n%%EOF";
+  return new Blob([Uint8Array.from(pdf,ch=>ch.charCodeAt(0)&255)],{type:"application/pdf"});
+}
+
+function vTesoreria() {").replace(/[^\\x20-\\xff]/g,"?");
   let contenido="BT /F1 10 Tf 40 800 Td 14 TL\\n";
   lineas.forEach(linea=>{contenido+="("+limpiar(linea)+") Tj T*\\n";});
   contenido+="ET";
