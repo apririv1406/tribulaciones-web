@@ -8,8 +8,8 @@ nav{max-width:none;margin:auto;display:flex;align-items:center;gap:2px;padding:8
 nav .logo{display:flex;align-items:center;margin-right:auto;flex:0 0 auto}
 nav .logo img{height:44px;margin:0;cursor:pointer}
 nav>a:not(.logo){white-space:nowrap}
-nav .cta{background:transparent!important;color:var(--dk)!important;border:1.5px solid var(--dk);border-radius:99px;padding:8px 17px;margin-left:10px;text-decoration:none;font-weight:600}
-nav .cta:hover{background:var(--gs)!important;color:var(--dk)!important}
+body:not(.zona) nav .cta{background:transparent!important;color:var(--dk)!important;border:1.5px solid var(--dk);border-radius:99px;padding:8px 17px;margin-left:10px;text-decoration:none;font-weight:600}
+body:not(.zona) nav .cta:hover{background:var(--gs)!important;color:var(--dk)!important}
 nav button{background:none;border:0;color:var(--mu);font:inherit;font-weight:500;padding:8px 12px;border-radius:99px;cursor:pointer}
 nav button.on,nav button:hover{color:var(--dk);background:var(--gs)}
 nav .cta{background:var(--dk);color:#fff;margin-left:6px}
@@ -206,3 +206,8 @@ nav{justify-content:flex-start}
 .zona #app .tes-modal .formgrid>div{min-width:0}
 @media(max-width:1100px){nav .logo{margin-right:auto}.zona nav{justify-content:space-between}}
 @media(max-width:600px){.zona #app .tes-fixed-toolbar{align-items:flex-start;flex-direction:column}.zona #app .tes-modal-backdrop{padding:10px;align-items:flex-end}.zona #app .tes-modal{padding:18px;border-radius:18px 18px 10px 10px}.zona #app .tes-modal .two{grid-template-columns:1fr}}
+
+/* Evitar que la rejilla de formularios herede las tarjetas de .two */
+.zona #app .tes-content .formgrid{margin-top:8px;gap:10px 14px}
+.zona #app .tes-content .formgrid>div{padding:0;background:transparent;border-radius:0;min-width:0}
+.zona #app .tes-content .formgrid .fl{margin:5px 0 4px}
