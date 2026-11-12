@@ -15,4 +15,8 @@ jobs:
         with:
           node-version: 22
       - run: node --version
+      - run: node --check public/zona.js
+      - run: node --check src/index.js
+      - run: node --check src/modulos.js
+      - run: node --check src/schema.js
       - run: node test/run.mjs
