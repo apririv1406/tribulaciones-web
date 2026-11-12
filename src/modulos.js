@@ -831,7 +831,7 @@ export async function routeModulos(req, env, me, method, path, body) {
     if ((m = path.match(/^\/api\/modulos\/actas\/juntas\/(\d+)\/acta$/)) && method === 'PUT') {
       const juntaId = +m[1], texto = txt(body.texto, 12000), acuerdos = txt(body.acuerdos, 6000);
       if (!await env.DB.prepare('SELECT id FROM juntas WHERE id=?').bind(juntaId).first()) return E('Junta no encontrada', 404);
-      if (texto.length < 5) return E('Escribe el contenido del acta');
+      if (texto.length < 5 && !await env.DB.prepare('SELECT clave FROM documentos WHERE clave=?').bind('acta:' + juntaId).first()) return E('Escribe el contenido del acta o adjunta su PDF');
       await env.DB.prepare(`INSERT INTO actas(junta_id,texto,acuerdos,redactada_por,actualizada) VALUES(?,?,?,?,datetime('now'))
         ON CONFLICT(junta_id) DO UPDATE SET texto=excluded.texto,acuerdos=excluded.acuerdos,redactada_por=excluded.redactada_por,actualizada=datetime('now')`)
         .bind(juntaId, texto, acuerdos || null, me.id).run();
