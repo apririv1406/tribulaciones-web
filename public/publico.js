@@ -47,7 +47,7 @@ fetch('/api/public').then(r => r.json()).then(d => {
         <div class="home-news-body">
           <small class="home-news-meta">${n.tipo==='cronica'?'CRÓNICA':'NOTICIA'} <span>·</span> ${esc(fecha(n.fecha))}</small>
           <h3>${esc(n.titulo)}</h3>
-          <p>${esc(String(n.texto || '').replace(/\\s+/g,' ').trim().slice(0,165))}${String(n.texto || '').trim().length>165?'…':''}</p>
+          <p>${esc(String(n.texto || '').replace(/\s+/g,' ').trim().slice(0,165))}${String(n.texto || '').trim().length>165?'…':''}</p>
           <div class="home-news-actions">
             <a class="home-news-read" href="/${n.tipo==='cronica'?'cronicas':'noticias'}/${n.id}/">Leer ${n.tipo==='cronica'?'crónica':'noticia'}</a>
             ${n.url ? `<a class="home-news-original" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">Ver publicación original ↗</a>` : ''}
