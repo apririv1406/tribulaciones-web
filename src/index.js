@@ -272,7 +272,7 @@ const htmlEsc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<'
 async function paginaNoticia(env, id, base) {
   const n = await env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen,url FROM noticias WHERE id=?').bind(id).first();
   if (!n) return new Response('<!doctype html><html lang="es"><meta charset="utf-8"><title>Noticia no encontrada</title><h1>Noticia no encontrada</h1><a href="/noticias/">Volver a noticias</a></html>', { status:404, headers:{'Content-Type':'text/html; charset=utf-8'} });
-  const title = htmlEsc(n.titulo), desc = htmlEsc(String(n.texto || '').replace(/\\s+/g,' ').slice(0, 155)), canonical = base + '/noticias/' + n.id + '/';
+  const title = htmlEsc(n.titulo), desc = htmlEsc(String(n.texto || '').replaceAll('\n',' ').replaceAll('\r',' ').slice(0, 155)), canonical = base + '/noticias/' + n.id + '/';
   const img = n.imagen ? base + '/media/' + n.imagen : base + '/logo.png';
   const date = htmlEsc(n.fecha || '');
   const original = n.url ? '<p><a class="btn" href="' + htmlEsc(n.url) + '" target="_blank" rel="noopener noreferrer">Ver publicación original ↗</a></p>' : '';
@@ -282,7 +282,7 @@ async function paginaNoticia(env, id, base) {
 async function sitemapNoticias(env, base) {
   const r = await env.DB.prepare('SELECT id,fecha FROM noticias ORDER BY fecha DESC,id DESC').all();
   const urls = [base+'/',base+'/historia/',base+'/noticias/',...r.results.map(n=>base+'/noticias/'+n.id+'/')];
-  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\\n' + urls.map(u=>'<url><loc>'+u.replace(/&/g,'&amp;')+'</loc></url>').join('\n') + '\n</urlset>';
+  const xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + urls.map(u=>'<url><loc>'+u.replace(/&/g,'&amp;')+'</loc></url>').join('') + '</urlset>';
   return new Response(xml,{headers:{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'public, max-age=300'}});
 }
 
