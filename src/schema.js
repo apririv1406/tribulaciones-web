@@ -136,6 +136,12 @@ export const MIGRATIONS = [
     `CREATE INDEX IF NOT EXISTS ix_lts_cambios_cocina_turno ON lts_cambios_cocina(turno_id,creado)`,
   ]},
 
+  { v: 14, sql: [
+    `ALTER TABLE movimientos ADD COLUMN estado TEXT NOT NULL DEFAULT 'confirmado' CHECK(estado IN('pendiente','confirmado','rechazado'))`,
+    `ALTER TABLE movimientos ADD COLUMN confirmado_por INTEGER REFERENCES hermanas(id)`,
+    `ALTER TABLE movimientos ADD COLUMN confirmado TEXT`,
+    `CREATE INDEX IF NOT EXISTS ix_movimientos_estado_fecha ON movimientos(estado,fecha)`,
+  ]},
 ]; 
 
 async function ensureColumn(db, table, column, definition) {
