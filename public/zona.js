@@ -238,6 +238,28 @@ async function vActas() {
 
 function extraRow(x={}) { return `<div class="extra-row card" style="margin:10px 0;padding:12px"><div class="two formgrid"><div>${campo('nombre','Concepto','required value="'+esc(x.nombre||'')+'"')}</div><div><label class="fl">Categoría</label><select class="t" name="categoria"><option ${x.categoria==='Cuaresma'?'selected':''}>Cuaresma</option><option ${x.categoria==='Semana Santa'?'selected':''}>Semana Santa</option><option ${!x.categoria||x.categoria==='Otros'?'selected':''}>Otros</option></select></div><div>${campo('importe','Importe (€)','type="number" min="0" step="0.01" value="'+(Number(x.importe_centimos||0)/100)+'"')}</div><div><label class="fl">Aplicación</label><select class="t" name="tipo"><option value="una_vez" ${x.tipo==='una_vez'?'selected':''}>Una sola vez</option><option value="por_sabado" ${x.tipo==='por_sabado'?'selected':''}>Cada sábado que asista</option></select></div></div><button type="button" class="chip" data-a="extra-del" style="margin-top:8px">Eliminar concepto</button></div>`; }
 
+async function entregarPDF(blob,nombre,titulo,texto) {
+  const archivo=new File([blob],nombre,{type:'application/pdf'});
+  // La descarga se inicia siempre: cancelar el diálogo de compartir no debe perder el PDF.
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=nombre;a.style.display='none';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),120000);
+
+  if(typeof navigator.share==='function' && typeof navigator.canShare==='function' && navigator.canShare({files:[archivo]})) {
+    try {
+      await navigator.share({files:[archivo],title:titulo,text:texto});
+      toast('PDF descargado y compartido.');
+      return;
+    } catch(e) {
+      if(e?.name==='AbortError') {
+        toast('PDF descargado. Puedes adjuntarlo en WhatsApp cuando quieras.');
+        return;
+      }
+    }
+  }
+  toast('PDF descargado. Adjunta el archivo en WhatsApp para enviarlo.');
+}
+
 async function crearPDFSimple(lineas) {
   const limpiar=t=>String(t).replace(/€/g,"\x80").replace(/[()\\]/g,ch=>"\\"+ch).replace(/[^\x20-\xff]/g,"?");
   let contenido="BT /F1 10 Tf 40 800 Td 14 TL\n";
@@ -563,7 +585,7 @@ const ACT = {
   'tes-report-year'(el) { TES_REPORT_YEAR=el.dataset.year; render(); },
   async 'tes-report-export'() {
     if(!window.jspdf?.jsPDF) throw new Error('No se ha podido cargar el generador de PDF.');
-    const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});\n    if(typeof doc.autoTable!=='function') throw new Error('No se ha podido cargar el complemento de tablas PDF. Recarga la página y vuelve a intentarlo.');
     const anio=document.querySelector('.tes-report-brand p')?.innerText.match(/\\d{4}/)?.[0]||new Date().getFullYear();
     const fecha=new Date().toLocaleDateString('es-ES'),margen=12,ancho=273;
     const color=[65,55,43],oro=[173,133,49],gris=[112,105,95];
@@ -604,15 +626,8 @@ const ACT = {
       });
       y=doc.lastAutoTable.finalY+11;
     }
-    const blob=doc.output('blob'),file=new File([blob],'Informe_Tesoreria_'+anio+'.pdf',{type:'application/pdf'});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){
-      try{await navigator.share({files:[file],title:'Informe de tesorería',text:'Informe anual de tesorería de Las Tribulaciones de Sara.'});return;}
-      catch(e){if(e?.name==='AbortError')return;}
-    }
-    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
-    window.open('https://wa.me/?text='+encodeURIComponent('Te comparto el informe de tesorería. Adjunta el PDF que se acaba de descargar.'),'_blank','noopener,noreferrer');
-    toast('Informe PDF generado y descargado. Adjunta el archivo en WhatsApp.');
+    const blob=doc.output('blob');
+    await entregarPDF(blob,'Informe_Tesoreria_'+anio+'.pdf','Informe de tesorería','Informe anual de tesorería de Las Tribulaciones de Sara.');
   },
 
   async 'tes-export'() {
@@ -668,16 +683,7 @@ const ACT = {
     doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...gris);
     doc.text('Este documento refleja las cantidades pendientes. Los pagos pendientes de validar no se descuentan hasta su confirmación.',margen,y);
     const blob=doc.output('blob');
-    const archivo=new File([blob],nombre,{type:'application/pdf'});
-    if(navigator.canShare&&navigator.canShare({files:[archivo]})){
-      try{await navigator.share({files:[archivo],title:'Estado de cuentas',text:'Relación de cuotas y conceptos pendientes de Las Tribulaciones de Sara.'});return;}
-      catch(e){if(e?.name==='AbortError')return;}
-    }
-    const url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download=nombre;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
-    window.open('https://wa.me/?text='+encodeURIComponent('Te comparto el estado de cuentas pendientes de Las Tribulaciones de Sara. Adjunta el PDF que se acaba de descargar.'),'_blank','noopener,noreferrer');
-    toast('PDF generado y descargado. Adjunta el archivo en WhatsApp.');
+    await entregarPDF(blob,nombre,'Estado de cuentas','Relación de cuotas y conceptos pendientes de Las Tribulaciones de Sara.');
   },
 
   async 'cocina-del'(el) { if(!confirm('¿Eliminar este turno?')) return; await api('DELETE','/modulos/cocina/'+el.dataset.id); render(); },
