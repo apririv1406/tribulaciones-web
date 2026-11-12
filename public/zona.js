@@ -99,8 +99,8 @@ async function vSabados() {
   const campoAlergias = (s,tipo,numero,titulo,oculto=false) => {
     const guardada = alergiasPersona(s,tipo,numero);
     const perfil = tipo==='hermana';
-    const valores = tags(guardada?.alergias || (perfil ? s.mis_alergias : ''));
-    const nota = guardada?.observaciones || (perfil ? s.mi_alergias_observaciones : '');
+    const valores = tags(guardada ? guardada.alergias : (perfil ? s.mis_alergias : ''));
+    const nota = guardada ? guardada.observaciones : (perfil ? s.mi_alergias_observaciones : '');
     const nombreCampo = tipo==='hermana' ? 'alergia_hermana_0' : 'alergia_invitada_'+numero;
     const nombreNota = tipo==='hermana' ? 'alergia_extra_hermana_0' : 'alergia_extra_invitada_'+numero;
     const guestAttr = tipo==='invitada' ? `data-guest-index="${numero}"` : '';
@@ -394,7 +394,7 @@ const FORM = {
     const personas=[];
     const propias=d.getAll('alergia_hermana_0');
     const notaPropia=d.get('alergia_extra_hermana_0')||'';
-    if(propias.length||notaPropia.trim()) personas.push({tipo:'hermana',numero:0,alergias:propias.join(', '),observaciones:notaPropia});
+    personas.push({tipo:'hermana',numero:0,alergias:propias.join(', '),observaciones:notaPropia});
     const invitadas=Math.max(0,Math.min(20,Number(d.get('acompanantes')||0)));
     for(let i=1;i<=invitadas;i++){
       const alergias=d.getAll('alergia_invitada_'+i),observaciones=d.get('alergia_extra_invitada_'+i)||'';
