@@ -64,7 +64,86 @@ export const MIGRATIONS = [
     `ALTER TABLE tickets ADD COLUMN turno_cocina_id INTEGER REFERENCES turnos_cocina(id) ON DELETE SET NULL`,
     `CREATE INDEX IF NOT EXISTS ix_tickets_turno_cocina ON tickets(turno_cocina_id)`,
   ]},
+  { v: 7, sql: [
+    `ALTER TABLE sabados ADD COLUMN categoria TEXT NOT NULL DEFAULT 'Cuaresma'`,
+    `ALTER TABLE movimientos ADD COLUMN cuenta TEXT NOT NULL DEFAULT 'Banco'`,
+    `ALTER TABLE movimientos ADD COLUMN traspaso_id TEXT`,
+    `ALTER TABLE movimientos ADD COLUMN import_key TEXT`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_movimientos_import_key ON movimientos(import_key) WHERE import_key IS NOT NULL`,
+    `CREATE TABLE IF NOT EXISTS cargos_hermanas(id INTEGER PRIMARY KEY AUTOINCREMENT,hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,categoria TEXT NOT NULL CHECK(categoria IN('Cuaresma','Semana Santa','Otros')),concepto TEXT NOT NULL,importe_centimos INTEGER NOT NULL CHECK(importe_centimos>=0),source_key TEXT NOT NULL UNIQUE,creado TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `CREATE INDEX IF NOT EXISTS ix_cargos_hermanas ON cargos_hermanas(hermana_id,categoria)`,
+    `ALTER TABLE pagos ADD COLUMN cargo_id INTEGER REFERENCES cargos_hermanas(id)`,
+    `CREATE INDEX IF NOT EXISTS ix_pagos_cargo ON pagos(cargo_id,estado)`,
+  ]},
+  { v: 8, sql: [
+    `ALTER TABLE tickets ADD COLUMN comercio TEXT`,
+    `ALTER TABLE tickets ADD COLUMN importe_centimos INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE tickets ADD COLUMN forma_pago TEXT NOT NULL DEFAULT 'tarjeta'`,
+    `ALTER TABLE tickets ADD COLUMN categoria TEXT`,
+    `ALTER TABLE tickets ADD COLUMN cuenta TEXT NOT NULL DEFAULT 'Banco'`,
+    `ALTER TABLE tickets ADD COLUMN estado TEXT NOT NULL DEFAULT 'pendiente'`,
+  ]},
+  { v: 9, sql: [
+    `CREATE TABLE IF NOT EXISTS documentos(id INTEGER PRIMARY KEY AUTOINCREMENT,clave TEXT NOT NULL UNIQUE,nombre TEXT NOT NULL,mime TEXT NOT NULL,datos TEXT NOT NULL,tamano INTEGER NOT NULL,subido_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')))`,
+  ]},
+  { v: 10, sql: [
+    `ALTER TABLE cargos_hermanas ADD COLUMN grupo TEXT NOT NULL DEFAULT 'extraordinaria'`,
+    `UPDATE cargos_hermanas SET grupo='sabados' WHERE source_key LIKE 'sabado:%'`,
+    `ALTER TABLE pagos ADD COLUMN categoria TEXT`,
+    `CREATE TABLE IF NOT EXISTS pagos_aplicaciones(id INTEGER PRIMARY KEY AUTOINCREMENT,pago_id INTEGER NOT NULL REFERENCES pagos(id) ON DELETE CASCADE,cuota_id INTEGER REFERENCES cuotas(id),cargo_id INTEGER REFERENCES cargos_hermanas(id),importe_centimos INTEGER NOT NULL CHECK(importe_centimos>0),CHECK((cuota_id IS NOT NULL) != (cargo_id IS NOT NULL)))`,
+    `CREATE INDEX IF NOT EXISTS ix_pagos_aplicaciones_cuota ON pagos_aplicaciones(cuota_id,pago_id)`,
+    `CREATE INDEX IF NOT EXISTS ix_pagos_aplicaciones_cargo ON pagos_aplicaciones(cargo_id,pago_id)`,
+  ]},
+  { v: 11, sql: [
+    `ALTER TABLE gastos_fijos ADD COLUMN cuenta TEXT NOT NULL DEFAULT 'Banco'`,
+    `ALTER TABLE gastos_fijos ADD COLUMN variable INTEGER NOT NULL DEFAULT 0 CHECK(variable IN(0,1))`,
+    `ALTER TABLE gastos_fijos ADD COLUMN mes INTEGER NOT NULL DEFAULT 1 CHECK(mes BETWEEN 1 AND 12)`,
+    `ALTER TABLE movimientos ADD COLUMN gasto_fijo_id INTEGER REFERENCES gastos_fijos(id)`,
+    `ALTER TABLE movimientos ADD COLUMN periodo_fijo TEXT`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_movimientos_gasto_fijo_periodo ON movimientos(gasto_fijo_id,periodo_fijo) WHERE gasto_fijo_id IS NOT NULL`,
+  ]},
+  { v: 12, sql: [
+    `CREATE TABLE IF NOT EXISTS lts_alergias_evento(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sabado_id INTEGER NOT NULL REFERENCES sabados(id) ON DELETE CASCADE,
+      hermana_id INTEGER NOT NULL REFERENCES hermanas(id) ON DELETE CASCADE,
+      persona_tipo TEXT NOT NULL CHECK(persona_tipo IN('hermana','invitada')),
+      persona_numero INTEGER NOT NULL DEFAULT 0 CHECK(persona_numero>=0),
+      alergias TEXT NOT NULL DEFAULT '',
+      observaciones TEXT,
+      actualizado TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(sabado_id,hermana_id,persona_tipo,persona_numero)
+    )`,
+    `CREATE INDEX IF NOT EXISTS ix_lts_alergias_evento ON lts_alergias_evento(sabado_id,hermana_id)`,
+    `CREATE TABLE IF NOT EXISTS lts_perfil_alergias(
+      hermana_id INTEGER PRIMARY KEY REFERENCES hermanas(id) ON DELETE CASCADE,
+      alergias TEXT NOT NULL DEFAULT '',
+      observaciones TEXT,
+      actualizado TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+  ]},
+
+
+  { v: 13, sql: [
+    `CREATE TABLE IF NOT EXISTS lts_cambios_cocina(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      turno_id INTEGER NOT NULL REFERENCES turnos_cocina(id) ON DELETE CASCADE,
+      hermana_sale_id INTEGER NOT NULL REFERENCES hermanas(id),
+      hermana_entra_id INTEGER NOT NULL REFERENCES hermanas(id),
+      registrado_por INTEGER NOT NULL REFERENCES hermanas(id),
+      creado TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    `CREATE INDEX IF NOT EXISTS ix_lts_cambios_cocina_turno ON lts_cambios_cocina(turno_id,creado)`,
+  ]},
+
 ]; 
+
+async function ensureColumn(db, table, column, definition) {
+  const info = await db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!(info.results || []).some(x => x.name === column)) {
+    await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
+  }
+}
 
 export async function ensureSchema(db) {
   await db.prepare('CREATE TABLE IF NOT EXISTS meta(clave TEXT PRIMARY KEY,valor TEXT)').run();
@@ -76,5 +155,48 @@ export async function ensureSchema(db) {
       await db.prepare("INSERT OR REPLACE INTO meta(clave,valor) VALUES('schema',?)").bind(String(m.v)).run();
       cur = m.v;
     }
+  }
+
+  // Compatibilidad con tablas de sábados creadas por versiones anteriores.
+  // Añade únicamente columnas ausentes; nunca borra ni reemplaza datos.
+  const columnas = {
+    sabados: {
+      hora: 'TEXT',
+      titulo: "TEXT NOT NULL DEFAULT 'Sábado'",
+      descripcion: 'TEXT',
+      categoria: "TEXT NOT NULL DEFAULT 'Cuaresma'",
+      estado: "TEXT NOT NULL DEFAULT 'abierto'",
+      creado_por: 'INTEGER',
+    },
+    asistencias_sabado: {
+      asiste: 'INTEGER NOT NULL DEFAULT 1',
+      acompanantes: 'INTEGER NOT NULL DEFAULT 0',
+      detalle_acompanantes: 'TEXT',
+      alergias: "TEXT NOT NULL DEFAULT ''",
+      observaciones: 'TEXT',
+      actualizado: "TEXT NOT NULL DEFAULT ''",
+    },
+    consumos_sabado: {
+      copas: 'INTEGER NOT NULL DEFAULT 0',
+      refrescos: 'INTEGER NOT NULL DEFAULT 0',
+      actualizado: "TEXT NOT NULL DEFAULT ''",
+    },
+  };
+  for (const [tabla, campos] of Object.entries(columnas)) {
+    for (const [columna, definicion] of Object.entries(campos)) {
+      await ensureColumn(db, tabla, columna, definicion);
+    }
+  }
+
+  // Copia histórica de alergias a las tablas nuevas una sola vez.
+  const migradas = await db.prepare("SELECT valor FROM meta WHERE clave='lts_alergias_migradas'").first();
+  if (!migradas) {
+    await db.prepare(`INSERT OR IGNORE INTO lts_perfil_alergias(hermana_id,alergias,observaciones)
+      SELECT hermana_id,COALESCE(alergias,''),observaciones FROM alergias_hermanas`).run();
+    await db.prepare(`INSERT OR IGNORE INTO lts_alergias_evento(sabado_id,hermana_id,persona_tipo,persona_numero,alergias,observaciones)
+      SELECT sabado_id,hermana_id,'hermana',0,COALESCE(alergias,''),observaciones
+      FROM asistencias_sabado
+      WHERE COALESCE(alergias,'')<>'' OR COALESCE(observaciones,'')<>''`).run();
+    await db.prepare("INSERT OR REPLACE INTO meta(clave,valor) VALUES('lts_alergias_migradas','1')").run();
   }
 }
