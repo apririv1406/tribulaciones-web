@@ -360,3 +360,22 @@ nav{justify-content:flex-start}
 .zona #app .tes-import-card .formgrid>div{padding:0;background:none}
 @media(max-width:760px){.zona #app .tes-import-grid{grid-template-columns:1fr}.zona #app .tes-content .g2{grid-template-columns:1fr}}
 @media(max-width:560px){.zona #app .tes-stats-kp,.zona #app .tes-debt-kp,.zona #app .tes-report-kp{grid-template-columns:1fr 1fr}.zona #app .tes-stats-kp>.card:last-child,.zona #app .tes-debt-kp>.card:last-child,.zona #app .tes-report-kp>.card:last-child{grid-column:1/-1}.zona #app .tes-config-card .formgrid{grid-template-columns:1fr}}
+
+
+/* PDF de cuotas pendientes: conserva la tabla de cuentas y sus detalles al imprimir. */
+.zona #app .tes-debt-brand{display:none;align-items:center;gap:14px;padding:8px 0 14px;border-bottom:1px solid var(--ln);margin-bottom:12px}
+.zona #app .tes-debt-brand h2{font:700 25px "Cormorant Garamond",serif;margin:0;color:var(--dk)}
+.zona #app .tes-debt-brand p{margin:2px 0 0;color:var(--mu);font-size:11px}
+.zona #app .tes-debt-foot{padding:8px 14px;margin:0!important;border-top:1px solid var(--ln)}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  .zona #app .tes-debt-brand{display:flex!important}
+  .zona #app .tes-debt-table{overflow:visible!important;border:0!important}
+  .zona #app .tes-debt-table-head{padding:0 0 8px!important}
+  .zona #app .tes-debt-table .rt{width:100%;font-size:9px!important;border-collapse:collapse}
+  .zona #app .tes-debt-table .rt th,.zona #app .tes-debt-table .rt td{padding:5px 7px!important;font-size:9px!important;vertical-align:top}
+  .zona #app .tes-debt-table .rt td small{font-size:7px!important;line-height:1.25}
+  .zona #app .tes-debt-table .tes-debt-paid{color:#777}
+  .zona #app .tes-debt-foot{font-size:8px!important}
+  .zona #app .tes-debt-kp{display:none!important}
+}
