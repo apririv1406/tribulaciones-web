@@ -735,7 +735,25 @@ export async function routeModulos(req, env, me, method, path, body) {
     return J({ok:true});
   }
 
-  // ACTAS Y JUNTAS: permiso actas o administradora.
+  // Consulta de actas: disponible para todas las hermanas. La edición sigue reservada a Secretaría/Administración.
+  if (path === '/api/modulos/actas' && method === 'GET') {
+    if (actas(me)) {
+      const [juntas, actasRows, hermanas, asistencias] = await Promise.all([
+        rows(env.DB.prepare(`SELECT j.*,(SELECT COUNT(*) FROM asistencia_junta a WHERE a.junta_id=j.id AND a.asiste=1) asistentes FROM juntas j ORDER BY j.fecha DESC,j.id DESC LIMIT 100`)),
+        rows(env.DB.prepare('SELECT * FROM actas ORDER BY actualizada DESC')),
+        rows(env.DB.prepare("SELECT id,nombre FROM hermanas WHERE estado!='Baja' ORDER BY nombre")),
+        rows(env.DB.prepare('SELECT junta_id,hermana_id FROM asistencia_junta WHERE asiste=1')),
+      ]);
+      return J({ juntas, actas: actasRows, hermanas, asistencias, solo_lectura: false });
+    }
+    const [juntas, actasRows] = await Promise.all([
+      rows(env.DB.prepare('SELECT id,fecha,hora,lugar,convocatoria,orden_dia,estado FROM juntas ORDER BY fecha DESC,id DESC LIMIT 100')),
+      rows(env.DB.prepare('SELECT junta_id,texto,acuerdos,actualizada FROM actas ORDER BY actualizada DESC')),
+    ]);
+    return J({ juntas, actas: actasRows, hermanas: [], asistencias: [], solo_lectura: true });
+  }
+
+  // ACTAS Y JUNTAS: las operaciones de edición requieren permiso de Secretaría o Administración.
   if (path.startsWith('/api/modulos/actas')) {
     if (!actas(me)) return E('No tienes permiso para acceder a actas y juntas', 403);
     if (path === '/api/modulos/actas' && method === 'GET') {
