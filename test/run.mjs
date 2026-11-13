@@ -163,6 +163,16 @@ assert.ok(r.data.asignaciones.some(a => a.turno_id===turnoPrueba.id && a.hermana
 assert.ok(!r.data.asignaciones.some(a => a.turno_id===turnoPrueba.id && a.hermana_id===aid));
 assert.ok(r.data.cambios.some(x => x.turno_id===turnoPrueba.id && x.hermana_sale_id===aid && x.hermana_entra_id===sustituta.id));
 ok('cocina: cambio de turno entre hermanas con historial');
+
+const turnoOrigenSwap=await call('POST','/api/modulos/cocina',{fecha:'2099-01-17',turno:'Cocina',responsable:'Origen intercambio'},adm); assert.equal(turnoOrigenSwap.status,200);
+const turnoDestinoSwap=await call('POST','/api/modulos/cocina',{fecha:'2099-01-24',turno:'Cocina',responsable:'Destino intercambio'},adm); assert.equal(turnoDestinoSwap.status,200);
+await env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(turnoOrigenSwap.data.id,aid).run();
+await env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(turnoDestinoSwap.data.id,compañeraTurno.id).run();
+r=await call('POST','/api/modulos/cocina/'+turnoOrigenSwap.data.id+'/intercambio',{turno_destino_id:turnoDestinoSwap.data.id,hermana_destino_id:compañeraTurno.id},adm); assert.equal(r.status,200);
+r=await call('GET','/api/modulos/cocina',null,adm); assert.ok(r.data.asignaciones.some(a=>a.turno_id===turnoOrigenSwap.data.id&&a.hermana_id===compañeraTurno.id)); assert.ok(r.data.asignaciones.some(a=>a.turno_id===turnoDestinoSwap.data.id&&a.hermana_id===aid));
+assert.ok(r.data.cambios.some(x=>x.turno_id===turnoDestinoSwap.data.id&&x.hermana_sale_id===compañeraTurno.id&&x.hermana_entra_id===aid));
+ok('cocina: intercambio recíproco de sábados entre dos hermanas con historial');
+
 r = await call('POST', '/api/modulos/cocina/sorteo', { personas_por_turno: 3 }, adm); assert.equal(r.status, 409); // no debe reemplazar asignaciones existentes
 r = await call('GET', '/api/modulos/cuenta', null, adm); assert.equal(r.status, 200);
 const cargoSabado = r.data.cargos.find(x => String(x.source_key).startsWith('sabado:'+sid+':')); assert.ok(cargoSabado); assert.equal(cargoSabado.importe_centimos, 2000);
