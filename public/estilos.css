@@ -587,3 +587,17 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .profile-allergy-feedback{min-height:18px;margin:8px 0 2px;color:var(--gd);font-size:12px;font-weight:600;transition:opacity .18s}
 .profile-allergies .t:focus,.profile-card .t:focus{border-color:var(--gd);box-shadow:0 0 0 3px rgba(201,151,26,.12);transition:border-color .18s,box-shadow .18s}
 @media(prefers-reduced-motion:reduce){.profile-card,.profile-security,.profile-allergy-tags .chip.just-changed{animation:none!important}.profile-allergy-tags .chip,.profile-allergy-feedback{transition:none!important}}
+
+/* Tesorería: resumen mensual orientado a tareas */
+.zona #app .tes-overview{padding:18px 20px;margin:0 0 13px;background:var(--pa);border:1px solid var(--ln);border-radius:18px}
+.zona #app .tes-overview-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:15px}
+.zona #app .tes-overview-head h3{margin:2px 0 4px;font-size:20px}
+.zona #app .tes-overview-head p{margin:0}
+.zona #app .tes-overview-actions{display:flex;flex-wrap:wrap;gap:8px}
+.zona #app .tes-overview-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.zona #app .tes-overview-kpis article{display:flex;flex-direction:column;gap:5px;padding:13px 15px;border:1px solid var(--ln);border-radius:13px;background:rgba(255,255,255,.55)}
+.zona #app .tes-overview-kpis span{font-size:12px;color:var(--mu)}
+.zona #app .tes-overview-kpis b{font:700 25px "Cormorant Garamond",serif;color:var(--dk)}
+.zona #app .tes-overview-kpis b.positive{color:var(--ok)}
+.zona #app .tes-overview-kpis b.negative{color:var(--ko)}
+@media(max-width:650px){.zona #app .tes-overview-head{align-items:flex-start;flex-direction:column}.zona #app .tes-overview-actions{width:100%}.zona #app .tes-overview-actions button{flex:1}.zona #app .tes-overview-kpis{grid-template-columns:1fr}.zona #app .tes-overview-kpis article{padding:11px 13px}.zona #app .tes-overview-kpis b{font-size:22px}}
