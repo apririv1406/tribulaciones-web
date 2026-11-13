@@ -460,3 +460,19 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .actas-junta-fields>div{min-width:0;flex:1 1 0!important}
 .actas-junta-fields input{width:100%;min-width:0}
 @media(max-width:760px){.actas-junta-fields{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 12px}.actas-junta-fields>div{width:100%;min-width:0}.actas-junta-fields>div:nth-child(3){grid-column:1/-1}.actas-junta-fields input{width:100%;min-width:0}.sister-bottom-nav{display:grid}}
+
+/* Navegación privada compacta y agrupada por áreas */
+#nav{gap:3px}
+#nav>.dk{padding:8px 10px;font-size:13px;white-space:nowrap}
+#nav>.nav-drop{height:auto}
+#nav .nav-trigger{padding:8px 10px;font-size:13px}
+#nav .nav-menu a{font-size:13px;padding:9px 11px}
+#nav .nav-drop.active>.nav-trigger{background:var(--gs);color:var(--dk)}
+.mn{gap:4px;padding-left:16px;padding-right:16px}
+.mn-group{padding:5px 0 4px}
+.mn-group>span{padding:3px 12px 4px;font-size:10px;letter-spacing:.12em}
+.mn-group>a{margin-left:5px;padding:7px 12px;font-size:14px;line-height:1.3}
+.mn-group>a.current{background:var(--gs);color:var(--dk);font-weight:600}
+.mn>hr{margin:7px 0}
+@media(max-width:1100px){#nav>.nav-drop{display:none!important}}
+@media(max-width:760px){.admin-bottom-nav{padding-top:5px}.admin-bottom-nav a,.admin-bottom-nav button{min-height:44px}.admin-bottom-nav a span,.admin-bottom-nav button span{font-size:19px}}
