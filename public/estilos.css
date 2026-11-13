@@ -1257,24 +1257,10 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 }
 
 
-/* Estado activo claro y consistente en todos los menús de administración */
-.zona #app .admin-subnav a,
-.zona #app .sub a,
-.zona #app .sub button{border-radius:9px;transition:background .15s,border-color .15s,color .15s}
-.zona #app .admin-subnav a{padding:10px 12px;margin:0 0 7px;border:1px solid transparent;border-bottom:1px solid transparent;font-weight:550}
-.zona #app .admin-subnav a.on{background:var(--gs);border:1px solid var(--go);color:var(--dk);font-weight:700;box-shadow:0 2px 7px rgba(59,44,28,.06)}
-.zona #app .sub a.on,
-.zona #app .sub button.on{padding-left:12px;padding-right:12px;background:var(--gs);border:1px solid var(--go);border-bottom:1px solid var(--go);border-radius:9px;color:var(--dk);font-weight:700;box-shadow:0 2px 7px rgba(59,44,28,.055)}
-.zona #app .sub a:not(.on):hover,
-.zona #app .sub button:not(.on):hover,
-.zona #app .admin-subnav a:not(.on):hover{background:rgba(0,0,0,.025);color:var(--dk)}
-.zona #app .admin-subnav{align-items:center;gap:7px;padding:7px;border:1px solid var(--ln);border-radius:13px;background:var(--sf);margin:12px 0 20px!important}
-.zona #app .admin-subnav a{white-space:nowrap}
+/* Indicador activo discreto para las áreas de administración */
+.zona #nav .nav-drop.active>.nav-trigger{background:var(--gs);color:var(--dk);box-shadow:inset 0 0 0 1px var(--go);font-weight:650}
+
+/* Tesorería conserva el estado activo tipo botón */
 .zona #app .tesoreria>.sub{align-items:center;gap:7px;padding:6px;border:1px solid var(--ln);border-radius:12px;background:var(--sf)}
 .zona #app .tesoreria>.sub button{padding:9px 12px;border:1px solid transparent;border-radius:9px}
 .zona #app .tesoreria>.sub button.on{background:var(--gs);border-color:var(--go);color:var(--dk);font-weight:700;box-shadow:0 2px 7px rgba(59,44,28,.055)}
-@media(max-width:640px){
- .zona #app .admin-subnav{gap:5px;padding:5px;margin:10px 0 16px!important}
- .zona #app .admin-subnav a{padding:9px 10px;font-size:12px}
- .zona #app .sub a.on,.zona #app .sub button.on{padding-left:10px;padding-right:10px}
-}
