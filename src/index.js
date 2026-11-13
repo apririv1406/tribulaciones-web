@@ -176,12 +176,13 @@ async function perfilGuardar(env, me, b) {
   if (nombre.length < 2 || nombre.length > 80) return E('Escribe tu nombre y apellidos');
   if (telefonoTexto && !telefono) return E('El teléfono no es válido. Utiliza el prefijo internacional, por ejemplo +34 600 000 000.');
   let foto = cur.foto_id;
-  if (b.quitar_foto) { await borrarImagen(env,foto); foto=null; }
+  let nueva = null;
   if (b.foto) {
-    const nueva = await guardarImagen(env,b.foto);
+    nueva = await guardarImagen(env,b.foto);
     if (!nueva) return E('La fotografía no es válida o pesa demasiado');
-    await borrarImagen(env,foto); foto=nueva;
   }
+  if (nueva) { await borrarImagen(env,foto); foto=nueva; }
+  else if (b.quitar_foto) { await borrarImagen(env,foto); foto=null; }
   await env.DB.prepare('UPDATE hermanas SET nombre=?,telefono=?,foto_id=? WHERE id=?').bind(nombre,telefono,foto,me.id).run();
   return J({ok:true});
 }
