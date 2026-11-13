@@ -780,3 +780,5 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .calendar-event p{margin:3px 0 0;color:var(--mu);font-size:13px}
 .calendar-event-type{font-size:11px;color:var(--mu);white-space:nowrap}
 @media(max-width:600px){.calendar-wrap{margin:12px auto 35px}.calendar-head{align-items:flex-start}.calendar-controls{width:100%;justify-content:space-between}.calendar-controls>b{min-width:0;flex:1}.calendar-grid{gap:4px}.cal-day,.cal-empty{min-height:58px;border-radius:9px}.cal-day{padding:7px 2px;gap:6px}.calendar-day-events{padding:15px}.calendar-event-type{font-size:10px}}
+
+.cal-day.selected{outline:2px solid var(--br);outline-offset:1px;background:var(--gs)}
