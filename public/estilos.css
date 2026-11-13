@@ -728,6 +728,15 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .mn-footer>.mn-logout{border-color:#a43c35;background:#a43c35;color:#fff;box-shadow:0 4px 12px rgba(164,60,53,.18)}
 .mn-footer>.mn-logout span{font-size:18px;line-height:1}
 .mn-footer>.mn-logout:hover{background:#87302b}
+/* Cerrar sesión junto a la identidad, siempre visible al abrir el menú */
+.mn-head{gap:8px}
+.mn-head-actions{display:flex;align-items:center;gap:7px;flex:none}
+.mn-head .mn-user{flex:1}
+.mn-logout-top{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:36px;padding:0 10px;border:1px solid #a43c35;border-radius:10px;background:#a43c35;color:#fff;font:700 12px Inter,system-ui,sans-serif;white-space:nowrap;cursor:pointer;box-shadow:0 3px 9px rgba(164,60,53,.16)}
+.mn-logout-top span{font-size:16px;line-height:1}
+.mn-logout-top:hover{background:#87302b}
+.mn-logout-top:focus-visible{outline:3px solid rgba(201,151,26,.45);outline-offset:2px}
+.mn-head .x{width:34px;height:34px}
 .mn-footer>button:focus-visible{outline:3px solid rgba(201,151,26,.45);outline-offset:2px}
 
 /* Sábados: estado y plazo en dos niveles, sin etiquetas largas */
