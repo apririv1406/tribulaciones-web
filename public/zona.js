@@ -194,13 +194,13 @@ function vCalendarioHTML(eventos) {
   const nombreMes=CAL_MES.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
   const porFecha={};
   eventos.forEach(ev=>{(porFecha[ev.fecha] ||= []).push(ev);});
+  const seleccion=CAL_SELECCION || fechaISOlocal(new Date());
   const celdas=[];
   for(let i=0;i<offset;i++) celdas.push('<div class="cal-empty" aria-hidden="true"></div>');
   for(let dia=1;dia<=dias;dia++){
     const fecha=fechaISOlocal(new Date(anio,mes,dia)), lista=porFecha[fecha]||[];
-    celdas.push('<button type="button" class="cal-day '+(lista.length?'has-events':'')+(fecha===fechaISOlocal(new Date())?' today':'')+'" data-a="cal-dia" data-fecha="'+fecha+'"><b>'+dia+'</b><span>'+lista.slice(0,3).map(x=>'<i class="cal-dot '+x.tipo+'"></i>').join('')+'</span>'+(lista.length>3?'<small>+'+(lista.length-3)+'</small>':'')+'</button>');
+    celdas.push('<button type="button" class="cal-day '+(lista.length?'has-events':'')+(fecha===fechaISOlocal(new Date())?' today':'')+(fecha===seleccion?' selected':'')+'" data-a="cal-dia" data-fecha="'+fecha+'"><b>'+dia+'</b><span>'+lista.slice(0,3).map(x=>'<i class="cal-dot '+x.tipo+'"></i>').join('')+'</span>'+(lista.length>3?'<small>+'+(lista.length-3)+'</small>':'')+'</button>');
   }
-  const seleccion=CAL_SELECCION || fechaISOlocal(new Date());
   const delDia=eventos.filter(x=>x.fecha===seleccion).sort((a,b)=>(a.hora||'').localeCompare(b.hora||''));
   const tituloDia=new Date(seleccion+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
   return '<section class="calendar-wrap"><div class="calendar-head"><div><div class="tag">Agenda del cuartel</div><h2>Calendario</h2><p class="mu">Sábados, juntas y turnos de cocina en un mismo sitio.</p></div><div class="calendar-controls"><button class="chip" data-a="cal-prev" aria-label="Mes anterior">‹</button><b>'+esc(nombreMes.charAt(0).toLocaleUpperCase('es-ES')+nombreMes.slice(1))+'</b><button class="chip" data-a="cal-next" aria-label="Mes siguiente">›</button><button class="chip" data-a="cal-hoy">Hoy</button></div></div><div class="calendar-legend"><span><i class="cal-dot sabado"></i>Sábados</span><span><i class="cal-dot junta"></i>Juntas</span><span><i class="cal-dot cocina"></i>Cocina</span></div><div class="calendar-grid calendar-weekdays">'+['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(x=>'<b>'+x+'</b>').join('')+'</div><div class="calendar-grid">'+celdas.join('')+'</div><section class="calendar-day-events"><div class="tag">Agenda del día</div><h3>'+esc(tituloDia)+'</h3>'+(delDia.length?delDia.map(ev=>'<article class="calendar-event"><i class="cal-dot '+ev.tipo+'"></i><div><b>'+esc(ev.titulo)+'</b><p>'+esc([ev.hora,ev.detalle,ev.estado].filter(Boolean).join(' · '))+'</p></div><span class="calendar-event-type">'+(ev.tipo==='sabado'?'Sábado':ev.tipo==='junta'?'Junta':'Cocina')+'</span></article>').join(''):'<p class="mu">No hay actividades registradas para este día.</p>')+'</section></section>';
