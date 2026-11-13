@@ -390,7 +390,8 @@ function cambioTurnoMarkup(turno,miTurno,disponibles,cambios,turnos,asignaciones
 async function vCocina() {
   const d = await api('GET', '/modulos/cocina');
   const admin = ME.admin || ME.tes;
-  const turnosAsignados = d.asignaciones.filter(a => d.turnos.some(t => t.id === a.turno_id && t.fecha >= fechaHoyLocal()));
+  const turnosFuturos = d.turnos.filter(t => t.fecha >= fechaHoyLocal()).sort((a,b) => a.fecha.localeCompare(b.fecha));
+  const turnosAsignados = turnosFuturos.filter(t => d.asignaciones.some(a => Number(a.turno_id) === Number(t.id)));
   const turnos = d.turnos.filter(t => COCINA_TAB === 'mis' ? d.asignaciones.some(a=>a.turno_id===t.id && a.hermana_id===ME.id) : true);
   const tarjetas = turnos.map(t => {
     const asignadas=d.asignaciones.filter(a=>a.turno_id===t.id);
@@ -411,7 +412,36 @@ async function vCocina() {
     </section></article>`;
   }).join('');
   let contenido = '';
-  if (COCINA_TAB === 'sorteo') contenido = admin ? `<div class="card"><div class="tag">Organización de turnos</div><h3>Sorteo de cocina</h3><p class="mu">Reparte los próximos sábados entre las hermanas activas, equilibrando el número de turnos asignados. Puedes elegir dos o tres personas por sábado.</p><form data-f="cocina-sorteo"><label class="fl">Personas por turno</label><select class="t" name="personas_por_turno"><option value="2" ${Number(d.personas_por_turno||2)===2?'selected':''}>2 personas</option><option value="3" ${Number(d.personas_por_turno||2)===3?'selected':''}>3 personas</option></select><button class="btn" style="margin-top:14px">Realizar sorteo de los próximos sábados</button></form><button type="button" class="chip" data-a="cocina-sorteo-del" ${turnosAsignados.length?'':'disabled'}>Eliminar sorteo</button><p class="mu" style="margin-bottom:0">El sorteo sustituye las asignaciones de los turnos futuros incluidos. Los sábados ya celebrados no se modifican.</p></div>` : '';
+  if (COCINA_TAB === 'sorteo') contenido = admin ? `
+    <section class="cocina-sorteo-layout">
+      <div class="card cocina-sorteo-config">
+        <div class="tag">Organización de turnos</div>
+        <h3>Sorteo de cocina</h3>
+        <p class="mu">Distribuye a las hermanas activas entre los próximos sábados, intentando equilibrar el número de turnos. Puedes asignar dos o tres personas por sábado.</p>
+        <form data-f="cocina-sorteo" class="cocina-sorteo-form">
+          <div class="cocina-sorteo-field">
+            <label class="fl" for="cocina-personas-turno">Personas por turno</label>
+            <select class="t" id="cocina-personas-turno" name="personas_por_turno">
+              <option value="2" ${Number(d.personas_por_turno||2)===2?'selected':''}>2 personas</option>
+              <option value="3" ${Number(d.personas_por_turno||2)===3?'selected':''}>3 personas</option>
+            </select>
+          </div>
+          <button class="btn" type="submit">Realizar sorteo</button>
+        </form>
+        <p class="cocina-sorteo-note mu">El sorteo organiza los turnos futuros. Los sábados ya celebrados no se modifican.</p>
+      </div>
+      <div class="card cocina-sorteo-results">
+        <div class="cocina-sorteo-results-head">
+          <div><div class="tag">Resultado</div><h3>Asignaciones de cocina</h3></div>
+          <span class="cocina-sorteo-count">${turnosAsignados.length} de ${turnosFuturos.length} sábados</span>
+        </div>
+        ${turnosAsignados.length ? `<div class="cocina-sorteo-list">${turnosAsignados.map(t=>{const asignadas=d.asignaciones.filter(a=>Number(a.turno_id)===Number(t.id));return `<div class="cocina-sorteo-row"><div class="cocina-sorteo-date"><b>${new Date(t.fecha+'T12:00:00').getDate()}</b><span>${fechaBonita(t.fecha).split(' ').slice(1).join(' ')}</span></div><div class="cocina-sorteo-info"><b>${esc(t.turno||t.responsable||'Turno de cocina')}</b><span>${asignadas.map(a=>esc(a.nombre)).join(' · ')}</span></div></div>`;}).join('')}</div>` : '<p class="mu cocina-sorteo-empty">Todavía no hay asignaciones. Cuando realices el sorteo, las hermanas seleccionadas aparecerán aquí.</p>'}
+        <div class="cocina-sorteo-footer">
+          <p class="mu">${turnosFuturos.length-turnosAsignados.length} sábado(s) pendiente(s) de asignar.</p>
+          <button type="button" class="chip cocina-sorteo-delete" data-a="cocina-sorteo-del" ${turnosAsignados.length?'':'disabled'}>Eliminar sorteo</button>
+        </div>
+      </div>
+    </section>` : '';
   else if (COCINA_TAB === 'tickets') contenido = `<div class="card"><h3>Tickets de compra</h3>${d.tickets.length ? d.tickets.map(t=>`<div class="mv"><div class="x"><b>${esc(t.nombre_archivo)}</b><br><small class="mu">${fechaBonita((t.creado||'').slice(0,10))}</small></div><a class="chip" target="_blank" href="/api/modulos/cocina/tickets/${t.id}">Abrir</a></div>`).join('') : '<p class="mu">Todavía no hay tickets guardados.</p>'}</div>`;
   else contenido = `<section class="sec" style="padding-top:0"><div class="g2">${tarjetas || '<div class="card"><p class="mu">No hay turnos para mostrar.</p></div>'}</div></section>`;
   const opciones=[['mis','Mis turnos'],['cal','Todos los turnos']];
