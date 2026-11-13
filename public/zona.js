@@ -92,13 +92,14 @@ function shell(html) {
   const drawer = groups.map(g => `<section class="mn-group"><span>${g.title}</span>${g.links.map(([h,t])=>`<a href="${h}" class="${cur===h?'current':''}" ${cur===h?'aria-current="page"':''}>${t}<span aria-hidden="true">›</span></a>`).join('')}</section>`).join('');
   const fotoMenu = ME?.foto_id ? `<img src="/media/${Number(ME.foto_id)}" alt="">` : `<span>${esc(iniciales(ME?.nombre || 'Hermana'))}</span>`;
   $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><aside class="mn" aria-label="Menú de navegación">
-    <div class="mn-head"><a href="#/perfil" class="mn-user">${fotoMenu}<span><b>${esc(ME?.nombre || 'Hermana')}</b><small>${esc(ME?.cargo || 'Zona hermana')}</small></span></a><div class="mn-head-actions">${ME?'<button type="button" class="mn-logout-top" data-a="salir"><span aria-hidden="true">↪</span><b>Salir</b></button>':''}<button class="x" data-a="menu" aria-label="Cerrar menú">×</button></div></div>
+    <div class="mn-head"><a href="#/perfil" class="mn-user">${fotoMenu}<span><b>${esc(ME?.nombre || 'Hermana')}</b><small>${esc(ME?.cargo || 'Zona hermana')}</small></span></a><button class="x" data-a="menu" aria-label="Cerrar menú">×</button></div>
     <div class="mn-scroll">${drawer}
       <section class="mn-extra"><a href="/">Web pública <span>↗</span></a></section>
     </div>
-    ${ME_REAL?.admin?`<div class="mn-footer"><button type="button" class="mn-switch" data-a="cambiar-vista">${VISTA_HERMANA?'Volver a vista administradora':'Ver como hermana'}</button></div>`:'' }
+    <div class="mn-footer">${ME_REAL?.admin?`<button type="button" class="mn-switch" data-a="cambiar-vista">${VISTA_HERMANA?'Volver a vista administradora':'Ver como hermana'}</button>`:'' }${ME?'<button type="button" class="mn-logout" data-a="salir"><span aria-hidden="true">↪</span>Cerrar sesión</button>':''}</div>
   </aside>` : '';
   const bottom=$('#bottom-nav');
+  if(bottom) bottom.style.display = MENU ? 'none' : '';
   if(bottom && ME_REAL?.admin && !VISTA_HERMANA) bottom.innerHTML = `<nav class="admin-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur.startsWith('#/admin/hermanas')?'on':''}" href="#/admin/hermanas"><span>♙</span>Hermanas</a><a class="${cur.startsWith('#/tesoreria')?'on':''}" href="#/tesoreria"><span>€</span>Economía</a><a class="${cur.startsWith('#/admin/actas')||cur==='#/actas'?'on':''}" href="#/admin/actas"><span>▤</span>Secretaría</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
   else if(bottom && ME) bottom.innerHTML = `<nav class="admin-bottom-nav sister-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur==='#/sabados'||cur==='#/cocina'?'on':''}" href="#/sabados"><span>◷</span>Gestión</a><a class="${cur==='#/cuenta'||cur==='#/tesoreria'?'on':''}" href="#/cuenta"><span>€</span>Mi cuenta</a><a class="${cur==='#/actas'||cur==='#/admin/actas'?'on':''}" href="#/actas"><span>▤</span>Actas</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
   else if(bottom) bottom.innerHTML = '';
