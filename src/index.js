@@ -85,6 +85,7 @@ async function route(req, env, url, p) {
   if (m === 'POST' && p === '/api/setup') return setup(req, env, b);
   const me = await userOf(req, env);
   if (m === 'GET' && p === '/api/me') return me ? J(me) : E('No has iniciado sesión', 401);
+  if (m === 'POST' && p === '/api/perfil') return perfilGuardar(env, me, b);
   if (!me) return E('No has iniciado sesión', 401);
   if (p.startsWith('/api/modulos/')) return routeModulos(req, env, me, m, p, b);
   if (m === 'POST' && p === '/api/auth/logout') {
@@ -101,9 +102,9 @@ async function route(req, env, url, p) {
 async function userOf(req, env) {
   const sid = getCookie(req, 'sid');
   if (!sid) return null;
-  const r = await env.DB.prepare(`SELECT h.id,h.nombre,h.email,h.estado,h.es_admin,c.nombre cargo,COALESCE(c.permiso,'none') permiso FROM sesiones s JOIN hermanas h ON h.id=s.hermana_id LEFT JOIN cargos c ON c.id=h.cargo_id WHERE s.id=? AND s.expira>? AND h.estado!='Baja'`).bind(await sha(sid), Date.now()).first();
+  const r = await env.DB.prepare(`SELECT h.id,h.nombre,h.email,h.telefono,h.foto_id,h.estado,h.es_admin,c.nombre cargo,COALESCE(c.permiso,'none') permiso FROM sesiones s JOIN hermanas h ON h.id=s.hermana_id LEFT JOIN cargos c ON c.id=h.cargo_id WHERE s.id=? AND s.expira>? AND h.estado!='Baja'`).bind(await sha(sid), Date.now()).first();
   if (!r) return null;
-  return { id: r.id, nombre: r.nombre, email: r.email, estado: r.estado, cargo: r.cargo, cargo_permiso: r.permiso, admin: !!r.es_admin, tes: !!(r.es_admin || r.permiso === 'tes'), actas: !!(r.es_admin || r.permiso === 'actas') };
+  return { id: r.id, nombre: r.nombre, email: r.email, telefono: r.telefono || '', foto_id: r.foto_id || null, estado: r.estado, cargo: r.cargo, cargo_permiso: r.permiso, admin: !!r.es_admin, tes: !!(r.es_admin || r.permiso === 'tes'), actas: !!(r.es_admin || r.permiso === 'actas') };
 }
 async function session(req, env, hid, body = { ok: true }, redirect) {
   const raw = rand(32);
@@ -165,6 +166,24 @@ async function passChange(env, me, b) {
   if (h.pass_hash && !(await checkPw(act, h.pass_hash))) return E('La contraseña actual no es correcta', 403);
   await env.DB.prepare('UPDATE hermanas SET pass_hash=? WHERE id=?').bind(await hashPw(nue), me.id).run();
   return J({ ok: true });
+}
+async function perfilGuardar(env, me, b) {
+  const cur = await env.DB.prepare('SELECT nombre,telefono,foto_id FROM hermanas WHERE id=?').bind(me.id).first();
+  if (!cur) return E('No se ha encontrado tu ficha',404);
+  const nombre = String(b.nombre ?? cur.nombre).trim();
+  const telefonoTexto = String(b.telefono ?? cur.telefono ?? '').trim();
+  const telefono = telefonoTexto ? normalizarTelefono(telefonoTexto) : null;
+  if (nombre.length < 2 || nombre.length > 80) return E('Escribe tu nombre y apellidos');
+  if (telefonoTexto && !telefono) return E('El teléfono no es válido. Utiliza el prefijo internacional, por ejemplo +34 600 000 000.');
+  let foto = cur.foto_id;
+  if (b.quitar_foto) { await borrarImagen(env,foto); foto=null; }
+  if (b.foto) {
+    const nueva = await guardarImagen(env,b.foto);
+    if (!nueva) return E('La fotografía no es válida o pesa demasiado');
+    await borrarImagen(env,foto); foto=nueva;
+  }
+  await env.DB.prepare('UPDATE hermanas SET nombre=?,telefono=?,foto_id=? WHERE id=?').bind(nombre,telefono,foto,me.id).run();
+  return J({ok:true});
 }
 async function setup(req, env, b) {
   if (!env.SETUP_KEY) return E('No disponible', 403);
@@ -250,7 +269,7 @@ async function guardarImagen(env, dataUrl) {
 async function borrarImagen(env, id) { if (id) await env.DB.prepare('DELETE FROM imagenes WHERE id=?').bind(id).run(); }
 async function media(req, env, id) {
   const me = await userOf(req, env);
-  const r = await env.DB.prepare('SELECT i.tipo,i.datos FROM imagenes i WHERE i.id=?1 AND (?2=1 OR EXISTS(SELECT 1 FROM noticias WHERE imagen_id=i.id) OR EXISTS(SELECT 1 FROM hermanas WHERE foto_id=i.id AND visible_web=1 AND estado!=\'Baja\'))').bind(id, me && me.admin ? 1 : 0).first();
+  const r = await env.DB.prepare('SELECT i.tipo,i.datos FROM imagenes i WHERE i.id=?1 AND (?2=1 OR EXISTS(SELECT 1 FROM noticias WHERE imagen_id=i.id) OR EXISTS(SELECT 1 FROM hermanas WHERE foto_id=i.id AND visible_web=1 AND estado!=\'Baja\') OR EXISTS(SELECT 1 FROM hermanas WHERE foto_id=i.id AND id=?3))').bind(id, me && me.admin ? 1 : 0, me?.id || 0).first();
   if (!r) return new Response('No encontrada', { status: 404 });
   return new Response(Uint8Array.from(atob(r.datos), c => c.charCodeAt(0)), { headers: { 'Content-Type': r.tipo, 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' } });
 }
