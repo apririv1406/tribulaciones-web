@@ -83,7 +83,7 @@ export async function routeModulos(req, env, me, method, path, body) {
 
   // EVENTOS GENERALES DEL CUARTEL: lectura para hermanas; gestión exclusiva de administración.
   if (path === '/api/modulos/eventos' && method === 'GET') {
-    const eventos = await rows(env.DB.prepare(me.admin ? 'SELECT * FROM eventos_cuartel ORDER BY fecha,id' : "SELECT * FROM eventos_cuartel WHERE estado='publicado' AND fecha>=date('now') ORDER BY fecha,id"));
+    const eventos = await rows(env.DB.prepare(me.admin ? 'SELECT * FROM eventos_cuartel ORDER BY fecha,id' : "SELECT * FROM eventos_cuartel WHERE estado='publicado' ORDER BY fecha,id"));
     return J(eventos);
   }
   if (path === '/api/modulos/eventos' && method === 'POST') {
