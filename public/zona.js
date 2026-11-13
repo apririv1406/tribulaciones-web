@@ -388,10 +388,16 @@ function cambioTurnoMarkup(turno,miTurno,disponibles,cambios,turnos,asignaciones
 }
 
 async function vCocina() {
-  const d = await api('GET', '/modulos/cocina');
+  const [d, sabados] = await Promise.all([
+    api('GET', '/modulos/cocina'),
+    api('GET', '/modulos/sabados')
+  ]);
   const admin = ME.admin || ME.tes;
-  const turnosFuturos = d.turnos.filter(t => t.fecha >= fechaHoyLocal()).sort((a,b) => a.fecha.localeCompare(b.fecha));
-  const turnosAsignados = turnosFuturos.filter(t => d.asignaciones.some(a => Number(a.turno_id) === Number(t.id)));
+  const turnosFuturos = sabados.filter(s => s.fecha >= fechaHoyLocal() && s.estado !== 'cancelado').sort((a,b) => a.fecha.localeCompare(b.fecha));
+  const turnosAsignados = turnosFuturos.filter(s => {
+    const turno = d.turnos.find(t => t.fecha === s.fecha);
+    return turno && d.asignaciones.some(a => Number(a.turno_id) === Number(turno.id));
+  });
   const turnos = d.turnos.filter(t => COCINA_TAB === 'mis' ? d.asignaciones.some(a=>a.turno_id===t.id && a.hermana_id===ME.id) : true);
   const tarjetas = turnos.map(t => {
     const asignadas=d.asignaciones.filter(a=>a.turno_id===t.id);
@@ -435,7 +441,7 @@ async function vCocina() {
           <div><div class="tag">Resultado</div><h3>Asignaciones de cocina</h3></div>
           <span class="cocina-sorteo-count">${turnosAsignados.length} de ${turnosFuturos.length} sábados</span>
         </div>
-        ${turnosAsignados.length ? `<div class="cocina-sorteo-list">${turnosAsignados.map(t=>{const asignadas=d.asignaciones.filter(a=>Number(a.turno_id)===Number(t.id));return `<div class="cocina-sorteo-row"><div class="cocina-sorteo-date"><b>${new Date(t.fecha+'T12:00:00').getDate()}</b><span>${fechaBonita(t.fecha).split(' ').slice(1).join(' ')}</span></div><div class="cocina-sorteo-info"><b>${esc(t.turno||t.responsable||'Turno de cocina')}</b><span>${asignadas.map(a=>esc(a.nombre)).join(' · ')}</span></div></div>`;}).join('')}</div>` : '<p class="mu cocina-sorteo-empty">Todavía no hay asignaciones. Cuando realices el sorteo, las hermanas seleccionadas aparecerán aquí.</p>'}
+        ${turnosAsignados.length ? `<div class="cocina-sorteo-list">${turnosAsignados.map(s=>{const turno=d.turnos.find(t=>t.fecha===s.fecha);const asignadas=turno?d.asignaciones.filter(a=>Number(a.turno_id)===Number(turno.id)):[];return `<div class="cocina-sorteo-row"><div class="cocina-sorteo-date"><b>${new Date(s.fecha+'T12:00:00').getDate()}</b><span>${fechaBonita(s.fecha).split(' ').slice(1).join(' ')}</span></div><div class="cocina-sorteo-info"><b>${esc(s.titulo||'Sábado de cuartel')}</b><span>${asignadas.map(a=>esc(a.nombre)).join(' · ')}</span></div></div>`;}).join('')} : '<p class="mu cocina-sorteo-empty">Todavía no hay asignaciones. Cuando realices el sorteo, las hermanas seleccionadas aparecerán aquí.</p>'}
         <div class="cocina-sorteo-footer">
           <p class="mu">${turnosFuturos.length-turnosAsignados.length} sábado(s) pendiente(s) de asignar.</p>
           <button type="button" class="chip cocina-sorteo-delete" data-a="cocina-sorteo-del" ${turnosAsignados.length?'':'disabled'}>Eliminar sorteo</button>
