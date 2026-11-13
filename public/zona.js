@@ -4,7 +4,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(''));
 const fechaHoyLocal = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.600 2.400 30.200 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.800 6.100C12.300 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.500 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.700c-.6 3-2.300 5.500-4.800 7.200l7.500 5.800c4.400-4.100 7.100-10.100 7.100-17.500z"/><path fill="#FBBC05" d="M10.400 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.9-4.700l-7.800-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.800-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.700-4.100-13.600-9.800l-7.800 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
-let ME = null, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_YEAR = '2026', TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
+let ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_YEAR = '2026', TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
 
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
@@ -34,12 +34,16 @@ function reducir(file, max, q = 0.82) {
 
 /* ---------- estructura ---------- */
 const items = () => !ME ? [] : [['#/', 'Inicio'], ['#/sabados', 'Sábados'], ['#/cuenta', 'Mi cuenta'], ['#/cocina', 'Cocina'], ['#/actas', 'Actas y estatutos'], ...(ME.tes ? [['#/tesoreria', 'Tesorería']] : []), ...(ME.admin ? [['#/admin/hermanas', 'Administración']] : []), ['#/perfil', 'Mi perfil']];
+function aplicarVista() {
+  if (!ME_REAL) { ME = null; return; }
+  ME = VISTA_HERMANA ? { ...ME_REAL, admin: false, tes: ME_REAL.cargo_permiso === 'tes', actas: ME_REAL.cargo_permiso === 'actas' } : { ...ME_REAL };
+}
 function shell(html) {
   LAST = html;
   const cur = location.hash || '#/', its = items();
   const on = h => (h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h.slice(0, 8)));
-  $('#nav').innerHTML = `<a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a>` + its.map(([h, t]) => `<a class="dk ${on(h) ? 'on' : ''}" href="${h}">${t}</a>`).join('') + `<a class="dk" href="/">Web pública</a>` + (ME ? `<a class="cta dk" href="#/" data-a="salir">Salir</a>` : '') + `<button class="hb" data-a="menu" aria-label="Menú"><i></i><i></i><i></i></button>`;
-  $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><div class="mn"><button class="x" data-a="menu" aria-label="Cerrar">✕</button>${its.map(([h, t]) => `<a href="${h}">${t}</a>`).join('')}<hr><a href="/">Web pública</a>${ME ? '<a href="#/" data-a="salir">Salir</a>' : ''}</div>` : '';
+  $('#nav').innerHTML = `<a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a>` + its.map(([h, t]) => `<a class="dk ${on(h) ? 'on' : ''}" href="${h}">${t}</a>`).join('') + `<a class="dk" href="/">Web pública</a>` + (ME_REAL?.admin ? `<button class="cta dk" type="button" data-a="cambiar-vista">${VISTA_HERMANA ? 'Vista administradora' : 'Ver como hermana'}</button>` : '') + (ME ? `<a class="cta dk" href="#/" data-a="salir">Salir</a>` : '') + `<button class="hb" data-a="menu" aria-label="Menú"><i></i><i></i><i></i></button>`;
+  $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><div class="mn"><button class="x" data-a="menu" aria-label="Cerrar">✕</button>${its.map(([h, t]) => `<a href="${h}">${t}</a>`).join('')}<hr><a href="/">Web pública</a>${ME_REAL?.admin ? `<button type="button" data-a="cambiar-vista">${VISTA_HERMANA ? 'Vista administradora' : 'Ver como hermana'}</button>` : ''}${ME ? '<a href="#/" data-a="salir">Salir</a>' : ''}</div>` : '';
   $('#app').innerHTML = html;
 }
 const subnav = (mod, actual, opciones) => `<div class="sub" style="margin:16px 0 20px">${opciones.map(([k,l])=>`<button type="button" class="${actual===k?'on':''}" data-a="module-tab" data-module="${mod}" data-tab="${k}">${l}</button>`).join('')}</div>`;
@@ -605,7 +609,8 @@ const ACT = {
     actualizarResumenRSVP(f);
   },
   menu() { MENU = !MENU; shell(LAST); },
-  async salir() { await api('POST', '/auth/logout').catch(() => {}); ME = null; location.hash = '#/'; render(); },
+  async 'cambiar-vista'() { if (!ME_REAL?.admin) return; VISTA_HERMANA = !VISTA_HERMANA; aplicarVista(); location.hash = '#/'; render(); toast(VISTA_HERMANA ? 'Estás viendo la zona con tu perfil de hermana.' : 'Has vuelto a la vista de administradora.'); },
+  async salir() { await api('POST', '/auth/logout').catch(() => {}); ME = null; ME_REAL = null; location.hash = '#/'; render(); },
   async 'her-invitar'(el) { const w=window.open('about:blank','_blank'); try { const r=await api('POST','/admin/hermanas/'+el.dataset.id+'/invitar'); if(!r.whatsapp) { if(w) w.close(); throw new Error(r.error||'No se ha podido preparar la bienvenida'); } if(w) w.location.href=r.whatsapp; else location.href=r.whatsapp; toast('Mensaje preparado. Revísalo y pulsa Enviar en WhatsApp.'); render(); } catch(e) { if(w) w.close(); throw e; } },
   async 'her-reset'(el) { const r=await api('POST','/admin/hermanas/'+el.dataset.id+'/reset'); toast(r.enviado?'Correo para restablecer contraseña enviado':'No se ha podido enviar el correo',!r.enviado); render(); },
   async 'her-quitar-foto'(el) { await api('PUT', '/admin/hermanas/' + el.dataset.id, { quitar_foto: true }); toast('Foto quitada'); render(); },
@@ -753,7 +758,7 @@ document.addEventListener('click', async e => {
   e.preventDefault();
   try { await ACT[el.dataset.a](el); } catch (er) { toast(er.message, true); }
 });
-async function entrar() { ME = await api('GET', '/me'); location.hash = '#/'; render(); }
+async function entrar() { ME_REAL = await api('GET', '/me'); VISTA_HERMANA = false; aplicarVista(); location.hash = '#/'; render(); }
 
 /* ---------- arranque ---------- */
 async function render() {
@@ -779,4 +784,4 @@ async function render() {
   }
 }
 addEventListener('hashchange', render);
-(async () => { try { ME = await api('GET', '/me'); } catch { ME = null; } render(); })();
+(async () => { try { ME_REAL = await api('GET', '/me'); VISTA_HERMANA = false; aplicarVista(); } catch { ME = null; ME_REAL = null; } render(); })();
