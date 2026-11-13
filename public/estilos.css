@@ -1122,3 +1122,51 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
     }
   }
 }
+
+/* Experiencia de uso: foco visible, controles claros y movimiento respetuoso */
+.zona :is(a,button,input,select,textarea,summary,[role="button"]):focus-visible{
+  outline:3px solid rgba(201,151,26,.48);
+  outline-offset:3px;
+}
+.zona :is(button,a,.btn,.chip){
+  -webkit-tap-highlight-color:transparent;
+}
+.zona button:disabled,
+.zona input:disabled,
+.zona select:disabled,
+.zona textarea:disabled{
+  cursor:not-allowed;
+  opacity:.58;
+}
+.zona #app :is(input,select,textarea){
+  scroll-margin-top:90px;
+}
+.zona #app :is(input,select,textarea):focus{
+  border-color:var(--gd);
+  box-shadow:0 0 0 3px rgba(201,151,26,.12);
+}
+.zona #app :is(input,select,textarea):user-invalid{
+  border-color:var(--ko);
+}
+.zona #app .btn,
+.zona #app button,
+.zona #bottom-nav a,
+.zona #bottom-nav button{
+  touch-action:manipulation;
+}
+@media(max-width:760px){
+  .zona #bottom-nav .admin-bottom-nav a,
+  .zona #bottom-nav .admin-bottom-nav button{
+    min-height:46px;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .zona *,
+  .zona *::before,
+  .zona *::after{
+    scroll-behavior:auto!important;
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+  }
+}
