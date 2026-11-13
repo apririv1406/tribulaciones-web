@@ -199,7 +199,7 @@ function vCalendarioHTML(eventos) {
   for(let i=0;i<offset;i++) celdas.push('<div class="cal-empty" aria-hidden="true"></div>');
   for(let dia=1;dia<=dias;dia++){
     const fecha=fechaISOlocal(new Date(anio,mes,dia)), lista=porFecha[fecha]||[];
-    celdas.push('<button type="button" class="cal-day '+(lista.length?'has-events':'')+(fecha===fechaISOlocal(new Date())?' today':'')+(fecha===seleccion?' selected':'')+'" data-a="cal-dia" data-fecha="'+fecha+'"><b>'+dia+'</b><span>'+lista.slice(0,3).map(x=>'<i class="cal-dot '+x.tipo+'"></i>').join('')+'</span>'+(lista.length>3?'<small>+'+(lista.length-3)+'</small>':'')+'</button>');
+    celdas.push('<button type="button" class="cal-day '+(lista.length?'has-events':'')+(fecha===fechaISOlocal(new Date())?' today':'')+(fecha===seleccion?' selected':'')+'" data-a="cal-dia" data-fecha="'+fecha+'"><b class="cal-day-number">'+dia+'</b><span class="cal-day-dots">'+lista.slice(0,3).map(x=>'<i class="cal-dot '+x.tipo+'"></i>').join('')+'</span><span class="cal-day-labels">'+lista.slice(0,2).map(x=>'<i class="cal-mini-event '+x.tipo+'">'+esc(x.titulo)+'</i>').join('')+'</span>'+(lista.length>2?'<small>+'+(lista.length-2)+' más</small>':'')+'</button>');
   }
   const delDia=eventos.filter(x=>x.fecha===seleccion).sort((a,b)=>(a.hora||'').localeCompare(b.hora||''));
   const tituloDia=new Date(seleccion+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
