@@ -4,7 +4,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(''));
 const fechaHoyLocal = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.600 2.400 30.200 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.800 6.100C12.300 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.500 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.700c-.6 3-2.300 5.500-4.800 7.200l7.500 5.800c4.400-4.100 7.100-10.100 7.100-17.500z"/><path fill="#FBBC05" d="M10.400 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.9-4.700l-7.800-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.800-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.700-4.100-13.600-9.800l-7.800 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
-let COCINA_SORTEO_RESULTADO = [], ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_YEAR = '2026', TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
+let CAL_MES = new Date(new Date().getFullYear(), new Date().getMonth(), 1), ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_YEAR = '2026', TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
 
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
@@ -69,7 +69,7 @@ const menuGroups = () => {
   const admin = !!ME_REAL?.admin && !VISTA_HERMANA;
   const groups = [
     { title: 'Inicio', links: [['#/', 'Resumen']] },
-    { title: 'Gestión', links: [['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina']] },
+    { title: 'Gestión', links: [['#/calendario', 'Calendario'], ['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina']] },
   ];
   if (admin) groups.push({ title: 'Hermanas', links: [['#/admin/hermanas', 'Hermanas y cargos']] });
   if (ME.tes || admin) groups.push({ title: 'Economía', links: [['#/tesoreria', 'Tesorería y cuotas']] });
@@ -183,6 +183,42 @@ const ALERGIAS_TAGS = ['Sin gluten (celiaquía)','Sin lactosa','Frutos secos','M
 const euros = n => (Number(n || 0) / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 const fechaBonita = f => f ? new Date(`${f}T12:00:00`).toLocaleDateString('es-ES') : '—';
 const readFileData = file => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('No se ha podido leer el archivo')); r.readAsDataURL(file); });
+
+function fechaISOlocal(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function vCalendarioHTML(eventos) {
+  const anio=CAL_MES.getFullYear(), mes=CAL_MES.getMonth();
+  const inicio=new Date(anio,mes,1), dias=new Date(anio,mes+1,0).getDate();
+  const offset=(inicio.getDay()+6)%7;
+  const nombreMes=CAL_MES.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  const porFecha={};
+  eventos.forEach(ev=>{(porFecha[ev.fecha] ||= []).push(ev);});
+  const celdas=[];
+  for(let i=0;i<offset;i++) celdas.push('<div class="cal-empty" aria-hidden="true"></div>');
+  for(let dia=1;dia<=dias;dia++){
+    const fecha=fechaISOlocal(new Date(anio,mes,dia)), lista=porFecha[fecha]||[];
+    celdas.push('<button type="button" class="cal-day '+(lista.length?'has-events':'')+(fecha===fechaISOlocal(new Date())?' today':'')+'" data-a="cal-dia" data-fecha="'+fecha+'"><b>'+dia+'</b><span>'+lista.slice(0,3).map(x=>'<i class="cal-dot '+x.tipo+'"></i>').join('')+'</span>'+(lista.length>3?'<small>+'+(lista.length-3)+'</small>':'')+'</button>');
+  }
+  const seleccion=CAL_SELECCION || fechaISOlocal(new Date());
+  const delDia=eventos.filter(x=>x.fecha===seleccion).sort((a,b)=>(a.hora||'').localeCompare(b.hora||''));
+  const tituloDia=new Date(seleccion+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+  return '<section class="calendar-wrap"><div class="calendar-head"><div><div class="tag">Agenda del cuartel</div><h2>Calendario</h2><p class="mu">Sábados, juntas y turnos de cocina en un mismo sitio.</p></div><div class="calendar-controls"><button class="chip" data-a="cal-prev" aria-label="Mes anterior">‹</button><b>'+esc(nombreMes.charAt(0).toLocaleUpperCase('es-ES')+nombreMes.slice(1))+'</b><button class="chip" data-a="cal-next" aria-label="Mes siguiente">›</button><button class="chip" data-a="cal-hoy">Hoy</button></div></div><div class="calendar-legend"><span><i class="cal-dot sabado"></i>Sábados</span><span><i class="cal-dot junta"></i>Juntas</span><span><i class="cal-dot cocina"></i>Cocina</span></div><div class="calendar-grid calendar-weekdays">'+['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(x=>'<b>'+x+'</b>').join('')+'</div><div class="calendar-grid">'+celdas.join('')+'</div><section class="calendar-day-events"><div class="tag">Agenda del día</div><h3>'+esc(tituloDia)+'</h3>'+(delDia.length?delDia.map(ev=>'<article class="calendar-event"><i class="cal-dot '+ev.tipo+'"></i><div><b>'+esc(ev.titulo)+'</b><p>'+esc([ev.hora,ev.detalle,ev.estado].filter(Boolean).join(' · '))+'</p></div><span class="calendar-event-type">'+(ev.tipo==='sabado'?'Sábado':ev.tipo==='junta'?'Junta':'Cocina')+'</span></article>').join(''):'<p class="mu">No hay actividades registradas para este día.</p>')+'</section></section>';
+}
+let CAL_SELECCION = fechaISOlocal(new Date()), CAL_EVENTOS = [];
+async function vCalendario() {
+  const [sabados,juntas,cocina]=await Promise.all([
+    api('GET','/modulos/sabados'),
+    api('GET','/modulos/actas'),
+    api('GET','/modulos/cocina')
+  ]);
+  const eventos=[];
+  sabados.forEach(s=>eventos.push({fecha:s.fecha,tipo:'sabado',titulo:s.titulo||'Encuentro del cuartel',hora:s.hora||'',detalle:s.categoria||'Encuentro',estado:s.estado==='cancelado'?'Cancelado':''}));
+  (juntas.juntas||[]).forEach(j=>eventos.push({fecha:j.fecha,tipo:'junta',titulo:j.lugar||'Junta del cuartel',hora:j.hora||'',detalle:j.convocatoria||'Convocatoria de junta',estado:j.estado||''}));
+  (cocina.turnos||[]).forEach(t=>eventos.push({fecha:t.fecha,tipo:'cocina',titulo:t.turno||'Turno de cocina',hora:'',detalle:t.responsable||t.menu||'Organización de cocina',estado:''}));
+  CAL_EVENTOS=eventos.filter(x=>/^\\d{4}-\\d{2}-\\d{2}$/.test(x.fecha||''));
+  return shell(vCalendarioHTML(CAL_EVENTOS));
+}
 
 async function vSabados() {
   const ss = await api('GET', '/modulos/sabados');
@@ -742,6 +778,10 @@ const ACT = {
   'tes-fixed-open'() { TES_NEW_FIXED_MODAL=true; render(); },
   'tes-fixed-close'() { TES_NEW_FIXED_MODAL=false; render(); },
   async 'her-publicar-activas'() { if(!confirm('Se mostrarán en la web los nombres de todas las hermanas cuyo estado sea Activa. ¿Quieres continuar?'))return; await api('POST','/admin/hermanas/publicar-activas',{}); toast('Hermanas activas visibles en la web'); render(); },
+  'cal-prev'() { CAL_MES=new Date(CAL_MES.getFullYear(),CAL_MES.getMonth()-1,1); render(); },
+  'cal-next'() { CAL_MES=new Date(CAL_MES.getFullYear(),CAL_MES.getMonth()+1,1); render(); },
+  'cal-hoy'() { CAL_MES=new Date(new Date().getFullYear(),new Date().getMonth(),1); CAL_SELECCION=fechaISOlocal(new Date()); render(); },
+  'cal-dia'(el) { CAL_SELECCION=el.dataset.fecha; shell(vCalendarioHTML(CAL_EVENTOS)); },
   'module-tab'(el) { const k=el.dataset.tab; if(el.dataset.module==='cuenta') CUENTA_TAB=k; if(el.dataset.module==='cocina') COCINA_TAB=k; if(el.dataset.module==='tesoreria') TES_TAB=k; if(el.dataset.module==='tesrec') TES_REC_TAB=k; if(el.dataset.module==='tescfg') TES_CFG_TAB=k; if(el.dataset.module==='adminher') ADMIN_HERM_TAB=k; if(el.dataset.module==='actas') ACTAS_TAB=k; render(); },
   'extra-add'() { $('#tes-extras-rows').insertAdjacentHTML('beforeend',extraRow({})); },
   'extra-del'(el) { el.closest('.extra-row').remove(); },
@@ -935,6 +975,7 @@ async function render() {
     if ((m = h.match(/^#\/error\/([\w-]+)$/))) return vLogin(m[1]);
     if (!ME) return vLogin();
     if (h === '#/perfil') return vPerfil();
+    if (h === '#/calendario') return await vCalendario();
     if (h === '#/sabados') return await vSabados();
     if (h === '#/cuenta') return await vCuenta();
     if (h === '#/cocina') return await vCocina();
