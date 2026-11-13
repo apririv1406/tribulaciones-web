@@ -108,10 +108,8 @@ export async function routeModulos(req, env, me, method, path, body) {
   if (path === '/api/modulos/resumen-mensual' && method === 'GET') {
     if (!me.admin && !tes(me)) return E('No tienes permiso para consultar el resumen mensual', 403);
     const periodo = txt(new URL(req.url).searchParams.get('periodo'), 7);
-    if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) return E('Indica un mes válido');
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) return E('Indica un mes válido');
     const [anio, mes] = periodo.split('-').map(Number);
-    const inicio = periodo + '-01';
-    const fin = new Date(Date.UTC(anio, mes, 0)).toISOString().slice(0, 10);
     const anteriorDate = new Date(Date.UTC(anio, mes - 2, 1));
     const anterior = anteriorDate.getUTCFullYear() + '-' + String(anteriorDate.getUTCMonth() + 1).padStart(2, '0');
 
