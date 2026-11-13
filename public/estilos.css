@@ -896,19 +896,54 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
  .monthly-export .btn{width:100%}
 }
 
-/* Informe de Tesorería para juntas con periodos de fechas libres */
-.zona #app .tes-report-range{display:grid;grid-template-columns:minmax(220px,1.4fr) repeat(2,minmax(145px,.7fr)) auto;align-items:end;gap:12px;padding:15px 17px;margin:0 0 13px}
-.zona #app .tes-report-range h3{margin:0 0 3px;font-size:19px}
+/* Informe de Tesorería para juntas: jerarquía, rejilla y tablas adaptables */
+.zona #app .tes-report-brand{padding:0 0 12px;margin-bottom:12px;border-bottom:1px solid var(--ln)}
+.zona #app .tes-report-brand h2{font-size:24px}
+.zona #app .tes-report-brand p{margin:2px 0 0;font-size:12px;color:var(--mu)}
+.zona #app .tes-report-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:2px 0 16px}
+.zona #app .tes-report-heading h2{font-size:clamp(25px,3vw,34px);line-height:1.08;margin:5px 0}
+.zona #app .tes-report-heading p{margin:0;color:var(--mu);font-size:13px;line-height:1.5}
+.zona #app .tes-report-period{flex:none;max-width:42%;padding:11px 15px;border:1px solid var(--ln);border-radius:14px;background:var(--pa);text-align:right}
+.zona #app .tes-report-period span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--mu);margin-bottom:3px}
+.zona #app .tes-report-period b{font-size:14px;color:var(--dk)}
+.zona #app .tes-report-range{display:grid;grid-template-columns:minmax(210px,1.5fr) minmax(135px,.8fr) minmax(135px,.8fr) auto;align-items:end;gap:12px;padding:15px 17px;margin:0 0 14px}
+.zona #app .tes-report-range h3{margin:0 0 3px;font-size:18px}
 .zona #app .tes-report-range p{margin:0}
 .zona #app .tes-report-date{min-width:0}
 .zona #app .tes-report-date .fl{display:block;margin:0 0 5px}
-.zona #app .tes-report-date .t{width:100%;min-width:0}
-.zona #app .tes-report-actions{display:flex;gap:7px;flex-wrap:wrap}
-.zona #app .tes-report-actions button{white-space:nowrap}
-.zona #app .tes-report-tables{align-items:start}
-.zona #app .tes-report-tables>.card{padding:0;overflow:hidden;min-width:0}
-.zona #app .tes-report-tables>.card h3{padding:15px 17px 8px;margin:0;font-size:17px}
-.zona #app .tes-report-tables .rt{width:100%}
-.zona #app .tes-report-note{margin:12px 2px 0;font-size:12px}
-@media(max-width:850px){.zona #app .tes-report-range{grid-template-columns:repeat(2,minmax(0,1fr))}.zona #app .tes-report-range>div:first-child{grid-column:1/-1}.zona #app .tes-report-actions{grid-column:1/-1}}
-@media(max-width:560px){.zona #app .tes-report-range{grid-template-columns:1fr;padding:13px}.zona #app .tes-report-range>div:first-child,.zona #app .tes-report-actions{grid-column:auto}.zona #app .tes-report-actions button{flex:1}.zona #app .tes-report-tables{grid-template-columns:1fr!important}}
+.zona #app .tes-report-date .t{display:block;width:100%;min-width:0;box-sizing:border-box}
+.zona #app .tes-report-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.zona #app .tes-report-actions button{white-space:nowrap;min-height:40px}
+.zona #app .tes-report-kp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 14px!important}
+.zona #app .tes-report-kp>.card{padding:14px 17px;min-width:0;min-height:82px}
+.zona #app .tes-report-kp>.card .mu{display:block;font-size:12px}
+.zona #app .tes-report-kp>.card b{display:block;font:700 clamp(23px,2.4vw,30px) "Cormorant Garamond",serif;line-height:1.15;margin-top:4px;overflow-wrap:anywhere}
+.zona #app .tes-report-tables{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.zona #app .tes-report-tables>.card{padding:0;overflow-x:auto;overflow-y:hidden;min-width:0;margin:0}
+.zona #app .tes-report-tables>.card h3{padding:14px 16px 9px;margin:0;font-size:16px}
+.zona #app .tes-report-tables .rt{width:100%;margin:0}
+.zona #app .tes-report-tables>.card:last-child{grid-column:1/-1}
+.zona #app .tes-report-tables>.card:last-child .rt{min-width:760px}
+.zona #app .tes-report-tables>.card:not(:last-child) .rt{table-layout:auto}
+.zona #app .tes-report-tables>.card:not(:last-child) .rt th,.zona #app .tes-report-tables>.card:not(:last-child) .rt td{padding:9px 12px}
+.zona #app .tes-report-tables>.card:not(:last-child) .rt th:first-child,.zona #app .tes-report-tables>.card:not(:last-child) .rt td:first-child{width:auto}
+.zona #app .tes-report-note{margin:12px 2px 0;font-size:12px;line-height:1.55}
+@media(max-width:1050px){
+ .zona #app .tes-report-range{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .zona #app .tes-report-range>div:first-child{grid-column:1/-1}
+ .zona #app .tes-report-actions{grid-column:1/-1}
+ .zona #app .tes-report-tables{grid-template-columns:1fr}
+ .zona #app .tes-report-tables>.card:last-child{grid-column:auto}
+}
+@media(max-width:640px){
+ .zona #app .tes-report-heading{align-items:flex-start;flex-direction:column;gap:10px}
+ .zona #app .tes-report-period{max-width:none;width:100%;box-sizing:border-box;text-align:left}
+ .zona #app .tes-report-range{grid-template-columns:1fr;padding:14px}
+ .zona #app .tes-report-range>div:first-child,.zona #app .tes-report-actions{grid-column:auto}
+ .zona #app .tes-report-actions{display:grid;grid-template-columns:1fr 1fr}
+ .zona #app .tes-report-actions button{width:100%;padding-left:8px;padding-right:8px}
+ .zona #app .tes-report-kp{grid-template-columns:1fr;gap:8px}
+ .zona #app .tes-report-kp>.card{min-height:0;padding:12px 15px}
+ .zona #app .tes-report-kp>.card b{font-size:25px}
+ .zona #app .tes-report-tables>.card:last-child .rt{min-width:700px}
+}
