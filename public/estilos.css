@@ -1170,3 +1170,31 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
     transition-duration:.01ms!important;
   }
 }
+
+/* Barra inferior móvil: objetivos táctiles más amplios y legibles */
+@media(max-width:760px){
+  body.zona{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  .zona #bottom-nav .admin-bottom-nav{
+    min-height:66px;
+    padding:8px 7px calc(8px + env(safe-area-inset-bottom,0px));
+    gap:4px;
+  }
+  .zona #bottom-nav .admin-bottom-nav a,
+  .zona #bottom-nav .admin-bottom-nav button{
+    min-height:54px;
+    padding:5px 2px;
+    gap:5px;
+    border-radius:12px;
+    font-size:11px;
+    line-height:1.15;
+  }
+  .zona #bottom-nav .admin-bottom-nav a span,
+  .zona #bottom-nav .admin-bottom-nav button span{
+    font-size:22px;
+    line-height:1.1;
+  }
+  .zona #bottom-nav .admin-bottom-nav a.on{
+    background:var(--gs);
+    box-shadow:inset 0 0 0 1px rgba(201,151,26,.12);
+  }
+}
