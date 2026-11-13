@@ -96,7 +96,7 @@ function shell(html) {
     <div class="mn-scroll">${drawer}
       <section class="mn-extra"><a href="/">Web pública <span>↗</span></a></section>
     </div>
-    <div class="mn-footer">${ME_REAL?.admin?`<button type="button" class="mn-switch" data-a="cambiar-vista">${VISTA_HERMANA?'Volver a vista administradora':'Ver como hermana'}</button>`:'' }${ME?'<button type="button" class="mn-logout" data-a="salir"><span aria-hidden="true">↪</span>Cerrar sesión</button>':''}</div>
+    <div class="mn-footer">${ME_REAL?.admin?`<button type="button" class="mn-switch" data-a="cambiar-vista">${VISTA_HERMANA?'Volver a vista administradora':'Ver como hermana'}</button>`:'' }${ME?'<button type="button" class="mn-logout" data-a="salir">Cerrar sesión</button>':''}</div>
   </aside>` : '';
   const bottom=$('#bottom-nav');
   if(bottom) bottom.style.display = MENU ? 'none' : '';
