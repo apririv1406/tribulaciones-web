@@ -69,7 +69,7 @@ const menuGroups = () => {
   const admin = !!ME_REAL?.admin && !VISTA_HERMANA;
   const groups = [
     { title: 'Inicio', links: [['#/', 'Resumen']] },
-    { title: 'Gestión', links: [['#/calendario', 'Calendario'], ['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina'], ...(admin ? [['#/admin/eventos', 'Otros eventos']] : [])] },
+    { title: 'Gestión', links: [['#/calendario', 'Calendario'], ['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina'], ...(admin ? [['#/admin/eventos', 'Otros eventos']] : []), ...((admin || ME.tes) ? [['#/resumen-mensual', 'Resumen mensual']] : [])] },
   ];
   if (admin) groups.push({ title: 'Hermanas', links: [['#/admin/hermanas', 'Hermanas y cargos']] });
   if (ME.tes || admin) groups.push({ title: 'Economía', links: [['#/tesoreria', 'Tesorería y cuotas']] });
@@ -445,6 +445,58 @@ async function crearPDFSimple(lineas) {
   return new Blob([Uint8Array.from(pdf,ch=>ch.charCodeAt(0)&255)],{type:"application/pdf"});
 }
 
+let RESUMEN_MES = fechaHoyLocal().slice(0,7), RESUMEN_DATA = null;
+
+async function vResumenMensual() {
+  const d = await api('GET', '/modulos/resumen-mensual?periodo=' + encodeURIComponent(RESUMEN_MES));
+  RESUMEN_DATA = d;
+  const titulo = new Date(d.periodo + '-01T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  const anteriorTitulo = new Date(d.comparativa.periodo + '-01T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  const eurosDelta = (a,b) => { const v=Number(a||0)-Number(b||0); return (v>0?'+':v<0?'−':'')+euros(Math.abs(v)); };
+  const numDelta = (a,b) => { const v=Number(a||0)-Number(b||0); return (v>0?'+':'')+v; };
+  const variacion = (actual, previo) => '<small class="monthly-compare">Mes anterior: '+euros(previo)+' · '+eurosDelta(actual,previo)+'</small>';
+  const actividadDelta = (actual, previo) => '<small class="monthly-compare">Mes anterior: '+previo+' · '+numDelta(actual,previo)+'</small>';
+  const movimientos = d.movimientos || [];
+  const ingresos = movimientos.filter(x=>x.tipo==='ingreso').reduce((n,x)=>n+Number(x.importe_centimos||0),0);
+  const gastos = movimientos.filter(x=>x.tipo==='gasto').reduce((n,x)=>n+Number(x.importe_centimos||0),0);
+  const fmtFecha = x => fechaBonita(x);
+  const kpi = (label,valor,clase,comparacion) => '<article class="monthly-kpi"><span>'+label+'</span><b class="'+(clase||'')+'">'+valor+'</b>'+(comparacion||'')+'</article>';
+  const listaMovimientos = movimientos.length ? '<div class="monthly-list">'+movimientos.map(x=>'<div class="monthly-row"><span><b>'+esc(x.concepto)+'</b><small>'+fmtFecha(x.fecha)+' · '+esc(x.categoria||'Sin categoría')+'</small></span><strong class="'+(x.tipo==='ingreso'?'positive':'negative')+'">'+(x.tipo==='ingreso'?'+':'−')+euros(x.importe_centimos)+'</strong></div>').join('')+'</div>' : '<p class="mu">No hay ingresos ni gastos contabilizados en este mes.</p>';
+  const listaSabados = d.sabados.length ? '<div class="monthly-list">'+d.sabados.map(x=>'<div class="monthly-row"><span><b>'+esc(x.titulo||'Sábado de cuartel')+'</b><small>'+fmtFecha(x.fecha)+'</small></span><strong>'+Number(x.asistentes||0)+' hermanas · '+Number(x.invitadas||0)+' invitadas</strong></div>').join('')+'</div>' : '<p class="mu">No hay sábados registrados en este mes.</p>';
+  const juntas = d.juntas.length ? '<div class="monthly-list">'+d.juntas.map(x=>'<div class="monthly-row"><span><b>'+esc(x.lugar||'Junta')+'</b><small>'+fmtFecha(x.fecha)+' · '+esc(x.estado)+'</small></span><strong>'+Number(x.asistentes||0)+' asistentes</strong></div>').join('')+'</div>' : '<p class="mu">No hay juntas registradas en este mes.</p>';
+  const eventos = d.eventos.length ? '<div class="monthly-list">'+d.eventos.map(x=>'<div class="monthly-row"><span><b>'+esc(x.titulo)+'</b><small>'+fmtFecha(x.fecha)+' · '+esc(({cofradia:'Acto de cofradía',cruz_mayo:'Cruz de Mayo',cultos:'Cultos',convivencia:'Convivencia',otros:'Otros'})[x.tipo]||'Evento')+'</small></span><strong class="'+(x.estado==='cancelado'?'negative':'')+'">'+(x.estado==='cancelado'?'Cancelado':'Publicado')+'</strong></div>').join('')+'</div>' : '<p class="mu">No hay otros eventos registrados en este mes.</p>';
+  const resumenCuotas=d.cuotas||{cantidad:0,generado:0,cobrado:0,pendiente:0};
+  shell(`<div class="top"><div class="tag">Gestión del cuartel</div><h2>Resumen mensual</h2><p class="mu" style="margin:0">Una visión conjunta de la economía y la actividad, a partir de los registros existentes.</p></div>
+    <section class="monthly-report">
+      <div class="monthly-toolbar card"><div><div class="tag">Informe del periodo</div><h3>${esc(titulo)}</h3><p class="mu">Comparativa con ${esc(anteriorTitulo)}</p></div><form data-f="resumen-mes" class="monthly-period-form"><label class="fl" for="resumen-periodo">Consultar mes</label><input class="t" id="resumen-periodo" type="month" name="periodo" required value="${esc(RESUMEN_MES)}"><button class="btn">Consultar</button></form></div>
+      <div class="monthly-section-head"><div><div class="tag">Tesorería</div><h3>Situación económica</h3></div><span class="monthly-note">Movimientos confirmados · sin traspasos</span></div>
+      <div class="monthly-kpis">
+        ${kpi('Ingresos del mes',euros(ingresos),'positive',variacion(ingresos,d.comparativa.ingresos))}
+        ${kpi('Gastos del mes',euros(gastos),'negative',variacion(gastos,d.comparativa.gastos))}
+        ${kpi('Resultado del mes',euros(ingresos-gastos),ingresos-gastos>=0?'positive':'negative',variacion(ingresos-gastos,d.comparativa.resultado))}
+      </div>
+      <div class="monthly-section-head"><div><div class="tag">Cuotas</div><h3>Cuotas generadas en el periodo</h3></div></div>
+      <div class="monthly-kpis monthly-kpis-three">
+        ${kpi('Generado',euros(resumenCuotas.generado),'',actividadDelta(resumenCuotas.cantidad,d.comparativa.cuotas?.cantidad||0)+'<span class="monthly-caption">'+Number(resumenCuotas.cantidad||0)+' cuotas</span>')}
+        ${kpi('Cobrado',euros(resumenCuotas.cobrado),'positive','<span class="monthly-caption">Pagos confirmados aplicados a estas cuotas</span>')}
+        ${kpi('Pendiente de cobro',euros(resumenCuotas.pendiente),'', '<span class="monthly-caption">Pendiente actual de las cuotas de este periodo</span>')}
+      </div>
+      <div class="monthly-section-head"><div><div class="tag">Actividad</div><h3>Vida del cuartel</h3></div></div>
+      <div class="monthly-kpis monthly-kpis-three">
+        ${kpi('Sábados celebrados',String(d.sabados_programados), '', actividadDelta(d.sabados_programados,d.comparativa.sabados_programados))}
+        ${kpi('Asistencia total',String(d.asistencia), '', actividadDelta(d.asistencia,d.comparativa.asistencia))}
+        ${kpi('Juntas celebradas',String(d.juntas_celebradas), '', actividadDelta(d.juntas_celebradas,d.comparativa.juntas_celebradas))}
+      </div>
+      <div class="monthly-detail-grid">
+        <section class="card"><div class="tag">Contabilidad</div><h3>Ingresos y gastos</h3>${listaMovimientos}</section>
+        <section class="card"><div class="tag">Sábados</div><h3>Asistencia y convivencia</h3>${listaSabados}</section>
+        <section class="card"><div class="tag">Secretaría</div><h3>Juntas</h3>${juntas}</section>
+        <section class="card"><div class="tag">Agenda</div><h3>Otros eventos</h3>${eventos}</section>
+      </div>
+      <div class="monthly-export"><div><b>Informe mensual en PDF</b><small>Resumen económico, cuotas, asistencia, juntas y eventos.</small></div><button class="btn" type="button" data-a="resumen-pdf"> <span aria-hidden="true">↓</span> Exportar PDF</button></div>
+    </section>`);
+}
+
 async function vTesoreria() {
   const d = await api('GET', '/modulos/tesoreria');
   const ingresos=d.totales.ingresos, gastos=d.totales.gastos, saldo=Number(d.totales.saldo_centimos||0);
@@ -777,6 +829,7 @@ const FORM = {
   async 'tes-config'(f,d) { await api('PUT','/modulos/tesoreria/config',{cuota_mensual:d.get('cuota_mensual'),sabado_precio:d.get('sabado_precio'),invitada_precio:d.get('invitada_precio'),copa_precio:d.get('copa_precio'),refresco_precio:d.get('refresco_precio'),cocina_precio_persona:d.get('cocina_precio_persona'),personas_por_turno:d.get('personas_por_turno')}); toast('Parámetros guardados'); render(); },
   async 'tes-extras'(f) { const cuotas_extraordinarias=[...f.querySelectorAll('.extra-row')].map(r=>({nombre:r.querySelector('[name=nombre]').value,categoria:r.querySelector('[name=categoria]').value,importe:r.querySelector('[name=importe]').value,tipo:r.querySelector('[name=tipo]').value})); await api('PUT','/modulos/tesoreria/config',{cuotas_extraordinarias}); toast('Cuotas extraordinarias guardadas'); render(); },
   async 'cocina-sorteo'(f,d) { const r=await api('POST','/modulos/cocina/sorteo',{personas_por_turno:d.get('personas_por_turno')}); COCINA_SORTEO_RESULTADO=r.asignaciones||[]; toast('Sorteo realizado: '+r.turnos_sorteados+' turnos'+(r.turnos_omitidos?' · '+r.turnos_omitidos+' ya tenían asignación y se han conservado':'')); render(); },
+  async 'resumen-mes'(f,d) { const p=String(d.get('periodo')||''); if(!/^\\d{4}-(0[1-9]|1[0-2])$/.test(p)) throw new Error('Selecciona un mes válido'); RESUMEN_MES=p; await vResumenMensual(); },
   async 'tes-filtro'(f,d) { TES_FILTRO={tipo:d.get('tipo')||'todos',texto:d.get('texto')||'',desde:d.get('desde')||'',hasta:d.get('hasta')||'',cuenta:d.get('cuenta')||'',hermana:d.get('hermana')||'',anio:d.get('anio')||'',categoria:d.get('categoria')||''}; if(TES_FILTRO.desde && TES_FILTRO.hasta && TES_FILTRO.desde>TES_FILTRO.hasta) throw new Error('La fecha inicial no puede ser posterior a la final'); render(); },
   async 'tes-movimiento'(f,d) { await api('POST','/modulos/tesoreria/movimientos',{tipo:d.get('tipo'),fecha:d.get('fecha'),concepto:d.get('concepto'),categoria:d.get('categoria'),cuenta:d.get('cuenta'),importe:d.get('importe')}); TES_MOV_MODAL=false; toast('Movimiento registrado'); render(); },
   async 'tes-traspaso'(f,d) { await api('POST','/modulos/tesoreria/traspasos',{fecha:d.get('fecha'),importe:d.get('importe'),origen:d.get('origen'),destino:d.get('destino')}); TES_TRANSFER_MODAL=false; toast('Traspaso registrado'); render(); },
@@ -821,6 +874,7 @@ const ACT = {
   'cal-next'() { CAL_MES=new Date(CAL_MES.getFullYear(),CAL_MES.getMonth()+1,1); render(); },
   'cal-hoy'() { CAL_MES=new Date(new Date().getFullYear(),new Date().getMonth(),1); CAL_SELECCION=fechaISOlocal(new Date()); render(); },
   'cal-dia'(el) { CAL_SELECCION=el.dataset.fecha; shell(vCalendarioHTML(CAL_EVENTOS)); },
+  async 'resumen-pdf'() { if(!RESUMEN_DATA) return; const d=RESUMEN_DATA, p=d.periodo, t=new Date(p+'-01T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'}), m=d.movimientos||[], ing=m.filter(x=>x.tipo==='ingreso').reduce((n,x)=>n+Number(x.importe_centimos||0),0), gas=m.filter(x=>x.tipo==='gasto').reduce((n,x)=>n+Number(x.importe_centimos||0),0), q=d.cuotas||{}; const lineas=['LAS TRIBULACIONES DE SARA','RESUMEN MENSUAL · '+t,'','SITUACIÓN ECONÓMICA','Ingresos: '+euros(ing),'Gastos: '+euros(gas),'Resultado: '+euros(ing-gas),'Movimientos contabilizados: '+m.length,'','CUOTAS DEL PERIODO','Cuotas generadas: '+Number(q.cantidad||0)+' · '+euros(q.generado),'Cobrado: '+euros(q.cobrado),'Pendiente actual: '+euros(q.pendiente),'','ACTIVIDAD DEL CUARTEL','Sábados celebrados: '+d.sabados_programados,'Asistencia: '+d.asistencia+' ('+d.hermanas_asistentes+' hermanas, '+d.invitadas+' invitadas)','Juntas celebradas: '+d.juntas_celebradas,'','MOVIMIENTOS']; m.slice(0,14).forEach(x=>lineas.push(x.fecha+' · '+String(x.concepto||'').slice(0,38)+' · '+(x.tipo==='gasto'?'-':'+')+euros(x.importe_centimos))); if(m.length>14) lineas.push('... y '+(m.length-14)+' movimientos más (consulta la web).'); lineas.push('','SÁBADOS'); (d.sabados||[]).slice(0,6).forEach(x=>lineas.push(x.fecha+' · '+String(x.titulo||'Sábado').slice(0,34)+' · '+x.asistentes+' hermanas / '+x.invitadas+' invitadas)); if(d.juntas?.length) { lineas.push('','JUNTAS'); d.juntas.slice(0,4).forEach(x=>lineas.push(x.fecha+' · '+String(x.lugar||'Junta').slice(0,35)+' · '+x.estado)); } if(d.eventos?.length) { lineas.push('','OTROS EVENTOS'); d.eventos.slice(0,4).forEach(x=>lineas.push(x.fecha+' · '+String(x.titulo||'').slice(0,38)+' · '+(x.estado==='cancelado'?'Cancelado':'Publicado'))); } await entregarPDF(await crearPDFSimple(lineas),'resumen-mensual-'+p+'.pdf','Resumen mensual · '+t,'Informe mensual de Las Tribulaciones de Sara'); },
   'module-tab'(el) { const k=el.dataset.tab; if(el.dataset.module==='cuenta') CUENTA_TAB=k; if(el.dataset.module==='cocina') COCINA_TAB=k; if(el.dataset.module==='tesoreria') TES_TAB=k; if(el.dataset.module==='tesrec') TES_REC_TAB=k; if(el.dataset.module==='tescfg') TES_CFG_TAB=k; if(el.dataset.module==='adminher') ADMIN_HERM_TAB=k; if(el.dataset.module==='actas') ACTAS_TAB=k; render(); },
   'extra-add'() { $('#tes-extras-rows').insertAdjacentHTML('beforeend',extraRow({})); },
   'extra-del'(el) { el.closest('.extra-row').remove(); },
@@ -1018,6 +1072,7 @@ async function render() {
     if (!ME) return vLogin();
     if (h === '#/perfil') return vPerfil();
     if (h === '#/calendario') return await vCalendario();
+    if (h === '#/resumen-mensual') return ME.admin || ME.tes ? await vResumenMensual() : await vInicio();
     if (h === '#/admin/eventos') return ME.admin ? await vAdminEventos() : await vInicio();
     if (h === '#/sabados') return await vSabados();
     if (h === '#/cuenta') return await vCuenta();
