@@ -340,6 +340,30 @@ export async function routeModulos(req, env, me, method, path, body) {
     ]);
     return J({ok:true,turno_id:turnoId,hermana_sale_id:me.id,hermana_entra_id:nueva});
   }
+  if ((m = path.match(/^\/api\/modulos\/cocina\/(\d+)\/intercambio$/)) && method === 'POST') {
+    const origenId=Number(m[1]), destinoId=num(body.turno_destino_id), hermanaId=num(body.hermana_destino_id);
+    if (!Number.isInteger(destinoId)||destinoId<=0||!Number.isInteger(hermanaId)||hermanaId<=0||origenId===destinoId) return E('Selecciona otro sábado y una hermana para intercambiar');
+    const origen=await env.DB.prepare('SELECT id,fecha FROM turnos_cocina WHERE id=?').bind(origenId).first();
+    const destino=await env.DB.prepare('SELECT id,fecha FROM turnos_cocina WHERE id=?').bind(destinoId).first();
+    if(!origen||!destino) return E('No se ha encontrado uno de los turnos',404);
+    const hoy=new Date().toISOString().slice(0,10);
+    if(origen.fecha<hoy||destino.fecha<hoy) return E('Solo se pueden intercambiar turnos futuros');
+    const propia=await env.DB.prepare('SELECT id FROM turnos_cocina_hermanas WHERE turno_id=? AND hermana_id=?').bind(origenId,me.id).first();
+    const compañera=await env.DB.prepare('SELECT id FROM turnos_cocina_hermanas WHERE turno_id=? AND hermana_id=?').bind(destinoId,hermanaId).first();
+    if(!propia||!compañera) return E('No tienes asignado el turno de origen o la hermana no está en el turno elegido',403);
+    const yaDestino=await env.DB.prepare('SELECT id FROM turnos_cocina_hermanas WHERE turno_id=? AND hermana_id=?').bind(destinoId,me.id).first();
+    const yaOrigen=await env.DB.prepare('SELECT id FROM turnos_cocina_hermanas WHERE turno_id=? AND hermana_id=?').bind(origenId,hermanaId).first();
+    if(yaDestino||yaOrigen) return E('El intercambio no es válido porque una ya está asignada al otro sábado');
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM turnos_cocina_hermanas WHERE turno_id=? AND hermana_id=?').bind(origenId,me.id),
+      env.DB.prepare('DELETE FROM turnos_cocina_hermanas WHERE turno_id=? AND hermana_id=?').bind(destinoId,hermanaId),
+      env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(origenId,hermanaId),
+      env.DB.prepare('INSERT INTO turnos_cocina_hermanas(turno_id,hermana_id) VALUES(?,?)').bind(destinoId,me.id),
+      env.DB.prepare('INSERT INTO lts_cambios_cocina(turno_id,hermana_sale_id,hermana_entra_id,registrado_por) VALUES(?,?,?,?)').bind(origenId,me.id,hermanaId,me.id),
+      env.DB.prepare('INSERT INTO lts_cambios_cocina(turno_id,hermana_sale_id,hermana_entra_id,registrado_por) VALUES(?,?,?,?)').bind(destinoId,hermanaId,me.id,me.id)
+    ]);
+    return J({ok:true,turno_origen_id:origenId,turno_destino_id:destinoId});
+  }
   if (path === '/api/modulos/cocina/tickets' && method === 'POST') {
     const mdata = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(body.datos || ''));
     if (!mdata || mdata[2].length > 1400000) return E('El ticket debe ser JPG, PNG, WEBP o PDF y no superar 1 MB');
