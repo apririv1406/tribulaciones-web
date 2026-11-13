@@ -782,3 +782,51 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 @media(max-width:600px){.calendar-wrap{margin:12px auto 35px}.calendar-head{align-items:flex-start}.calendar-controls{width:100%;justify-content:space-between}.calendar-controls>b{min-width:0;flex:1}.calendar-grid{gap:4px}.cal-day,.cal-empty{min-height:58px;border-radius:9px}.cal-day{padding:7px 2px;gap:6px}.calendar-day-events{padding:15px}.calendar-event-type{font-size:10px}}
 
 .cal-day.selected{outline:2px solid var(--br);outline-offset:1px;background:var(--gs)}
+
+
+/* Calendario escritorio: celdas amplias con actividad legible */
+.zona #app .calendar-wrap{width:100%;max-width:1280px;margin:30px auto 56px}
+.zona #app .calendar-head{align-items:center;padding:0 2px 18px;border-bottom:1px solid var(--ln)}
+.zona #app .calendar-head>div:first-child{min-width:260px}
+.zona #app .calendar-head h2{font-size:32px;line-height:1.1}
+.zona #app .calendar-controls{padding:7px;border:1px solid var(--ln);border-radius:14px;background:var(--pa)}
+.zona #app .calendar-controls .chip{min-width:40px;height:38px;margin:0;border-radius:10px;font-size:14px}
+.zona #app .calendar-controls>b{min-width:180px;font-size:16px}
+.zona #app .calendar-grid{grid-template-columns:repeat(7,minmax(0,1fr));gap:9px}
+.zona #app .calendar-weekdays{margin:18px 0 8px;padding:0 2px;text-transform:uppercase;letter-spacing:.08em;font-size:11px}
+.zona #app .cal-day,.zona #app .cal-empty{box-sizing:border-box;min-width:0;min-height:132px;border:1px solid var(--ln);border-radius:13px;background:var(--pa)}
+.zona #app .cal-day{display:flex;align-items:stretch;justify-content:flex-start;gap:7px;padding:11px;text-align:left;overflow:hidden;transition:border-color .15s,background .15s,box-shadow .15s}
+.zona #app .cal-day:hover{border-color:var(--go);box-shadow:0 4px 14px rgba(59,44,28,.07)}
+.zona #app .cal-day-number{display:grid;place-items:center;width:29px;height:29px;flex:0 0 29px;border-radius:50%;font-size:14px}
+.zona #app .cal-day.today .cal-day-number{background:var(--dk);color:#fff}
+.zona #app .cal-day.selected{outline:0;border:2px solid var(--gd);background:var(--gs);padding:10px}
+.zona #app .cal-day-dots{display:none!important}
+.zona #app .cal-day-labels{display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;min-width:0}
+.zona #app .cal-mini-event{display:block;max-width:100%;overflow:hidden;padding:4px 6px;border-radius:5px;font-size:10px;font-style:normal;font-weight:600;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
+.zona #app .cal-mini-event.sabado{background:#f4ead0;color:#745517}
+.zona #app .cal-mini-event.junta{background:#e5edf5;color:#405c79}
+.zona #app .cal-mini-event.cocina{background:#e7eee3;color:#4e6847}
+.zona #app .cal-day>small{margin-top:auto;font-size:10px;color:var(--mu)}
+.zona #app .calendar-day-events{margin-top:26px;padding:23px 26px;border-radius:16px}
+.zona #app .calendar-day-events h3{font-size:23px}
+.zona #app .calendar-event{padding:15px 4px}
+@media(max-width:1000px) and (min-width:761px){
+ .zona #app .calendar-grid{gap:6px}
+ .zona #app .cal-day,.zona #app .cal-empty{min-height:105px}
+ .zona #app .cal-day{padding:8px}
+ .zona #app .cal-mini-event{font-size:9px}
+}
+@media(max-width:760px){
+ .zona #app .calendar-wrap{width:100%;max-width:none;margin:12px auto 35px}
+ .zona #app .calendar-head{border:0;padding:0}
+ .zona #app .calendar-head h2{font-size:27px}
+ .zona #app .calendar-grid{gap:4px}
+ .zona #app .cal-day,.zona #app .cal-empty{min-height:58px}
+ .zona #app .cal-day{align-items:center;text-align:center;padding:7px 2px;gap:6px}
+ .zona #app .cal-day-number{width:auto;height:auto;display:block;flex:initial;border-radius:0}
+ .zona #app .cal-day-dots{display:flex!important;flex-direction:row;justify-content:center;gap:4px;min-height:8px}
+ .zona #app .cal-day-labels{display:none}
+ .zona #app .cal-day>small{margin:0;font-size:9px}
+ .zona #app .calendar-controls{padding:0;border:0;background:transparent}
+ .zona #app .calendar-controls>b{min-width:0}
+}
