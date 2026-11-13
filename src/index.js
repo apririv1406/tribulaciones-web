@@ -103,7 +103,7 @@ async function userOf(req, env) {
   if (!sid) return null;
   const r = await env.DB.prepare(`SELECT h.id,h.nombre,h.email,h.estado,h.es_admin,c.nombre cargo,COALESCE(c.permiso,'none') permiso FROM sesiones s JOIN hermanas h ON h.id=s.hermana_id LEFT JOIN cargos c ON c.id=h.cargo_id WHERE s.id=? AND s.expira>? AND h.estado!='Baja'`).bind(await sha(sid), Date.now()).first();
   if (!r) return null;
-  return { id: r.id, nombre: r.nombre, email: r.email, estado: r.estado, cargo: r.cargo, admin: !!r.es_admin, tes: !!(r.es_admin || r.permiso === 'tes'), actas: !!(r.es_admin || r.permiso === 'actas') };
+  return { id: r.id, nombre: r.nombre, email: r.email, estado: r.estado, cargo: r.cargo, cargo_permiso: r.permiso, admin: !!r.es_admin, tes: !!(r.es_admin || r.permiso === 'tes'), actas: !!(r.es_admin || r.permiso === 'actas') };
 }
 async function session(req, env, hid, body = { ok: true }, redirect) {
   const raw = rand(32);
