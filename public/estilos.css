@@ -830,3 +830,21 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
  .zona #app .calendar-controls{padding:0;border:0;background:transparent}
  .zona #app .calendar-controls>b{min-width:0}
 }
+
+
+/* Agenda de eventos especiales */
+.cal-dot.evento{background:#a66a83}
+.cal-mini-event.evento{background:#f2e6ed;color:#75465d}
+.zona #app .home-events{margin:0 0 24px;padding:18px 20px;border:1px solid var(--ln);border-radius:17px;background:var(--pa)}
+.zona #app .home-events-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.zona #app .home-events-head h2{margin:3px 0 0;font-size:23px}
+.zona #app .home-events-head>a{color:var(--gd);font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap}
+.zona #app .home-event-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--ln);color:var(--tx);text-decoration:none}
+.zona #app .home-event-date{display:flex;flex:none;flex-direction:column;align-items:center;justify-content:center;width:46px;height:48px;border-radius:11px;background:#f2e6ed;color:#75465d}
+.zona #app .home-event-date b{font:700 21px "Cormorant Garamond",Georgia,serif;line-height:1}
+.zona #app .home-event-date small{font-size:10px;text-transform:uppercase}
+.zona #app .home-event-copy{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
+.zona #app .home-event-copy b{color:var(--dk);font-size:13px}
+.zona #app .home-event-copy small{color:var(--mu);font-size:11px;line-height:1.35}
+.zona #app .home-event-arrow{color:var(--gd)}
+@media(max-width:600px){.zona #app .home-events{padding:15px 13px}.zona #app .home-events-head h2{font-size:21px}.zona #app .home-event-row{gap:9px}}
