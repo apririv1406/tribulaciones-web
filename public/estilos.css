@@ -482,3 +482,25 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .profile-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:16px;align-items:start;margin:16px 0 30px}.profile-card{max-width:680px}.profile-photo{width:104px;height:104px;margin:0 auto 12px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,var(--gs),var(--go));color:var(--dk);font:700 32px "Cormorant Garamond",Georgia,serif}.profile-photo img{width:100%;height:100%;object-fit:cover}.profile-heading{text-align:center;margin-bottom:20px}.profile-heading h3{margin:0}.profile-heading p{margin:4px 0}.profile-help{display:block;margin-top:6px}.profile-file{padding:9px!important}.profile-remove{display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--mu);font-size:13px}.profile-security h3{margin-top:4px}@media(max-width:760px){.profile-layout{grid-template-columns:minmax(0,1fr);gap:12px}.profile-card,.profile-security{max-width:none}.admin-subnav{gap:16px}.admin-subnav a{font-size:12px;padding:10px 1px}}
 
 .profile-allergies{border-top:1px solid var(--ln);margin-top:20px;padding-top:18px}.profile-allergy-tags{justify-content:flex-start;margin-top:10px}.profile-allergy-tags .chip{font-size:12px;padding:7px 10px}.profile-allergy-tags input{accent-color:var(--gd)}.profile-allergies textarea{min-height:84px}
+
+/* Convocatoria: controles de fecha, hora y texto con el mismo aspecto */
+.zona #app .actas-junta-fields input.t,.zona #app .actas-junta-fields input[type="date"],.zona #app .actas-junta-fields input[type="time"]{display:block;width:100%;min-width:0;max-width:100%;height:46px;min-height:46px;box-sizing:border-box;padding:11px 13px;border:1px solid #e4d8c1;border-radius:11px;background:#fff;color:var(--tx);font:400 15px Inter,system-ui,sans-serif;line-height:22px;color-scheme:light;appearance:none;-webkit-appearance:none}
+.zona #app .actas-junta-fields input[type="date"]::-webkit-date-and-time-value,.zona #app .actas-junta-fields input[type="time"]::-webkit-date-and-time-value{text-align:left}
+.zona #app .actas-junta-fields input:focus{outline:none;border-color:var(--gd);box-shadow:0 0 0 3px rgba(201,151,26,.13)}
+/* Tipografía uniforme en los menús y submenús */
+.zona nav .nav-trigger{font:500 14px Inter,system-ui,sans-serif!important}
+.zona nav .nav-menu a{font:500 14px Inter,system-ui,sans-serif!important;line-height:1.35;padding:10px 13px}
+.zona #app .sub button{font:500 14px Inter,system-ui,sans-serif;padding:11px 3px}
+.zona #app .sub button.on{font-weight:600}
+.mn-group>span{font-size:11px;line-height:1.35}
+.mn-group>a{font-size:14px;line-height:1.4}
+/* Desplegables de asignación de cocina */
+.cocina-assignment-slot{display:block;min-width:0;margin:8px 0}
+.cocina-assignment-slot .t{margin-top:5px}
+.cocina-draw-row{display:grid;grid-template-columns:minmax(130px,.7fr) minmax(0,1.5fr);gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--ln)}
+.cocina-draw-row>div{display:flex;flex-direction:column;gap:4px}
+.cocina-draw-selects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:end}
+.cocina-draw-selects .fl{margin:0;font-size:12px}
+.cocina-draw-selects .t{margin-top:4px}
+.cocina-draw-selects .chip{grid-column:1/-1;justify-self:start}
+@media(max-width:700px){.cocina-draw-row{grid-template-columns:minmax(0,1fr);gap:6px}.cocina-draw-selects{grid-template-columns:minmax(0,1fr)}.cocina-draw-selects .chip{grid-column:auto}}
