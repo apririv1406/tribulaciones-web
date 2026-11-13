@@ -1142,6 +1142,7 @@ document.addEventListener('input', e => {
   filas.forEach(f=>{
     const coincide=!texto || f.textContent.toLocaleLowerCase('es').includes(texto);
     f.hidden=!coincide;
+    f.style.display=coincide?'':'none';
     if(coincide) visibles++;
   });
   const contador=document.getElementById('hermanas-search-count');
