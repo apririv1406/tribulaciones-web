@@ -104,6 +104,61 @@ export async function routeModulos(req, env, me, method, path, body) {
     await env.DB.prepare("UPDATE eventos_cuartel SET titulo=?,tipo=?,fecha=?,hora=?,lugar=?,descripcion=?,estado=?,actualizado=datetime('now') WHERE id=?").bind(titulo,tipos.includes(body.tipo)?body.tipo:actual.tipo,fecha,txt(body.hora??actual.hora,10)||null,txt(body.lugar??actual.lugar,180)||null,txt(body.descripcion??actual.descripcion,3000)||null,body.estado==='cancelado'?'cancelado':'publicado',id).run();
     return J({ok:true});
   }
+  // RESUMEN MENSUAL: consulta agregada sobre datos existentes; no crea ni duplica registros.
+  if (path === '/api/modulos/resumen-mensual' && method === 'GET') {
+    if (!me.admin && !tes(me)) return E('No tienes permiso para consultar el resumen mensual', 403);
+    const periodo = txt(url.searchParams.get('periodo'), 7);
+    if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) return E('Indica un mes válido');
+    const [anio, mes] = periodo.split('-').map(Number);
+    const inicio = periodo + '-01';
+    const fin = new Date(Date.UTC(anio, mes, 0)).toISOString().slice(0, 10);
+    const anteriorDate = new Date(Date.UTC(anio, mes - 2, 1));
+    const anterior = anteriorDate.getUTCFullYear() + '-' + String(anteriorDate.getUTCMonth() + 1).padStart(2, '0');
+
+    const resumenPeriodo = async p => {
+      const [movimientos, cuotas, sabados, juntas, eventos] = await Promise.all([
+        rows(env.DB.prepare(`SELECT tipo,fecha,concepto,categoria,importe_centimos FROM movimientos
+          WHERE fecha>=? AND fecha<=? AND tipo IN ('ingreso','gasto')
+          AND traspaso_id IS NULL AND estado='confirmado' ORDER BY fecha,id`)
+          .bind(p + '-01', new Date(Date.UTC(Number(p.slice(0,4)), Number(p.slice(5,7)), 0)).toISOString().slice(0,10))),
+        env.DB.prepare(`SELECT COUNT(*) cantidad,COALESCE(SUM(c.importe_centimos),0) generado,
+          COALESCE(SUM((SELECT COALESCE(SUM(pg.importe_centimos),0) FROM pagos pg WHERE pg.cuota_id=c.id AND pg.estado='confirmado')+
+            (SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos pg ON pg.id=pa.pago_id WHERE pa.cuota_id=c.id AND pg.estado='confirmado')),0) cobrado,
+          COALESCE(SUM(MAX(0,c.importe_centimos-
+            (SELECT COALESCE(SUM(pg.importe_centimos),0) FROM pagos pg WHERE pg.cuota_id=c.id AND pg.estado='confirmado')-
+            (SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos pg ON pg.id=pa.pago_id WHERE pa.cuota_id=c.id AND pg.estado='confirmado'))),0) pendiente
+          FROM cuotas c WHERE c.periodo=?`).bind(p).first(),
+        rows(env.DB.prepare(`SELECT s.id,s.fecha,s.titulo,s.estado,
+          (SELECT COUNT(*) FROM asistencias_sabado a WHERE a.sabado_id=s.id AND a.asiste=1) asistentes,
+          (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a WHERE a.sabado_id=s.id AND a.asiste=1) invitadas
+          FROM sabados s WHERE s.fecha>=? AND s.fecha<=? ORDER BY s.fecha,s.id`)
+          .bind(p + '-01', new Date(Date.UTC(Number(p.slice(0,4)), Number(p.slice(5,7)), 0)).toISOString().slice(0,10))),
+        rows(env.DB.prepare(`SELECT j.id,j.fecha,j.hora,j.lugar,j.estado,
+          (SELECT COUNT(*) FROM asistencia_junta a WHERE a.junta_id=j.id AND a.asiste=1) asistentes
+          FROM juntas j WHERE j.fecha>=? AND j.fecha<=? ORDER BY j.fecha,j.id`)
+          .bind(p + '-01', new Date(Date.UTC(Number(p.slice(0,4)), Number(p.slice(5,7)), 0)).toISOString().slice(0,10))),
+        rows(env.DB.prepare(`SELECT id,titulo,tipo,fecha,hora,lugar,estado FROM eventos_cuartel
+          WHERE fecha>=? AND fecha<=? ORDER BY fecha,id`)
+          .bind(p + '-01', new Date(Date.UTC(Number(p.slice(0,4)), Number(p.slice(5,7)), 0)).toISOString().slice(0,10)))
+      ]);
+      const ingresos = movimientos.filter(x => x.tipo === 'ingreso').reduce((n,x) => n + Number(x.importe_centimos || 0), 0);
+      const gastos = movimientos.filter(x => x.tipo === 'gasto').reduce((n,x) => n + Number(x.importe_centimos || 0), 0);
+      const sabadosCelebrados = sabados.filter(x => x.estado !== 'cancelado');
+      const juntasCelebradas = juntas.filter(x => x.estado === 'celebrada');
+      return {
+        periodo: p, ingresos, gastos, resultado: ingresos - gastos, movimientos: movimientos.length,
+        cuotas: cuotas || { cantidad: 0, generado: 0, cobrado: 0, pendiente: 0 },
+        sabados: sabadosCelebrados, sabados_programados: sabados.filter(x => x.estado !== 'cancelado').length,
+        asistencia: sabadosCelebrados.reduce((n,x) => n + Number(x.asistentes || 0) + Number(x.invitadas || 0), 0),
+        hermanas_asistentes: sabadosCelebrados.reduce((n,x) => n + Number(x.asistentes || 0), 0),
+        invitadas: sabadosCelebrados.reduce((n,x) => n + Number(x.invitadas || 0), 0),
+        juntas, juntas_celebradas: juntasCelebradas.length, eventos
+      };
+    };
+    const [actual, comparativa] = await Promise.all([resumenPeriodo(periodo), resumenPeriodo(anterior)]);
+    return J({ ...actual, comparativa });
+  }
+
   // SÁBADOS Y ASISTENCIA
   if (path === '/api/modulos/sabados' && method === 'GET') {
     await syncCargosHermanas(env.DB);
