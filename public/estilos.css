@@ -1257,10 +1257,5 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 }
 
 
-/* Indicador activo discreto para las áreas de administración */
-.zona #nav .nav-drop.active>.nav-trigger{background:var(--gs);color:var(--dk);box-shadow:inset 0 0 0 1px var(--go);font-weight:650}
-
-/* Tesorería conserva el estado activo tipo botón */
-.zona #app .tesoreria>.sub{align-items:center;gap:7px;padding:6px;border:1px solid var(--ln);border-radius:12px;background:var(--sf)}
-.zona #app .tesoreria>.sub button{padding:9px 12px;border:1px solid transparent;border-radius:9px}
-.zona #app .tesoreria>.sub button.on{background:var(--gs);border-color:var(--go);color:var(--dk);font-weight:700;box-shadow:0 2px 7px rgba(59,44,28,.055)}
+/* Navegación de administración: acceso directo y activo discreto */
+.zona #nav .nav-single.on{background:var(--gs);color:var(--dk);font-weight:650}
