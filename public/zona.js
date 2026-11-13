@@ -1181,7 +1181,7 @@ document.addEventListener('click', async e => {
   e.preventDefault();
   try { await ACT[el.dataset.a](el); } catch (er) { toast(er.message, true); }
 });
-async function entrar() { ME_REAL = await api('GET', '/me'); VISTA_HERMANA = false; aplicarVista(); location.hash = '#/'; render(); }
+async function entrar() { ME_REAL = await api('GET', '/me'); VISTA_HERMANA = !!ME_REAL.admin; aplicarVista(); location.hash = '#/'; render(); }
 
 /* ---------- arranque ---------- */
 async function render() {
@@ -1211,4 +1211,4 @@ async function render() {
   }
 }
 addEventListener('hashchange', render);
-(async () => { try { ME_REAL = await api('GET', '/me'); VISTA_HERMANA = false; aplicarVista(); } catch { ME = null; ME_REAL = null; } render(); })();
+(async () => { try { ME_REAL = await api('GET', '/me'); VISTA_HERMANA = !!ME_REAL.admin; aplicarVista(); } catch { ME = null; ME_REAL = null; } render(); })();
