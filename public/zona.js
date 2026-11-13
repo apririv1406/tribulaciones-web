@@ -94,7 +94,7 @@ function shell(html) {
   $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><aside class="mn" aria-label="Menú de navegación">
     <div class="mn-head"><a href="#/perfil" class="mn-user">${fotoMenu}<span><b>${esc(ME?.nombre || 'Hermana')}</b><small>${esc(ME?.cargo || 'Zona hermana')}</small></span></a><button class="x" data-a="menu" aria-label="Cerrar menú">×</button></div>
     <div class="mn-scroll">${drawer}
-      <section class="mn-extra"><a href="#/perfil">Mi perfil <span>›</span></a><a href="/">Web pública <span>↗</span></a>
+      <section class="mn-extra"><a href="/">Web pública <span>↗</span></a>
       ${ME_REAL?.admin?`<button type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Volver a vista administradora':'Ver como hermana'}</button>`:''}
       ${ME?'<button type="button" data-a="salir">Cerrar sesión</button>':''}</section>
     </div>
