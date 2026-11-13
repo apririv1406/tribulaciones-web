@@ -94,9 +94,11 @@ function shell(html) {
   $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><aside class="mn" aria-label="Menú de navegación">
     <div class="mn-head"><a href="#/perfil" class="mn-user">${fotoMenu}<span><b>${esc(ME?.nombre || 'Hermana')}</b><small>${esc(ME?.cargo || 'Zona hermana')}</small></span></a><button class="x" data-a="menu" aria-label="Cerrar menú">×</button></div>
     <div class="mn-scroll">${drawer}
-      <section class="mn-extra"><a href="/">Web pública <span>↗</span></a>
-      ${ME_REAL?.admin?`<button type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Volver a vista administradora':'Ver como hermana'}</button>`:''}
-      ${ME?'<button type="button" data-a="salir">Cerrar sesión</button>':''}</section>
+      <section class="mn-extra"><a href="/">Web pública <span>↗</span></a></section>
+    </div>
+    <div class="mn-footer">
+      ${ME_REAL?.admin?`<button type="button" class="mn-switch" data-a="cambiar-vista">${VISTA_HERMANA?'Volver a vista administradora':'Ver como hermana'}</button>`:''}
+      ${ME?'<button type="button" class="mn-logout" data-a="salir"><span aria-hidden="true">↪</span>Cerrar sesión</button>':''}
     </div>
   </aside>` : '';
   const bottom=$('#bottom-nav');
@@ -233,8 +235,8 @@ async function vSabados() {
     return `<article class="card sab ${pasado ? 'past' : ''} ${s.id === siguiente?.id ? 'sab-featured' : ''}">
       <div class="date"><b>${esc(dia)}</b><span>${esc(mes)}</span></div>
       <div class="bd">
-        <div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">${esc(s.titulo)}</h3><span class="pill ${puedeEditar?'ok':''}">${pasado?'Celebrado':s.estado==='cancelado'?'Cancelado':puedeEditar?'Abierto hasta jueves, 23:00':'Confirmación cerrada'}</span></div>
-        <div class="menu" style="margin:6px 0 12px">${fechaBonita(s.fecha)}${s.hora?' · '+esc(s.hora):''}</div>
+        <div class="sab-card-head"><h3>${esc(s.titulo)}</h3><div class="sab-status"><span class="pill ${puedeEditar?'ok':''}">${pasado?'Celebrado':s.estado==='cancelado'?'Cancelado':puedeEditar?'Confirmación abierta':'Plazo cerrado'}</span>${puedeEditar?'<small>Hasta el jueves · 23:00</small>':''}</div></div>
+        <div class="menu sab-date-line">${fechaBonita(s.fecha)}${s.hora?' · '+esc(s.hora):''}</div>
         ${!pasado && abierto && puedeEditar ? `<form data-f="sabado-rsvp" data-id="${s.id}" data-plazas-otras="${Math.max(0,plazas-(s.mi_asistencia===1?1:0)-invitadas)}" data-precio-sabado="${Number(s.precio_sabado_centimos ?? precioSabado)}" data-precio-invitada="${Number(s.precio_invitada_centimos ?? precioInvitada)}" style="margin-top:10px">
           <div class="seg"><button type="button" class="${respondida && asiste?'y':''}" data-a="rsvp-choice" data-value="1" aria-pressed="${respondida && asiste}">Voy</button><button type="button" class="${respondida && !asiste?'n':''}" data-a="rsvp-choice" data-value="0" aria-pressed="${respondida && !asiste}">No voy</button></div>
           <input type="hidden" name="asiste" value="${respondida?(asiste?'1':'0'):''}">
