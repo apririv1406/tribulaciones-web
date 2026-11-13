@@ -716,3 +716,36 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
  .zona #app .sab .rsvp-pay>b{font-size:21px}
  .zona #app .sab .btn{width:100%}
 }
+
+
+/* Menú móvil: cierre de sesión visible y separado */
+.mn{padding:0;gap:0}
+.mn-scroll{min-height:0;flex:1;overflow-y:auto;padding:8px 17px 14px}
+.mn-extra{padding-bottom:8px}
+.mn-footer{flex:none;display:grid;gap:8px;padding:13px 17px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--ln);background:var(--pa);box-shadow:0 -5px 18px rgba(59,44,28,.045)}
+.mn-footer>button{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:47px;padding:11px 14px;border:1px solid var(--ln);border-radius:12px;font:700 13px Inter,system-ui,sans-serif;cursor:pointer}
+.mn-footer>.mn-switch{background:var(--gs);color:var(--dk)}
+.mn-footer>.mn-logout{border-color:#a43c35;background:#a43c35;color:#fff;box-shadow:0 4px 12px rgba(164,60,53,.18)}
+.mn-footer>.mn-logout span{font-size:18px;line-height:1}
+.mn-footer>.mn-logout:hover{background:#87302b}
+.mn-footer>button:focus-visible{outline:3px solid rgba(201,151,26,.45);outline-offset:2px}
+
+/* Sábados: estado y plazo en dos niveles, sin etiquetas largas */
+.zona #app .sab-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
+.zona #app .sab-card-head h3{margin:0;min-width:0;line-height:1.2}
+.zona #app .sab-status{display:flex;flex:none;flex-direction:column;align-items:flex-end;gap:4px;max-width:48%;text-align:right}
+.zona #app .sab-status .pill{display:inline-flex;align-items:center;justify-content:center;padding:5px 10px;font-size:10px;line-height:1.2;letter-spacing:.035em;white-space:nowrap}
+.zona #app .sab-status small{color:var(--gd);font-size:10px;font-weight:600;line-height:1.3}
+.zona #app .sab-date-line{margin:7px 0 12px;font-size:12px}
+.zona #app .sab.sab-featured .sab-card-head{padding-top:12px}
+@media(max-width:650px){
+ .zona #app .sab-card-head{gap:8px}
+ .zona #app .sab-card-head h3{font-size:18px}
+ .zona #app .sab-status{max-width:46%}
+ .zona #app .sab-status .pill{padding:5px 8px;font-size:9px}
+ .zona #app .sab-status small{font-size:9px}
+}
+@media(max-width:360px){
+ .zona #app .sab-card-head{flex-direction:column;align-items:flex-start}
+ .zona #app .sab-status{align-items:flex-start;max-width:100%;text-align:left}
+}
