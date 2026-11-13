@@ -12,7 +12,7 @@
 <meta property="og:description" content="Desde 2007, una historia de amistad, fe, convivencia y Semana Santa en Puente Genil.">
 <meta property="og:url" content="https://tribulaciones-web.aprstudio.workers.dev/historia/">
 <meta property="og:image" content="https://tribulaciones-web.aprstudio.workers.dev/logo.png">
-<link rel="icon" href="/logo.png">
+<link rel="icon" href="/logo.png"><link rel="apple-touch-icon" href="/logo.png"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#fbf6e9"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Tribulaciones">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/estilos.css?v=20261112-13">
 <style>
@@ -64,4 +64,4 @@
 const hb=document.getElementById('hb'),mn=document.getElementById('mn');
 hb.addEventListener('click',()=>{mn.innerHTML='<div class="sc" id="closeMenu"></div><div class="mn"><button class="x" id="closeButton">✕</button><a href="/historia/">Historia</a><a href="/#hermandad">Hermandad</a><a href="/#cuaresma">Cuaresma</a><a href="/#hermanas">Hermanas</a><a href="/noticias/">Noticias</a><a href="/zona/">Zona hermana</a></div>';document.getElementById('closeMenu').onclick=()=>mn.innerHTML='';document.getElementById('closeButton').onclick=()=>mn.innerHTML='';});
 </script>
-</body></html>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}</script></body></html>
