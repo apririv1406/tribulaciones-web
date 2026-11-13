@@ -33,20 +33,36 @@ function reducir(file, max, q = 0.82) {
 }
 
 /* ---------- estructura ---------- */
-const items = () => !ME ? [] : [['#/', 'Inicio'], ['#/sabados', 'Sábados'], ['#/cuenta', 'Mi cuenta'], ['#/cocina', 'Cocina'], ['#/actas', 'Actas y estatutos'], ...(ME.tes ? [['#/tesoreria', 'Tesorería']] : []), ...(ME.admin ? [['#/admin/hermanas', 'Administración']] : []), ['#/perfil', 'Mi perfil']];
+const menuGroups = () => {
+  if (!ME) return [];
+  const admin = !!ME_REAL?.admin && !VISTA_HERMANA;
+  const groups = [
+    { title: 'Inicio', links: [['#/', 'Resumen']] },
+    { title: 'Gestión', links: [['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina']] },
+  ];
+  if (admin) groups.push({ title: 'Hermanas', links: [['#/admin/hermanas', 'Hermanas y cargos']] });
+  if (ME.tes || admin) groups.push({ title: 'Economía', links: [['#/tesoreria', 'Tesorería y cuotas']] });
+  groups.push({ title: 'Secretaría', links: [[admin ? '#/admin/actas' : '#/actas', 'Actas y juntas']] });
+  if (admin) groups.push({ title: 'Comunicación', links: [['#/admin/noticias', 'Publicaciones'], ['#/admin/historia', 'Historia']] });
+  groups.push({ title: 'Mi espacio', links: [['#/cuenta', 'Mi cuenta'], ['#/perfil', 'Mi perfil']] });
+  return groups;
+};
+const items = () => menuGroups().flatMap(g => g.links);
 function aplicarVista() {
   if (!ME_REAL) { ME = null; return; }
   ME = VISTA_HERMANA ? { ...ME_REAL, admin: false, tes: ME_REAL.cargo_permiso === 'tes', actas: ME_REAL.cargo_permiso === 'actas' } : { ...ME_REAL };
 }
 function shell(html) {
   LAST = html;
-  const cur = location.hash || '#/', its = items();
-  const on = h => (h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h.slice(0, 8)));
-  $('#nav').innerHTML = `<a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a>` + its.map(([h,t]) => `<a class="dk ${on(h)?'on':''}" href="${h}">${t}</a>`).join('') + `<a class="dk" href="/">Web pública</a>` + (ME_REAL?.admin ? `<button class="cta dk" type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Vista administradora':'Ver como hermana'}</button>` : '') + (ME ? `<a class="cta dk" href="#/" data-a="salir">Salir</a>` : '') + `<button class="hb" data-a="menu" aria-label="Menú"><i></i><i></i><i></i></button>`;
-  $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><div class="mn"><button class="x" data-a="menu" aria-label="Cerrar">✕</button>${its.map(([h,t])=>`<a href="${h}">${t}</a>`).join('')}<hr><a href="/">Web pública</a>${ME_REAL?.admin?`<button type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Vista administradora':'Ver como hermana'}</button>`:''}${ME?'<a href="#/" data-a="salir">Salir</a>':''}</div>` : '';
+  const cur = location.hash || '#/', groups = menuGroups();
+  const active = links => links.some(([h]) => h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h));
+  const dropdowns = groups.filter(g => g.title !== 'Inicio').map(g => `<div class="nav-drop ${active(g.links)?'active':''}"><button class="nav-trigger" type="button">${g.title}<span>⌄</span></button><div class="nav-menu">${g.links.map(([h,t])=>`<a class="${cur===h?'on':''}" href="${h}">${t}</a>`).join('')}</div></div>`).join('');
+  $('#nav').innerHTML = `<a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a><a class="dk ${cur==='#/'?'on':''}" href="#/">Inicio</a>` + dropdowns + `<a class="dk nav-public" href="/">Web pública</a>` + (ME_REAL?.admin ? `<button class="cta dk" type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Vista administradora':'Ver como hermana'}</button>` : '') + (ME ? `<a class="cta dk" href="#/" data-a="salir">Salir</a>` : '') + `<button class="hb" data-a="menu" aria-label="Menú"><i></i><i></i><i></i></button>`;
+  const drawer = groups.map(g => `<section class="mn-group"><span>${g.title}</span>${g.links.map(([h,t])=>`<a href="${h}" class="${cur===h?'current':''}">${t}</a>`).join('')}</section>`).join('');
+  $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><div class="mn"><button class="x" data-a="menu" aria-label="Cerrar">✕</button>${drawer}<hr><a href="/">Web pública</a>${ME_REAL?.admin?`<button type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Volver a vista administradora':'Ver como hermana'}</button>`:''}${ME?'<a href="#/" data-a="salir">Salir</a>':''}</div>` : '';
   const bottom=$('#bottom-nav');
   if(bottom && ME_REAL?.admin && !VISTA_HERMANA) bottom.innerHTML = `<nav class="admin-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur.startsWith('#/admin/hermanas')?'on':''}" href="#/admin/hermanas"><span>♙</span>Hermanas</a><a class="${cur.startsWith('#/tesoreria')?'on':''}" href="#/tesoreria"><span>€</span>Economía</a><a class="${cur.startsWith('#/admin/actas')||cur==='#/actas'?'on':''}" href="#/admin/actas"><span>▤</span>Secretaría</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
-  else if(bottom && ME) bottom.innerHTML = `<nav class="admin-bottom-nav sister-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur==='#/sabados'?'on':''}" href="#/sabados"><span>◷</span>Sábados</a><a class="${cur==='#/cuenta'?'on':''}" href="#/cuenta"><span>€</span>Mi cuenta</a><a class="${cur==='#/actas'?'on':''}" href="#/actas"><span>▤</span>Actas</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
+  else if(bottom && ME) bottom.innerHTML = `<nav class="admin-bottom-nav sister-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur==='#/sabados'||cur==='#/cocina'?'on':''}" href="#/sabados"><span>◷</span>Gestión</a><a class="${cur==='#/cuenta'||cur==='#/tesoreria'?'on':''}" href="#/cuenta"><span>€</span>Mi cuenta</a><a class="${cur==='#/actas'||cur==='#/admin/actas'?'on':''}" href="#/actas"><span>▤</span>Actas</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
   else if(bottom) bottom.innerHTML = '';
   $('#app').innerHTML = html;
 }
@@ -457,7 +473,7 @@ const CUENTA = { sin: 'Sin invitar', invitada: 'Invitación preparada', activa: 
 const TABS = [['noticias', 'Publicaciones'], ['historia', 'Historia'], ['actas', 'Actas'], ['cocina', 'Sorteo de turnos'], ['hermanas', 'Hermanas y cargos']];
 const adm = (tab, html) => `<div class="admin-page-head"><a class="admin-back" href="#/admin">← Panel de administración</a><div class="tag">Gestión del cuartel</div><h2>${TABS.find(x=>x[0]===tab)?.[1] || 'Administración'}</h2></div><div class="sub admin-subnav">${TABS.map(([k,t])=>`<a class="${k===tab?'on':''}" href="#/admin/${k}">${t}</a>`).join('')}</div>${html}`;
 function vAdminInicio() {
- const cards = [ ['Personas','Hermanas y cargos','Altas, bajas, fichas, cargos y permisos.','#/admin/hermanas'], ['Economía','Tesorería','Cuotas, pagos, ingresos, gastos e informes.','#/tesoreria'], ['Secretaría','Actas y convocatorias','Prepara juntas y consulta la documentación.','#/admin/actas'], ['Organización','Sábados y asistencia','Gestiona fechas y consulta asistentes.','#/sabados'], ['Cocina','Sorteo de turnos','Organiza los turnos y las asignaciones.','#/admin/cocina'], ['Comunicación','Publicaciones','Publica noticias y crónicas.','#/admin/noticias'], ['Web','Historia','Edita los hitos históricos del cuartel.','#/admin/historia'] ];
+ const cards = [ ['Personas','Hermanas y cargos','Altas, bajas, fichas, cargos y permisos.','#/admin/hermanas'], ['Economía','Tesorería','Cuotas, pagos, ingresos, gastos e informes.','#/tesoreria'], ['Secretaría','Actas y convocatorias','Prepara juntas y consulta la documentación.','#/admin/actas'], ['Gestión','Sábados y cocina','Organiza los sábados, la asistencia y los turnos de cocina.','#/sabados'], ['Comunicación','Publicaciones','Publica noticias y crónicas.','#/admin/noticias'], ['Web','Historia','Edita los hitos históricos del cuartel.','#/admin/historia'] ];
  return shell(`<section class="admin-hub"><div class="tag">Panel privado</div><h2>Administración</h2><p class="mu admin-hub-intro">¿Qué necesitas gestionar hoy? Accede directamente a cada área del cuartel.</p><div class="admin-hub-grid">${cards.map(x=>`<a class="admin-hub-card" href="${x[3]}"><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small><b>Acceder →</b></a>`).join('')}</div><div class="admin-hub-footer"><button type="button" class="chip" data-a="cambiar-vista">Ver como hermana</button><a href="#/perfil">Mi perfil</a></div></section>`);
 }
 async function vAdmin(tab) {
