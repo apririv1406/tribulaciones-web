@@ -1257,26 +1257,4 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 }
 
 
-/* Navegación de administración: acceso directo y activo discreto */
-.zona #nav .nav-single.on{background:var(--gs);color:var(--dk);font-weight:650}
 
-/* Tesorería: navegación limpia con indicador subrayado */
-.zona #app .tes-main-nav{
-  display:flex;align-items:stretch;gap:24px;margin:18px 0 0;padding:0;
-  background:transparent;border:0;border-bottom:1px solid var(--ln);border-radius:0;
-  overflow-x:auto;white-space:nowrap;
-}
-.zona #app .tes-main-nav button{
-  flex:0 0 auto;min-width:0;padding:11px 2px;margin:0 0 -1px;
-  border:0;border-bottom:2px solid transparent;border-radius:0;
-  background:transparent;color:var(--mu);box-shadow:none;
-  font:500 13px Inter,system-ui,sans-serif;cursor:pointer;
-}
-.zona #app .tes-main-nav button.on{
-  border-bottom-color:var(--go);background:transparent;color:var(--dk);
-  box-shadow:none;font-weight:650;
-}
-@media(max-width:760px){
-  .zona #app .tes-main-nav{gap:18px;margin-top:14px}
-  .zona #app .tes-main-nav button{padding:10px 1px;font-size:12px}
-}
