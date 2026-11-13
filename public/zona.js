@@ -520,6 +520,7 @@ function vPerfil() {
           <div class="tag">Información para cocina</div><h3 style="margin:4px 0 5px">Mis alergias y preferencias</h3>
           <p class="mu profile-help">Se utilizarán como referencia en los próximos sábados. Si tienes una necesidad puntual, podrás modificarla al confirmar tu asistencia.</p>
           <div class="wr profile-allergy-tags">${ALERGIAS_TAGS.map(t=>`<label class="chip ${String(ME.alergias||'').split(/[,;\n]/).map(x=>x.trim()).includes(t)?'on':''}"><input type="checkbox" name="alergia_perfil" value="${esc(t)}" ${String(ME.alergias||'').split(/[,;\n]/).map(x=>x.trim()).includes(t)?'checked':''}> ${esc(t)}</label>`).join('')}</div>
+          <p class="profile-allergy-feedback" data-profile-allergy-feedback role="status" aria-live="polite">${String(ME.alergias||'').split(/[,;\\n]/).map(x=>x.trim()).filter(Boolean).length ? String(ME.alergias||'').split(/[,;\\n]/).map(x=>x.trim()).filter(Boolean).length+' preferencias seleccionadas' : 'No has seleccionado ninguna alergia o preferencia.'}</p>
           <label class="fl">Otras alergias, intolerancias o indicaciones</label><textarea class="t" name="alergias_observaciones" rows="3" maxlength="1000" placeholder="Indica cualquier detalle importante para el turno de cocina">${esc(ME.alergias_observaciones||'')}</textarea>
         </div>
         <button class="btn" style="margin-top:16px">Guardar mis datos</button>
@@ -835,6 +836,20 @@ const ACT = {
   'hito-del'(el) { el.closest('.row').remove(); },
 };
 document.addEventListener('change', e => {
+  const alergia=e.target.closest('input[name="alergia_perfil"]');
+  if(alergia) {
+    const chip=alergia.closest('.chip');
+    if(chip) {
+      chip.classList.toggle('on',alergia.checked);
+      chip.classList.remove('just-changed');
+      void chip.offsetWidth;
+      if(alergia.checked) chip.classList.add('just-changed');
+    }
+    const form=alergia.closest('form');
+    const seleccionadas=form ? Array.from(form.querySelectorAll('input[name="alergia_perfil"]:checked')) : [];
+    const feedback=form?.querySelector('[data-profile-allergy-feedback]');
+    if(feedback) feedback.textContent=seleccionadas.length ? seleccionadas.length+' preferencias seleccionadas' : 'No has seleccionado ninguna alergia o preferencia.';
+  }
   const input=e.target.closest('[data-import-file]'); if(!input) return;
   const file=input.files?.[0]; if(!file) return;
   TES_IMPORT_FILE=file.name;
