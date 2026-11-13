@@ -26,16 +26,16 @@ function mostrarPopup(titulo, contenido, err = false) {
     <button type="button" class="btn lts-popup-ok">Aceptar</button>
   </section>`;
   document.body.appendChild(modal);
-  const cerrar = () => modal.remove();
+  let escapePopup;
+  const cerrar = () => {
+    modal.remove();
+    if (escapePopup) document.removeEventListener('keydown', escapePopup);
+  };
   modal.querySelector('.lts-popup-close').addEventListener('click', cerrar);
   modal.querySelector('.lts-popup-ok').addEventListener('click', cerrar);
   modal.addEventListener('click', e => { if (e.target === modal) cerrar(); });
-  document.addEventListener('keydown', function escapePopup(e) {
-    if (e.key === 'Escape' && document.getElementById('lts-popup') === modal) {
-      cerrar();
-      document.removeEventListener('keydown', escapePopup);
-    }
-  });
+  escapePopup = e => { if (e.key === 'Escape' && document.getElementById('lts-popup') === modal) cerrar(); };
+  document.addEventListener('keydown', escapePopup);
   modal.querySelector('.lts-popup-ok').focus();
 }
 function toast(msg, err) {
