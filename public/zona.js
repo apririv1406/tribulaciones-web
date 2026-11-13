@@ -463,8 +463,23 @@ async function vTesoreria() {
 
 
 function vPerfil() {
-  shell(`<div class="top"><div class="tag">Mi perfil</div><h2>${esc(ME.nombre)}</h2><p class="mu" style="margin:0">${esc(ME.email || '')} · ${esc(ME.cargo || 'Hermana')}</p></div>
-<div class="card" style="margin-top:18px;max-width:520px"><h3>Cambiar mi contraseña</h3><form data-f="perfil">${campo('actual', 'Contraseña actual (si ya tenías una)', 'type="password" autocomplete="current-password"')}${campo('nueva', 'Contraseña nueva', 'type="password" required minlength="8" autocomplete="new-password"')}<button class="btn" style="margin-top:16px">Guardar contraseña</button></form></div>`);
+  const foto = ME.foto_id ? `<img src="/media/${Number(ME.foto_id)}" alt="Mi fotografía">` : `<span>${iniciales(ME.nombre)}</span>`;
+  shell(`<div class="top"><div class="tag">Mi espacio</div><h2>Mi perfil</h2><p class="mu" style="margin:0">Mantén actualizados tus datos de contacto y tu fotografía.</p></div>
+  <div class="profile-layout">
+    <section class="card profile-card">
+      <div class="profile-photo">${foto}</div>
+      <div class="profile-heading"><h3>${esc(ME.nombre)}</h3><p class="mu">${esc(ME.cargo || 'Hermana')} · ${esc(ME.email || '')}</p></div>
+      <form data-f="perfil-save">
+        <label class="fl">Nombre y apellidos</label><input class="t" name="nombre" required maxlength="80" value="${esc(ME.nombre)}">
+        <label class="fl">Teléfono de contacto</label><input class="t" name="telefono" type="tel" autocomplete="tel" placeholder="+34 600 000 000" value="${esc(ME.telefono || '')}">
+        <label class="fl">Correo electrónico</label><input class="t" value="${esc(ME.email || '')}" disabled><small class="mu profile-help">El correo de acceso solo puede modificarlo la administración.</small>
+        <label class="fl">Fotografía de perfil</label><input class="t profile-file" type="file" name="foto" accept="image/jpeg,image/png,image/webp">
+        ${ME.foto_id ? '<label class="profile-remove"><input type="checkbox" name="quitar_foto"> Quitar mi fotografía actual</label>' : ''}
+        <button class="btn" style="margin-top:16px">Guardar mis datos</button>
+      </form>
+    </section>
+    <section class="card profile-security"><div class="tag">Seguridad</div><h3>Cambiar contraseña</h3><p class="mu">Utiliza una contraseña de al menos 8 caracteres.</p><form data-f="perfil">${campo('actual', 'Contraseña actual', 'type="password" autocomplete="current-password"')}${campo('nueva', 'Contraseña nueva', 'type="password" required minlength="8" autocomplete="new-password"')}<button class="btn" style="margin-top:16px">Actualizar contraseña</button></form></section>
+  </div>`);
 }
 
 /* ---------- administración ---------- */
@@ -537,6 +552,12 @@ const FORM = {
   async clave(f, d) { if (d.get('p1') !== d.get('p2')) throw new Error('Las contraseñas no coinciden'); await api('POST', '/auth/password/set', { token: f.dataset.t, password: d.get('p1') }); await entrar(); },
   async setup(f, d) { await api('POST', '/setup', { key: d.get('key'), password: d.get('p1') }); await entrar(); },
   async perfil(f, d) { await api('POST', '/auth/password/change', { actual: d.get('actual'), nueva: d.get('nueva') }); f.reset(); toast('Contraseña cambiada'); },
+  async 'perfil-save'(f, d) {
+    const b = { nombre:d.get('nombre'), telefono:d.get('telefono'), quitar_foto:d.get('quitar_foto')==='on' };
+    const file=d.get('foto'); if(file && file.size) b.foto=await reducir(file,480,0.84);
+    await api('POST','/perfil',b);
+    ME_REAL=await api('GET','/me'); aplicarVista(); toast('Perfil actualizado'); render();
+  },
   async 'her-new'(f, d) { await api('POST', '/admin/hermanas', { nombre: d.get('nombre'), email: d.get('email'), cargo_id: +d.get('cargo_id'), anio_entrada: d.get('anio_entrada') || null, visible_web: d.get('visible_web')==='on' }); toast('Hermana añadida'); render(); },
   async 'her-save'(f, d) {
     const b = { nombre: d.get('nombre'), email: d.get('email'), telefono: d.get('telefono'), cargo_id: +d.get('cargo_id'), estado: d.get('estado'), anio_entrada: d.get('anio_entrada') ? +d.get('anio_entrada') : null, visible_web: !!d.get('visible_web'), es_admin: !!d.get('es_admin') };
