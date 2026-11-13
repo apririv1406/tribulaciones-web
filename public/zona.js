@@ -478,7 +478,7 @@ function vPerfil() {
         <div class="profile-allergies">
           <div class="tag">Información para cocina</div><h3 style="margin:4px 0 5px">Mis alergias y preferencias</h3>
           <p class="mu profile-help">Se utilizarán como referencia en los próximos sábados. Si tienes una necesidad puntual, podrás modificarla al confirmar tu asistencia.</p>
-          <div class="wr profile-allergy-tags">${ALERGIAS_TAGS.map(t=>`<label class="chip ${String(ME.alergias||'').split(/[,;\\n]/).map(x=>x.trim()).includes(t)?'on':''}"><input type="checkbox" name="alergia_perfil" value="${esc(t)}" ${String(ME.alergias||'').split(/[,;\\n]/).map(x=>x.trim()).includes(t)?'checked':''}> ${esc(t)}</label>`).join('')}</div>
+          <div class="wr profile-allergy-tags">${ALERGIAS_TAGS.map(t=>`<label class="chip ${String(ME.alergias||'').split(/[,;\n]/).map(x=>x.trim()).includes(t)?'on':''}"><input type="checkbox" name="alergia_perfil" value="${esc(t)}" ${String(ME.alergias||'').split(/[,;\n]/).map(x=>x.trim()).includes(t)?'checked':''}> ${esc(t)}</label>`).join('')}</div>
           <label class="fl">Otras alergias, intolerancias o indicaciones</label><textarea class="t" name="alergias_observaciones" rows="3" maxlength="1000" placeholder="Indica cualquier detalle importante para el turno de cocina">${esc(ME.alergias_observaciones||'')}</textarea>
         </div>
         <button class="btn" style="margin-top:16px">Guardar mis datos</button>
