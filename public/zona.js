@@ -4,7 +4,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(''));
 const fechaHoyLocal = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.600 2.400 30.200 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.800 6.100C12.300 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.500 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.700c-.6 3-2.300 5.500-4.800 7.200l7.500 5.800c4.400-4.100 7.100-10.100 7.100-17.500z"/><path fill="#FBBC05" d="M10.400 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.9-4.700l-7.800-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.800-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.700-4.100-13.600-9.800l-7.800 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
-let CAL_MES = new Date(new Date().getFullYear(), new Date().getMonth(), 1), ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_YEAR = '2026', TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
+let CAL_MES = new Date(new Date().getFullYear(), new Date().getMonth(), 1), ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_FROM = fechaHoyLocal().slice(0,7) + '-01', TES_REPORT_TO = fechaHoyLocal(), TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
 
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
@@ -69,7 +69,7 @@ const menuGroups = () => {
   const admin = !!ME_REAL?.admin && !VISTA_HERMANA;
   const groups = [
     { title: 'Inicio', links: [['#/', 'Resumen']] },
-    { title: 'Gestión', links: [['#/calendario', 'Calendario'], ['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina'], ...(admin ? [['#/admin/eventos', 'Otros eventos']] : []), ...((admin || ME.tes) ? [['#/resumen-mensual', 'Resumen mensual']] : [])] },
+    { title: 'Gestión', links: [['#/calendario', 'Calendario'], ['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina'], ...(admin ? [['#/admin/eventos', 'Otros eventos']] : []), ] },
   ];
   if (admin) groups.push({ title: 'Hermanas', links: [['#/admin/hermanas', 'Hermanas y cargos']] });
   if (ME.tes || admin) groups.push({ title: 'Economía', links: [['#/tesoreria', 'Tesorería y cuotas']] });
@@ -608,53 +608,37 @@ async function vTesoreria() {
     <p class="mu tes-debt-foot">Los importes reflejan únicamente cantidades pendientes. Los pagos pendientes de validar no se descuentan hasta su confirmación.</p></div>`;
   }
   if(TES_TAB==='inf') {
-    const anio=TES_REPORT_YEAR;
-    const informe=d.informes.find(x=>String(x.anio)===anio)||{ingresos:0,gastos:0};
-    const cats=(d.estadisticas?.categorias||[]).filter(x=>String(x.anio)===anio);
-    const ingresosCats=cats.filter(x=>x.tipo==='ingreso').sort((a,b)=>Number(b.total)-Number(a.total));
-    const gastosCats=cats.filter(x=>x.tipo==='gasto').sort((a,b)=>Number(b.total)-Number(a.total));
-    const totalIngresos=Number(informe.ingresos||0),totalGastos=Number(informe.gastos||0);
-    const meses=(d.estadisticas?.mensuales||[]).filter(x=>String(x.periodo||'').startsWith(anio));
-    const cocina=(d.cocina_informe||[]).filter(x=>String(x.fecha||'').startsWith(anio));
-    const pendienteCuotas=(d.cuotas_pendientes||[]).reduce((a,x)=>a+Number(x.restante_centimos||0),0);
-    const pendienteCargos=(d.cargos_pendientes||[]).reduce((a,x)=>a+Number(x.restante_centimos||0),0);
-    const pendienteCobro=pendienteCuotas+pendienteCargos;
-    const anioAnterior=String(Number(anio)-1);
-    const informeAnterior=(d.informes||[]).find(x=>String(x.anio)===anioAnterior)||{ingresos:0,gastos:0};
-    const resultadoActual=totalIngresos-totalGastos;
-    const resultadoAnterior=Number(informeAnterior.ingresos||0)-Number(informeAnterior.gastos||0);
-    const variacion=(actual,anterior)=>anterior?((actual-anterior)/Math.abs(anterior))*100:null;
-    const fmtVariacion=v=>v===null?'—':(v>0?'+':'')+v.toFixed(1).replace('.',',')+' %';
-    const periodoHoy=fechaHoyLocal().slice(0,7), partesHoy=periodoHoy.split('-').map(Number);
-    const antiguedad=[0,0,0,0];
-    (d.cuotas_pendientes||[]).forEach(x=>{
-      const p=String(x.periodo||'').slice(0,7).split('-').map(Number);
-      if(p.length!==2||!p[0]||!p[1])return;
-      const meses=Math.max(0,(partesHoy[0]-p[0])*12+partesHoy[1]-p[1]);
-      const tramo=meses<=1?0:meses<=3?1:meses<=6?2:3;
-      antiguedad[tramo]+=Number(x.restante_centimos||0);
-    });
-    const tabla=(titulo,cabeceras,filas,pie='')=>`<div class="card wrap" style="padding:0;margin:0"><h3 style="padding:18px 20px 12px;margin:0">${titulo}</h3><table class="rt"><thead><tr>${cabeceras.map((x,i)=>`<th class="${i?'r':''}">${x}</th>`).join('')}</tr></thead><tbody>${filas||`<tr><td colspan="${cabeceras.length}">Sin movimientos en este periodo.</td></tr>`}</tbody>${pie?`<tfoot><tr>${pie}</tr></tfoot>`:''}</table></div>`;
-    const catRows=(arr,total)=>arr.map(x=>`<tr><td>${esc(x.categoria||'Sin categoría')}</td><td class="r">${euros(x.total)}</td><td class="r">${total?Math.round(Number(x.total)/total*100)+' %':'—'}</td></tr>`).join('');
-    const monthRows=meses.map(x=>`<tr><td>${new Date(x.periodo+'-01T00:00:00').toLocaleDateString('es-ES',{month:'long'})}</td><td class="r">${euros(x.ingresos)}</td><td class="r">${euros(x.gastos)}</td><td class="r">${euros(Number(x.ingresos||0)-Number(x.gastos||0))}</td></tr>`).join('');
-    const kitchenRows=cocina.map(x=>`<tr><td>${fechaBonita(x.fecha)} · ${esc(x.turno||x.responsable||'Cocina')}</td><td class="r">${euros(x.presupuesto_centimos)}</td><td class="r">${euros(x.gastado_centimos)}</td><td class="r">${euros(Number(x.presupuesto_centimos||0)-Number(x.gastado_centimos||0))}</td></tr>`).join('');
-    const situationRows=`<tr><td>Banco</td><td class="r">${euros(d.totales.banco_centimos)}</td></tr><tr><td>Caja fuerte</td><td class="r">${euros(d.totales.caja_centimos)}</td></tr><tr><td>Pendiente de cobro a hermanas</td><td class="r">${euros(pendienteCobro)}</td></tr>`;
-    const comparativaRows=`<tr><td>${anio}</td><td class="r">${euros(totalIngresos)}</td><td class="r">${euros(totalGastos)}</td><td class="r">${euros(resultadoActual)}</td></tr><tr><td>${anioAnterior}</td><td class="r">${euros(informeAnterior.ingresos)}</td><td class="r">${euros(informeAnterior.gastos)}</td><td class="r">${euros(resultadoAnterior)}</td></tr>`;
-    const variacionRows=`<tr><td>Ingresos</td><td class="r">${fmtVariacion(variacion(totalIngresos,Number(informeAnterior.ingresos||0)))}</td></tr><tr><td>Gastos</td><td class="r">${fmtVariacion(variacion(totalGastos,Number(informeAnterior.gastos||0)))}</td></tr><tr><td>Resultado</td><td class="r">${fmtVariacion(variacion(resultadoActual,resultadoAnterior))}</td></tr>`;
-    const antiguedadRows=['0–1 meses','2–3 meses','4–6 meses','Más de 6 meses'].map((t,i)=>`<tr><td>${t}</td><td class="r">${euros(antiguedad[i])}</td></tr>`).join('');
-    const years=[...new Set((d.informes||[]).map(x=>String(x.anio)))].sort().reverse();
-    if(!years.includes(anio)) years.unshift(anio);
-    contenido=`<div class="pr tes-report-brand"><img src="/logo.png" style="height:48px"><h2 style="margin:6px 0 0">Las Tribulaciones de Sara</h2><p>Informe de tesorería · ${anio}</p></div><div class="noprint" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px"><div style="display:flex;gap:6px">${years.map(y=>`<button class="chip ${anio===y?'on':''}" data-a="tes-report-year" data-year="${y}">${y}</button>`).join('')}</div><button class="btn" data-a="tes-report-export">Generar informe PDF</button></div>
-    <div class="kp report-kp tes-report-kp"><div class="card"><span class="mu">Ingresos</span><b style="color:var(--ok)">${euros(totalIngresos)}</b></div><div class="card"><span class="mu">Gastos</span><b style="color:var(--ko)">${euros(totalGastos)}</b></div><div class="card"><span class="mu">Resultado</span><b>${euros(totalIngresos-totalGastos)}</b></div></div>
-    <div class="g2">${tabla('Comparativa anual · '+anio+' / '+anioAnterior,['Año','Ingresos','Gastos','Resultado'],comparativaRows)}${tabla('Variación interanual',['Indicador','Variación'],variacionRows)}${tabla('Ingresos por categoría',['Categoría','Importe','%'],catRows(ingresosCats,totalIngresos),`<td>Total ingresos</td><td class="r">${euros(totalIngresos)}</td><td class="r">100 %</td>`)}${tabla('Gastos por categoría',['Categoría','Importe','%'],catRows(gastosCats,totalGastos),`<td>Total gastos</td><td class="r">${euros(totalGastos)}</td><td class="r">100 %</td>`)}${tabla('Resultado por meses',['Mes','Ingresos','Gastos','Resultado'],monthRows,`<td>Total</td><td class="r">${euros(totalIngresos)}</td><td class="r">${euros(totalGastos)}</td><td class="r">${euros(totalIngresos-totalGastos)}</td>`)}${tabla('Antigüedad de cuotas mensuales pendientes',['Antigüedad','Importe pendiente'],antiguedadRows)}${tabla('Cocina: presupuesto y gasto por sábado',['Sábado','Presupuesto','Gastado','Diferencia'],kitchenRows)}${tabla('Situación actual · '+new Date().toLocaleDateString('es-ES'),['Concepto','Importe'],situationRows,`<td>Total disponible (banco y caja)</td><td class="r">${euros(Number(d.totales.banco_centimos||0)+Number(d.totales.caja_centimos||0))}</td>`)}<p class="mu" style="grid-column:1/-1">La antigüedad refleja únicamente cuotas mensuales pendientes; los cargos extraordinarios se incluyen en el total pendiente de cobro, pero no en estos tramos. La comparativa utiliza movimientos confirmados de cada ejercicio.</p></div>`;
+    const desde=TES_REPORT_FROM, hasta=TES_REPORT_TO, anchor=d.saldo_inicial?.fecha||'2026-01-01';
+    const todos=d.movimientos||[];
+    const movimientosPeriodo=todos.filter(x=>x.fecha>=desde&&x.fecha<=hasta);
+    const contabilizados=movimientosPeriodo.filter(x=>!x.traspaso_id&&(x.tipo==='ingreso'||x.tipo==='gasto'));
+    const totalIngresos=contabilizados.filter(x=>x.tipo==='ingreso').reduce((n,x)=>n+Number(x.importe_centimos||0),0);
+    const totalGastos=contabilizados.filter(x=>x.tipo==='gasto').reduce((n,x)=>n+Number(x.importe_centimos||0),0);
+    const netoCuenta=(lista,cuenta)=>lista.filter(x=>x.cuenta===cuenta).reduce((n,x)=>n+(x.tipo==='ingreso'?1:-1)*Number(x.importe_centimos||0),0);
+    const saldoEnFecha=(cuenta,fecha)=>{
+      const inicial=Number(cuenta==='Banco'?d.saldo_inicial?.banco_centimos:d.saldo_inicial?.caja_centimos)||0;
+      if(fecha>=anchor) return inicial+netoCuenta(todos.filter(x=>x.fecha>=anchor&&x.fecha<fecha),cuenta);
+      return inicial-netoCuenta(todos.filter(x=>x.fecha>=fecha&&x.fecha<anchor),cuenta);
+    };
+    const saldoBancoInicio=saldoEnFecha('Banco',desde), saldoCajaInicio=saldoEnFecha('Caja fuerte',desde);
+    const saldoBancoFin=saldoBancoInicio+netoCuenta(movimientosPeriodo,'Banco');
+    const saldoCajaFin=saldoCajaInicio+netoCuenta(movimientosPeriodo,'Caja fuerte');
+    const agrupar=(tipo)=>{const mapa={};contabilizados.filter(x=>x.tipo===tipo).forEach(x=>{const k=x.categoria||'Sin categoría';mapa[k]=(mapa[k]||0)+Number(x.importe_centimos||0);});return Object.entries(mapa).sort((a,b)=>b[1]-a[1]);};
+    const filasCategorias=(arr,total)=>arr.map(x=>'<tr><td>'+esc(x[0])+'</td><td class="r">'+euros(x[1])+'</td><td class="r">'+(total?Math.round(x[1]/total*100)+' %':'—')+'</td></tr>').join('');
+    const tabla=(titulo,cabeceras,filas,pie='')=>'<div class="card wrap"><h3>'+titulo+'</h3><table class="rt"><thead><tr>'+cabeceras.map((x,i)=>'<th class="'+(i?'r':'')+'">'+x+'</th>').join('')+'</tr></thead><tbody>'+(filas||'<tr><td colspan="'+cabeceras.length+'">Sin movimientos en este periodo.</td></tr>')+'</tbody>'+(pie?'<tfoot><tr>'+pie+'</tr></tfoot>':'')+'</table></div>';
+    const ingresosCats=agrupar('ingreso'), gastosCats=agrupar('gasto');
+    const detalle=contabilizados.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)||Number(a.id||0)-Number(b.id||0)).map(x=>'<tr><td>'+fechaBonita(x.fecha)+'</td><td>'+(x.tipo==='ingreso'?'Ingreso':'Gasto')+'</td><td>'+esc(x.concepto)+'</td><td>'+esc(x.categoria||'Sin categoría')+'</td><td>'+esc(x.cuenta||'—')+'</td><td class="r">'+(x.tipo==='ingreso'?'+':'−')+euros(x.importe_centimos)+'</td></tr>').join('');
+    const saldos='<tr><td>Banco</td><td class="r">'+euros(saldoBancoInicio)+'</td><td class="r">'+euros(saldoBancoFin)+'</td></tr><tr><td>Caja fuerte</td><td class="r">'+euros(saldoCajaInicio)+'</td><td class="r">'+euros(saldoCajaFin)+'</td></tr><tr><td><b>Total disponible</b></td><td class="r"><b>'+euros(saldoBancoInicio+saldoCajaInicio)+'</b></td><td class="r"><b>'+euros(saldoBancoFin+saldoCajaFin)+'</b></td></tr>';
+    contenido='<div class="pr tes-report-brand"><img src="/logo.png" style="height:48px"><h2 style="margin:6px 0 0">Las Tribulaciones de Sara</h2><p>Informe de Tesorería · '+fechaBonita(desde)+' – '+fechaBonita(hasta)+'</p></div>'+
+      '<form data-f="tes-report-range" class="card tes-report-range noprint"><div><div class="tag">Periodo de la junta</div><h3>Selecciona el rango de fechas</h3><p class="mu">El informe incluirá únicamente los movimientos confirmados dentro de estas fechas.</p></div><div class="tes-report-date"><label class="fl">Desde</label><input class="t" type="date" name="desde" required value="'+esc(desde)+'"></div><div class="tes-report-date"><label class="fl">Hasta</label><input class="t" type="date" name="hasta" required value="'+esc(hasta)+'"></div><div class="tes-report-actions"><button class="btn">Actualizar informe</button><button type="button" class="chip" data-a="tes-report-export">Generar PDF</button></div></form>'+
+      '<div class="kp report-kp tes-report-kp"><div class="card"><span class="mu">Ingresos del periodo</span><b style="color:var(--ok)">'+euros(totalIngresos)+'</b></div><div class="card"><span class="mu">Gastos del periodo</span><b style="color:var(--ko)">'+euros(totalGastos)+'</b></div><div class="card"><span class="mu">Resultado</span><b>'+euros(totalIngresos-totalGastos)+'</b></div></div>'+
+      '<div class="g2 tes-report-tables">'+
+      tabla('Saldos de banco y caja',['Cuenta','Saldo inicial','Saldo final'],saldos)+
+      tabla('Ingresos por categoría',['Categoría','Importe','%'],filasCategorias(ingresosCats,totalIngresos),'<td>Total ingresos</td><td class="r">'+euros(totalIngresos)+'</td><td class="r">100 %</td>')+
+      tabla('Gastos por categoría',['Categoría','Importe','%'],filasCategorias(gastosCats,totalGastos),'<td>Total gastos</td><td class="r">'+euros(totalGastos)+'</td><td class="r">100 %</td>')+
+      tabla('Detalle de movimientos',['Fecha','Tipo','Concepto','Categoría','Cuenta','Importe'],detalle)+'</div>'+
+      '<p class="mu tes-report-note">El informe recoge ingresos y gastos confirmados. Los traspasos entre Banco y Caja no se consideran ingresos ni gastos, aunque sí se reflejan en los saldos de cada cuenta. El saldo inicial se calcula con los saldos de partida configurados y los movimientos anteriores al periodo.</p>';
   }
-  if(TES_TAB==='cfg') {
-    const extras=d.cuotas_extraordinarias||[];
-    contenido=`<div class="tes-config-intro"><div><div class="tag">Ajustes económicos</div><h3>Configuración de tesorería</h3><p class="mu">Define los importes que se utilizan para generar cuotas, asistencias y presupuestos.</p></div></div>`+subnav('tescfg',TES_CFG_TAB,[['pre','Precios y cuota'],['ext','Cuotas extraordinarias']]);
-    if(TES_CFG_TAB==='pre') contenido+=`<div class="card tes-config-card"><div class="tag">Parámetros económicos</div><h3>Precios y cuota</h3><p class="mu">Configura aquí los importes. La web los utiliza para calcular automáticamente los cargos y presupuestos; no hay cantidades fijas en el código.</p><form data-f="tes-config" class="two formgrid"><div>${campo('cuota_mensual','Cuota mensual (€)','type="number" min="0.01" step="0.01" required value="'+(d.cuota_mensual||'')+'"')}</div><div>${campo('sabado_precio','Sábado · asistencia (€)','type="number" min="0" step="0.01" value="'+moneyParam('sabado_precio_centimos')+'"')}</div><div>${campo('invitada_precio','Invitada (€)','type="number" min="0" step="0.01" value="'+moneyParam('invitada_precio_centimos')+'"')}</div><div>${campo('copa_precio','Copa (€)','type="number" min="0" step="0.01" value="'+moneyParam('copa_precio_centimos')+'"')}</div><div>${campo('refresco_precio','Refresco (€)','type="number" min="0" step="0.01" value="'+moneyParam('refresco_precio_centimos')+'"')}</div><div>${campo('cocina_precio_persona','Presupuesto de cocina por comensal (€)','type="number" min="0" step="0.01" value="'+moneyParam('cocina_precio_persona_centimos')+'"')}</div><div><label class="fl">Personas por turno en el sorteo</label><select class="t" name="personas_por_turno"><option value="2" ${Number(d.parametros?.cocina_personas_por_turno||2)===2?'selected':''}>2 personas</option><option value="3" ${Number(d.parametros?.cocina_personas_por_turno||2)===3?'selected':''}>3 personas</option></select></div><button class="btn">Guardar parámetros</button></form></div>`;
-    else contenido+=`<div class="card tes-config-card"><div class="tag">Cargos configurables</div><h3>Cuotas extraordinarias de este año</h3><p class="mu">Puedes crear, editar o eliminar los conceptos y sus importes. Elige si se aplican una sola vez o en cada sábado que corresponda.</p><form data-f="tes-extras"><div id="tes-extras-rows">${extras.map(x=>extraRow(x)).join('')}</div><p><button type="button" class="chip" data-a="extra-add">Añadir cuota extraordinaria</button></p><button class="btn">Guardar cuotas extraordinarias</button></form></div>`;
-  }
-  if(TES_TAB==='imp') contenido=`<div class="tes-import-grid"><div class="card tes-import-card"><div class="tag">Importación</div><h3>Importar el último informe</h3><p class="mu">Sube el último informe de tesorería (Excel, CSV o PDF). Antes de aplicarlo debe aparecer una vista previa de saldos, movimientos y cuotas pendientes.</p><label class="fl">Seleccionar informe</label><input class="t" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf" data-import-file><p class="mu">${esc(TES_IMPORT_FILE)}</p><p class="mu">La lectura automática se ajustará al formato real del informe para evitar importar columnas o importes incorrectos. No se aplicará ningún dato sin revisar la vista previa.</p></div><div class="card tes-import-card"><div class="tag">Punto de partida</div><h3>Saldos de partida</h3><p class="mu">A partir de esta fecha, todos los saldos se calculan desde estos importes.</p><form data-f="tes-saldos" class="two formgrid"><div>${campo('fecha','Fecha','type="date" required value="'+esc(d.saldo_inicial?.fecha||'2026-01-01')+'"')}</div><div>${campo('banco','Banco (€)','type="number" step="0.01" value="'+(Number(d.saldo_inicial?.banco_centimos||0)/100)+'"')}</div><div>${campo('caja','Caja fuerte (€)','type="number" step="0.01" value="'+(Number(d.saldo_inicial?.caja_centimos||0)/100)+'"')}</div><button class="btn">Guardar saldos iniciales</button></form></div></div>`;
   const tabs=[['res','Estadísticas'],['mov','Movimientos'],['rec','Gastos fijos'],['pun','Por validar ('+(d.pagos_pendientes.length+(d.movimientos_pendientes||[]).length+d.tickets.filter(t=>t.estado==='pendiente'||(!t.estado&&!t.movimiento_id)).length)+')'],['gp','Gastos pendientes'],['pen','Cuotas pendientes'],['inf','Informe'],['cfg','Precios y cuota'],['imp','Importar']];
   return shell(`<div class="tesoreria"><div class="top tes-heading"><div><div class="tag">Gestión económica</div><h2>Tesorería</h2><p class="mu" style="margin:0">Control económico del cuartel · movimientos, pagos e informes.</p></div><div class="tes-pending-summary"><b>${d.pagos_pendientes.length+(d.movimientos_pendientes||[]).length+d.tickets.filter(t=>t.estado==='pendiente'||(!t.estado&&!t.movimiento_id)).length}</b><span>elementos por revisar</span></div></div>
   <section class="hero2 tes-balance"><div class="tes-balance-total"><span>Total disponible</span><b>${euros(saldo)}</b></div><div class="tes-balance-accounts"><div><small>Banco</small><b>${euros(d.totales.banco_centimos)}</b></div><div><small>Caja fuerte</small><b>${euros(d.totales.caja_centimos)}</b></div></div></section>
@@ -829,7 +813,7 @@ const FORM = {
   async 'tes-config'(f,d) { await api('PUT','/modulos/tesoreria/config',{cuota_mensual:d.get('cuota_mensual'),sabado_precio:d.get('sabado_precio'),invitada_precio:d.get('invitada_precio'),copa_precio:d.get('copa_precio'),refresco_precio:d.get('refresco_precio'),cocina_precio_persona:d.get('cocina_precio_persona'),personas_por_turno:d.get('personas_por_turno')}); toast('Parámetros guardados'); render(); },
   async 'tes-extras'(f) { const cuotas_extraordinarias=[...f.querySelectorAll('.extra-row')].map(r=>({nombre:r.querySelector('[name=nombre]').value,categoria:r.querySelector('[name=categoria]').value,importe:r.querySelector('[name=importe]').value,tipo:r.querySelector('[name=tipo]').value})); await api('PUT','/modulos/tesoreria/config',{cuotas_extraordinarias}); toast('Cuotas extraordinarias guardadas'); render(); },
   async 'cocina-sorteo'(f,d) { const r=await api('POST','/modulos/cocina/sorteo',{personas_por_turno:d.get('personas_por_turno')}); COCINA_SORTEO_RESULTADO=r.asignaciones||[]; toast('Sorteo realizado: '+r.turnos_sorteados+' turnos'+(r.turnos_omitidos?' · '+r.turnos_omitidos+' ya tenían asignación y se han conservado':'')); render(); },
-  async 'resumen-mes'(f,d) { const p=String(d.get('periodo')||''); if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(p)) throw new Error('Selecciona un mes válido'); RESUMEN_MES=p; await vResumenMensual(); },
+  async 'tes-report-range'(f,d) { const desde=String(d.get('desde')||''),hasta=String(d.get('hasta')||''); if(!/^\d{4}-\d{2}-\d{2}$/.test(desde)||!/^\d{4}-\d{2}-\d{2}$/.test(hasta)||desde>hasta) throw new Error('Revisa las fechas: la fecha inicial no puede ser posterior a la final.'); TES_REPORT_FROM=desde; TES_REPORT_TO=hasta; render(); },
   async 'tes-filtro'(f,d) { TES_FILTRO={tipo:d.get('tipo')||'todos',texto:d.get('texto')||'',desde:d.get('desde')||'',hasta:d.get('hasta')||'',cuenta:d.get('cuenta')||'',hermana:d.get('hermana')||'',anio:d.get('anio')||'',categoria:d.get('categoria')||''}; if(TES_FILTRO.desde && TES_FILTRO.hasta && TES_FILTRO.desde>TES_FILTRO.hasta) throw new Error('La fecha inicial no puede ser posterior a la final'); render(); },
   async 'tes-movimiento'(f,d) { await api('POST','/modulos/tesoreria/movimientos',{tipo:d.get('tipo'),fecha:d.get('fecha'),concepto:d.get('concepto'),categoria:d.get('categoria'),cuenta:d.get('cuenta'),importe:d.get('importe')}); TES_MOV_MODAL=false; toast('Movimiento registrado'); render(); },
   async 'tes-traspaso'(f,d) { await api('POST','/modulos/tesoreria/traspasos',{fecha:d.get('fecha'),importe:d.get('importe'),origen:d.get('origen'),destino:d.get('destino')}); TES_TRANSFER_MODAL=false; toast('Traspaso registrado'); render(); },
@@ -954,55 +938,38 @@ const ACT = {
   async 'fijo-registrar-todos'() { const forms=[...document.querySelectorAll('form[data-f=tes-fijo-registrar]')]; let n=0; for(const f of forms){if(!f.reportValidity()) return; const d=new FormData(f); await api('POST','/modulos/tesoreria/gastos-fijos/'+f.dataset.id+'/registrar',{periodo:d.get('periodo'),importe:d.get('importe')}); n++;} toast(n+' gasto(s) fijo(s) enviados a validación'); render(); },
 
   async 'tes-ticket-reject'(el) { if(!confirm('¿Rechazar este ticket?')) return; await api('PUT','/modulos/tesoreria/tickets/'+el.dataset.id,{estado:'rechazado'}); toast('Ticket rechazado'); render(); },
-  'tes-report-year'(el) { TES_REPORT_YEAR=el.dataset.year; render(); },
   async 'tes-report-export'() {
     if(!window.jspdf?.jsPDF) throw new Error('No se ha podido cargar el generador de PDF.');
     const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
     if(typeof doc.autoTable!=='function') throw new Error('No se ha podido cargar el complemento de tablas PDF. Recarga la página y vuelve a intentarlo.');
-    const anio=document.querySelector('.tes-report-brand p')?.innerText.match(/\d{4}/)?.[0]||new Date().getFullYear();
-    const fecha=new Date().toLocaleDateString('es-ES'),margen=12,ancho=273;
+    const desde=TES_REPORT_FROM,hasta=TES_REPORT_TO;
+    if(!desde||!hasta||desde>hasta) throw new Error('Selecciona un rango de fechas válido antes de generar el informe.');
+    const fecha=new Date().toLocaleDateString('es-ES'),periodo=fechaBonita(desde)+' – '+fechaBonita(hasta),margen=12,ancho=273;
     const color=[65,55,43],oro=[173,133,49],gris=[112,105,95];
     const cabecera=(subtitulo)=>{
-      doc.setFont('helvetica','bold');doc.setFontSize(17);doc.setTextColor(...color);
-      doc.text('LAS TRIBULACIONES DE SARA',margen,15);
-      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...gris);
-      doc.text('INFORME DE TESORERÍA · '+anio+' · '+fecha,margen,21);
+      doc.setFont('helvetica','bold');doc.setFontSize(17);doc.setTextColor(...color);doc.text('LAS TRIBULACIONES DE SARA',margen,15);
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...gris);doc.text('INFORME DE TESORERÍA · '+periodo+' · '+fecha,margen,21);
       if(subtitulo){doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...color);doc.text(subtitulo,margen,31);}
       doc.setDrawColor(...oro);doc.setLineWidth(.6);doc.line(margen,25,ancho+margen,25);
     };
-    cabecera('Resumen económico');
-    let y=34;
+    cabecera('Resumen económico');let y=34;
     const kpis=[...document.querySelectorAll('.tes-report-kp>.card')].map(c=>[c.querySelector('span')?.innerText||'',c.querySelector('b')?.innerText||'']);
     const kw=ancho/Math.max(kpis.length,1);
-    kpis.forEach((k,i)=>{
-      const x=margen+i*kw;doc.setFillColor(246,242,234);doc.roundedRect(x,y,kw-3,17,2,2,'F');
-      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...gris);doc.text(k[0],x+4,y+6);
-      doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...color);doc.text(k[1],x+4,y+13);
-    });
+    kpis.forEach((k,i)=>{const x=margen+i*kw;doc.setFillColor(246,242,234);doc.roundedRect(x,y,kw-3,17,2,2,'F');doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...gris);doc.text(k[0],x+4,y+6);doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...color);doc.text(k[1],x+4,y+13);});
     y+=25;
-    const tablas=[...document.querySelectorAll('.tes-content .g2 .card table, .tes-content .g2>div table')];
+    const tablas=[...document.querySelectorAll('.tes-report-tables table')];
     if(!tablas.length) throw new Error('El informe no contiene tablas para exportar.');
     for(const tabla of tablas){
-      const card=tabla.closest('.card')||tabla.parentElement;
-      const titulo=card.querySelector('h3')?.innerText.trim()||'Detalle';
+      const card=tabla.closest('.card')||tabla.parentElement,titulo=card.querySelector('h3')?.innerText.trim()||'Detalle';
       const head=[...tabla.querySelectorAll('thead tr:first-child th')].map(x=>x.innerText.trim());
-      const body=[...tabla.querySelectorAll('tbody tr')].map(tr=>[...tr.querySelectorAll('td')].map(td=>td.innerText.replace(/\\s+/g,' ').trim()));
+      const body=[...tabla.querySelectorAll('tbody tr')].map(tr=>[...tr.querySelectorAll('td')].map(td=>td.innerText.replace(/\s+/g,' ').trim()));
       const foot=[...tabla.querySelectorAll('tfoot tr:last-child td')].map(x=>x.innerText.trim());
-      if(y>170){doc.addPage();cabecera(titulo);y=37;}
-      else {doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...color);doc.text(titulo,margen,y);y+=3;}
-      doc.autoTable({startY:y,head:[head],body,foot:foot.length?[foot]:undefined,theme:'grid',
-        styles:{font:'helvetica',fontSize:8,cellPadding:2.2,textColor:gris,lineColor:[224,216,202],lineWidth:.15},
-        headStyles:{fillColor:[65,55,43],textColor:[255,255,255],fontStyle:'bold'},
-        footStyles:{fillColor:[246,242,234],textColor:color,fontStyle:'bold'},
-        alternateRowStyles:{fillColor:[250,248,244]},margin:{left:margen,right:margen},
-        didDrawPage:()=>{if(doc.internal.getNumberOfPages()>1){doc.setFontSize(7);doc.setTextColor(...gris);doc.text('Las Tribulaciones de Sara · Informe de tesorería '+anio, margen, 202);}}
-      });
+      if(y>170){doc.addPage();cabecera(titulo);y=37;}else{doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...color);doc.text(titulo,margen,y);y+=3;}
+      doc.autoTable({startY:y,head:[head],body,foot:foot.length?[foot]:undefined,theme:'grid',styles:{font:'helvetica',fontSize:8,cellPadding:2.2,textColor:gris,lineColor:[224,216,202],lineWidth:.15},headStyles:{fillColor:[65,55,43],textColor:[255,255,255],fontStyle:'bold'},footStyles:{fillColor:[246,242,234],textColor:color,fontStyle:'bold'},alternateRowStyles:{fillColor:[250,248,244]},margin:{left:margen,right:margen},didDrawPage:()=>{if(doc.internal.getNumberOfPages()>1){doc.setFontSize(7);doc.setTextColor(...gris);doc.text('Las Tribulaciones de Sara · Informe de Tesorería · '+periodo,margen,202);}}});
       y=doc.lastAutoTable.finalY+11;
     }
-    const blob=doc.output('blob');
-    await entregarPDF(blob,'Informe_Tesoreria_'+anio+'.pdf','Informe de tesorería','Informe anual de tesorería de Las Tribulaciones de Sara.');
+    const blob=doc.output('blob');await entregarPDF(blob,'Informe_Tesoreria_'+desde+'_a_'+hasta+'.pdf','Informe de tesorería','Informe de tesorería para junta · '+periodo);
   },
-
   async 'tes-export'() {
     const tabla=document.querySelector('.tes-debt-table table');
     if(!tabla) throw new Error('No se encuentra la tabla de cuotas pendientes.');
@@ -1111,7 +1078,7 @@ async function render() {
     if (!ME) return vLogin();
     if (h === '#/perfil') return vPerfil();
     if (h === '#/calendario') return await vCalendario();
-    if (h === '#/resumen-mensual') return ME.admin || ME.tes ? await vResumenMensual() : await vInicio();
+    if (h === '#/resumen-mensual') return await vInicio();
     if (h === '#/admin/eventos') return ME.admin ? await vAdminEventos() : await vInicio();
     if (h === '#/sabados') return await vSabados();
     if (h === '#/cuenta') return await vCuenta();
