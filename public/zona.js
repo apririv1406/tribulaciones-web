@@ -69,7 +69,7 @@ const menuGroups = () => {
   const admin = !!ME_REAL?.admin && !VISTA_HERMANA;
   const groups = [
     { title: 'Inicio', links: [['#/', 'Resumen']] },
-    { title: 'Gestión', links: [['#/calendario', 'Calendario'], ['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina']] },
+    { title: 'Gestión', links: [['#/calendario', 'Calendario'], ['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina'], ...(admin ? [['#/admin/eventos', 'Otros eventos']] : [])] },
   ];
   if (admin) groups.push({ title: 'Hermanas', links: [['#/admin/hermanas', 'Hermanas y cargos']] });
   if (ME.tes || admin) groups.push({ title: 'Economía', links: [['#/tesoreria', 'Tesorería y cuotas']] });
@@ -131,10 +131,13 @@ async function vInicio() {
   const nombre = esc((ME.nombre || '').split(' ')[0] || 'hermana');
   const resultados = await Promise.allSettled([
     api('GET', '/modulos/sabados'),
-    api('GET', '/modulos/cuenta')
+    api('GET', '/modulos/cuenta'),
+    api('GET', '/modulos/eventos')
   ]);
   const sabados = resultados[0].status === 'fulfilled' ? resultados[0].value : [];
   const cuenta = resultados[1].status === 'fulfilled' ? resultados[1].value : null;
+  const eventos = resultados[2].status === 'fulfilled' ? resultados[2].value : [];
+  const proximosEventos=eventos.filter(x=>x.estado==='publicado'&&x.fecha>=fechaISOlocal(new Date())).sort((a,b)=>a.fecha.localeCompare(b.fecha)).slice(0,5);
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const siguiente = sabados.filter(s => s.estado !== 'cancelado' && new Date(s.fecha + 'T12:00:00') >= hoy).sort((a,b) => a.fecha.localeCompare(b.fecha))[0];
   const fechaSiguiente = siguiente ? new Date(siguiente.fecha + 'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}) : '';
@@ -151,6 +154,7 @@ async function vInicio() {
       <p class="sister-welcome-sub">${esc(ME.cargo || 'Hermana')}</p>
       <p class="sister-welcome-note">Tu espacio para estar al día con el cuartel.</p>
     </section>
+    ${proximosEventos.length?`<section class="home-events"><div class="home-events-head"><div><div class="tag">AGENDA DE LA HERMANDAD</div><h2>Próximos eventos</h2></div><a href="#/calendario">Ver calendario →</a></div>${proximosEventos.map(ev=>`<a class="home-event-row" href="#/calendario"><span class="home-event-date"><b>${new Date(ev.fecha+'T12:00:00').getDate()}</b><small>${new Date(ev.fecha+'T12:00:00').toLocaleDateString('es-ES',{month:'short'}).replace('.','')}</small></span><span class="home-event-copy"><b>${esc(ev.titulo)}</b><small>${esc([({cofradia:'Acto de cofradía',cruz_mayo:'Cruz de Mayo',cultos:'Cultos',convivencia:'Convivencia',otros:'Evento'})[ev.tipo]||'Evento',fechaBonita(ev.fecha),ev.hora,ev.lugar].filter(Boolean).join(' · '))}</small></span><span class="home-event-arrow">→</span></a>`).join('')}</section>`:''}
     <section class="sister-home-status" aria-label="Tu información">
       <article class="sister-status-card">
         <div class="sister-status-heading"><span class="sister-status-icon">◷</span><span>PRÓXIMO SÁBADO</span></div>
@@ -203,7 +207,7 @@ function vCalendarioHTML(eventos) {
   }
   const delDia=eventos.filter(x=>x.fecha===seleccion).sort((a,b)=>(a.hora||'').localeCompare(b.hora||''));
   const tituloDia=new Date(seleccion+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
-  return '<section class="calendar-wrap"><div class="calendar-head"><div><div class="tag">Agenda del cuartel</div><h2>Calendario</h2><p class="mu">Sábados, juntas y turnos de cocina en un mismo sitio.</p></div><div class="calendar-controls"><button class="chip" data-a="cal-prev" aria-label="Mes anterior">‹</button><b>'+esc(nombreMes.charAt(0).toLocaleUpperCase('es-ES')+nombreMes.slice(1))+'</b><button class="chip" data-a="cal-next" aria-label="Mes siguiente">›</button><button class="chip" data-a="cal-hoy">Hoy</button></div></div><div class="calendar-legend"><span><i class="cal-dot sabado"></i>Sábados</span><span><i class="cal-dot junta"></i>Juntas</span><span><i class="cal-dot cocina"></i>Cocina</span></div><div class="calendar-grid calendar-weekdays">'+['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(x=>'<b>'+x+'</b>').join('')+'</div><div class="calendar-grid">'+celdas.join('')+'</div><section class="calendar-day-events"><div class="tag">Agenda del día</div><h3>'+esc(tituloDia)+'</h3>'+(delDia.length?delDia.map(ev=>'<article class="calendar-event"><i class="cal-dot '+ev.tipo+'"></i><div><b>'+esc(ev.titulo)+'</b><p>'+esc([ev.hora,ev.detalle,ev.estado].filter(Boolean).join(' · '))+'</p></div><span class="calendar-event-type">'+(ev.tipo==='sabado'?'Sábado':ev.tipo==='junta'?'Junta':'Cocina')+'</span></article>').join(''):'<p class="mu">No hay actividades registradas para este día.</p>')+'</section></section>';
+  return '<section class="calendar-wrap"><div class="calendar-head"><div><div class="tag">Agenda del cuartel</div><h2>Calendario</h2><p class="mu">Sábados, juntas, cocina y actos especiales en un mismo sitio.</p></div><div class="calendar-controls"><button class="chip" data-a="cal-prev" aria-label="Mes anterior">‹</button><b>'+esc(nombreMes.charAt(0).toLocaleUpperCase('es-ES')+nombreMes.slice(1))+'</b><button class="chip" data-a="cal-next" aria-label="Mes siguiente">›</button><button class="chip" data-a="cal-hoy">Hoy</button></div></div><div class="calendar-legend"><span><i class="cal-dot sabado"></i>Sábados</span><span><i class="cal-dot junta"></i>Juntas</span><span><i class="cal-dot cocina"></i>Cocina</span><span><i class="cal-dot evento"></i>Otros eventos</span></div><div class="calendar-grid calendar-weekdays">'+['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(x=>'<b>'+x+'</b>').join('')+'</div><div class="calendar-grid">'+celdas.join('')+'</div><section class="calendar-day-events"><div class="tag">Agenda del día</div><h3>'+esc(tituloDia)+'</h3>'+(delDia.length?delDia.map(ev=>'<article class="calendar-event"><i class="cal-dot '+ev.tipo+'"></i><div><b>'+esc(ev.titulo)+'</b><p>'+esc([ev.hora,ev.detalle,ev.estado].filter(Boolean).join(' · '))+'</p></div><span class="calendar-event-type">'+(ev.tipo==='sabado'?'Sábado':ev.tipo==='junta'?'Junta':ev.tipo==='cocina'?'Cocina':'Evento')+'</span></article>').join(''):'<p class="mu">No hay actividades registradas para este día.</p>')+'</section></section>';
 }
 let CAL_SELECCION = fechaISOlocal(new Date()), CAL_EVENTOS = [];
 async function vCalendario() {
@@ -216,6 +220,8 @@ async function vCalendario() {
   sabados.forEach(s=>eventos.push({fecha:s.fecha,tipo:'sabado',titulo:s.titulo||'Encuentro del cuartel',hora:s.hora||'',detalle:s.categoria||'Encuentro',estado:s.estado==='cancelado'?'Cancelado':''}));
   (juntas.juntas||[]).forEach(j=>eventos.push({fecha:j.fecha,tipo:'junta',titulo:j.lugar||'Junta del cuartel',hora:j.hora||'',detalle:j.convocatoria||'Convocatoria de junta',estado:j.estado||''}));
   (cocina.turnos||[]).forEach(t=>eventos.push({fecha:t.fecha,tipo:'cocina',titulo:t.turno||'Turno de cocina',hora:'',detalle:t.responsable||t.menu||'Organización de cocina',estado:''}));
+  const especiales=await api('GET','/modulos/eventos');
+  especiales.filter(x=>x.estado==='publicado').forEach(x=>eventos.push({fecha:x.fecha,tipo:'evento',titulo:x.titulo,hora:x.hora||'',detalle:[({cofradia:'Acto de cofradía',cruz_mayo:'Cruz de Mayo',cultos:'Cultos',convivencia:'Convivencia',otros:'Evento'})[x.tipo]||'Evento',x.lugar,x.descripcion].filter(Boolean).join(' · '),estado:''}));
   CAL_EVENTOS=eventos.filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x.fecha||''));
   return shell(vCalendarioHTML(CAL_EVENTOS));
 }
@@ -635,14 +641,28 @@ function vPerfil() {
 /* ---------- administración ---------- */
 const PERM = { none: 'Solo zona hermana', tes: 'Tesorería', actas: 'Actas' };
 const CUENTA = { sin: 'Sin invitar', invitada: 'Invitación preparada', activa: 'Cuenta activa' };
-const TABS = [['noticias', 'Publicaciones'], ['historia', 'Historia'], ['actas', 'Actas'], ['cocina', 'Sorteo de turnos'], ['hermanas', 'Hermanas y cargos']];
+const TABS = [['noticias', 'Publicaciones'], ['historia', 'Historia'], ['actas', 'Actas'], ['eventos', 'Otros eventos'], ['cocina', 'Sorteo de turnos'], ['hermanas', 'Hermanas y cargos']];
 const adm = (tab, html) => `<div class="admin-page-head"><a class="admin-back" href="#/admin">← Panel de administración</a><div class="tag">Gestión del cuartel</div><h2>${TABS.find(x=>x[0]===tab)?.[1] || 'Administración'}</h2></div><div class="sub admin-subnav">${TABS.map(([k,t])=>`<a class="${k===tab?'on':''}" href="#/admin/${k}">${t}</a>`).join('')}</div>${html}`;
 function vAdminInicio() {
- const cards = [ ['Personas','Hermanas y cargos','Altas, bajas, fichas, cargos y permisos.','#/admin/hermanas'], ['Economía','Tesorería','Cuotas, pagos, ingresos, gastos e informes.','#/tesoreria'], ['Secretaría','Actas y convocatorias','Prepara juntas y consulta la documentación.','#/admin/actas'], ['Gestión','Sábados y cocina','Organiza los sábados, la asistencia y los turnos de cocina.','#/sabados'], ['Comunicación','Publicaciones','Publica noticias y crónicas.','#/admin/noticias'], ['Web','Historia','Edita los hitos históricos del cuartel.','#/admin/historia'] ];
+ const cards = [ ['Personas','Hermanas y cargos','Altas, bajas, fichas, cargos y permisos.','#/admin/hermanas'], ['Economía','Tesorería','Cuotas, pagos, ingresos, gastos e informes.','#/tesoreria'], ['Secretaría','Actas y convocatorias','Prepara juntas y consulta la documentación.','#/admin/actas'], ['Gestión','Sábados y cocina','Organiza los sábados, la asistencia y los turnos de cocina.','#/sabados'], ['Agenda','Otros eventos','Publica actos, cultos, Cruz de Mayo y convivencias.','#/admin/eventos'], ['Comunicación','Publicaciones','Publica noticias y crónicas.','#/admin/noticias'], ['Web','Historia','Edita los hitos históricos del cuartel.','#/admin/historia'] ];
  return shell(`<section class="admin-hub"><div class="tag">Panel privado</div><h2>Administración</h2><p class="mu admin-hub-intro">¿Qué necesitas gestionar hoy? Accede directamente a cada área del cuartel.</p><div class="admin-hub-grid">${cards.map(x=>`<a class="admin-hub-card" href="${x[3]}"><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small><b>Acceder →</b></a>`).join('')}</div><div class="admin-hub-footer"><button type="button" class="chip" data-a="cambiar-vista">Ver como hermana</button><a href="#/perfil">Mi perfil</a></div></section>`);
+}
+let EVENTO_EDITANDO=null;
+async function vAdminEventos(){
+  const lista=await api('GET','/modulos/eventos'), ed=EVENTO_EDITANDO;
+  const tipos=[['cofradia','Acto de cofradía'],['cruz_mayo','Cruz de Mayo'],['cultos','Cultos'],['convivencia','Convivencia'],['otros','Otros']];
+  const opciones=tipos.map(([k,v])=>`<option value="${k}" ${(ed?.tipo||'otros')===k?'selected':''}>${v}</option>`).join('');
+  const form=`<div class="card"><div class="tag">Agenda general</div><h3>${ed?'Editar evento':'Añadir un evento'}</h3><p class="mu">Los eventos aparecerán en el calendario y en el inicio de la zona hermana. No generan cuotas, asistencias ni turnos de cocina.</p><form data-f="evento-save" ${ed?'data-id="'+ed.id+'"':''}>
+    <div class="grid"><div>${campo('titulo','Nombre del evento','required maxlength="150" value="'+esc(ed?.titulo||'')+'"')}</div><div><label class="fl">Tipo de evento</label><select class="t" name="tipo">${opciones}</select></div>
+    <div><label class="fl">Fecha</label><input class="t" type="date" name="fecha" required value="${esc(ed?.fecha||'')}" /></div><div>${campo('hora','Hora (opcional)','type="time" value="'+esc(ed?.hora||'')+'"')}</div>
+    <div>${campo('lugar','Lugar (opcional)','maxlength="180" value="'+esc(ed?.lugar||'')+'"')}</div><div><label class="fl">Estado</label><select class="t" name="estado"><option value="publicado" ${ed?.estado!=='cancelado'?'selected':''}>Publicado</option><option value="cancelado" ${ed?.estado==='cancelado'?'selected':''}>Cancelado</option></select></div></div>
+    <label class="fl">Descripción (opcional)</label><textarea class="t" name="descripcion" rows="3" maxlength="3000">${esc(ed?.descripcion||'')}</textarea><p style="margin-top:14px"><button class="btn">${ed?'Guardar cambios':'Publicar evento'}</button> ${ed?'<button type="button" class="chip" data-a="evento-edit-cancel">Cancelar edición</button>':''}</p></form></div>`;
+  const rows=lista.length?lista.map(ev=>`<article class="mv"><div class="x"><b>${esc(ev.titulo)}</b><small class="mu">${esc(fechaBonita(ev.fecha))}${ev.hora?' · '+esc(ev.hora):''} · ${esc(tipos.find(t=>t[0]===ev.tipo)?.[1]||'Otros')}</small><small class="mu">${esc([ev.lugar,ev.descripcion].filter(Boolean).join(' · '))}</small></div><span class="pill ${ev.estado==='publicado'?'ok':''}">${ev.estado==='cancelado'?'Cancelado':'Publicado'}</span><button type="button" class="chip" data-a="evento-edit" data-id="${ev.id}">Editar</button>${ev.estado==='publicado'?`<button type="button" class="chip" data-a="evento-cancel" data-id="${ev.id}">Cancelar</button>`:''}</article>`).join(''):'<p class="mu">Todavía no hay eventos. Añade el primero desde el formulario.</p>';
+  return shell(adm('eventos',form+`<div class="card" style="margin-top:15px"><h3>Eventos registrados</h3>${rows}</div>`));
 }
 async function vAdmin(tab) {
  if(tab==='') return vAdminInicio();
+  if(tab==='eventos') return await vAdminEventos();
   if(tab==='actas') return await vActas();
   if(tab==='cocina') {
     const d=await api('GET','/modulos/cocina');
@@ -720,6 +740,7 @@ const FORM = {
   },
   async 'cargo-new'(f, d) { await api('POST', '/admin/cargos', { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Cargo creado'); render(); },
   async 'cargo-save'(f, d) { await api('PUT', '/admin/cargos/' + f.dataset.id, { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Guardado'); render(); },
+  async 'evento-save'(f,d) { const b={titulo:d.get('titulo'),tipo:d.get('tipo'),fecha:d.get('fecha'),hora:d.get('hora'),lugar:d.get('lugar'),descripcion:d.get('descripcion'),estado:d.get('estado')}; if(f.dataset.id) await api('PUT','/modulos/eventos/'+f.dataset.id,b); else await api('POST','/modulos/eventos',b); EVENTO_EDITANDO=null; toast(f.dataset.id?'Evento actualizado':'Evento publicado'); render(); },
   async 'noticia-new'(f, d) { const b = { tipo:d.get('tipo'), titulo:d.get('titulo'), texto:d.get('texto'), fecha:d.get('fecha'), url:d.get('url') }; const fl=d.get('foto'); if(fl&&fl.size)b.imagen=await reducir(fl,1400,0.8); await api('POST','/admin/noticias',b); toast(b.tipo==='cronica'?'Crónica publicada.':'Noticia publicada.'); render(); },
   async 'noticia-save'(f,d) { const b={tipo:d.get('tipo'),titulo:d.get('titulo'),texto:d.get('texto'),fecha:d.get('fecha'),url:d.get('url'),quitar_imagen:d.get('quitar_imagen')==='on'}; const fl=d.get('foto'); if(fl&&fl.size)b.imagen=await reducir(fl,1400,0.8); await api('PUT','/admin/noticias/'+f.dataset.id,b); NOTICIA_EDITANDO=null; toast('Publicación actualizada'); render(); },
   async 'sabado-new'(f,d) { await api('POST','/modulos/sabados',{fecha:d.get('fecha'),hora:d.get('hora'),titulo:d.get('titulo'),categoria:d.get('categoria'),descripcion:d.get('descripcion')}); toast('Sábado creado'); render(); },
@@ -823,6 +844,9 @@ const ACT = {
   async 'her-reset'(el) { const r=await api('POST','/admin/hermanas/'+el.dataset.id+'/reset'); toast(r.enviado?'Correo para restablecer contraseña enviado':'No se ha podido enviar el correo',!r.enviado); render(); },
   async 'her-quitar-foto'(el) { await api('PUT', '/admin/hermanas/' + el.dataset.id, { quitar_foto: true }); toast('Foto quitada'); render(); },
   async 'cargo-del'(el) { if (!confirm('¿Borrar este cargo?')) return; await api('DELETE', '/admin/cargos/' + el.dataset.id); render(); },
+  async 'evento-edit'(el) { const d=await api('GET','/modulos/eventos'); EVENTO_EDITANDO=d.find(x=>Number(x.id)===Number(el.dataset.id))||null; if(!EVENTO_EDITANDO) throw new Error('No se ha encontrado el evento'); render(); },
+  async 'evento-cancel'(el) { if(!confirm('¿Cancelar este evento? Dejará de mostrarse en la agenda de las hermanas.')) return; await api('PUT','/modulos/eventos/'+el.dataset.id,{estado:'cancelado'}); toast('Evento cancelado'); render(); },
+  'evento-edit-cancel'() { EVENTO_EDITANDO=null; render(); },
   async 'noticia-del'(el) { if (!confirm('¿Eliminar esta publicación?')) return; await api('DELETE','/admin/noticias/'+el.dataset.id); if(NOTICIA_EDITANDO?.id===Number(el.dataset.id))NOTICIA_EDITANDO=null; toast('Publicación eliminada'); render(); },
   async 'noticia-edit'(el) { const d=await api('GET','/admin/noticias'); NOTICIA_EDITANDO=d.find(n=>n.id===Number(el.dataset.id))||null; if(!NOTICIA_EDITANDO)throw new Error('No se ha encontrado la publicación'); render(); },
   'noticia-edit-cancel'() { NOTICIA_EDITANDO=null; render(); },
@@ -994,6 +1018,7 @@ async function render() {
     if (!ME) return vLogin();
     if (h === '#/perfil') return vPerfil();
     if (h === '#/calendario') return await vCalendario();
+    if (h === '#/admin/eventos') return ME.admin ? await vAdminEventos() : await vInicio();
     if (h === '#/sabados') return await vSabados();
     if (h === '#/cuenta') return await vCuenta();
     if (h === '#/cocina') return await vCocina();
