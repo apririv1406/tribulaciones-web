@@ -85,8 +85,8 @@ async function route(req, env, url, p) {
   if (m === 'POST' && p === '/api/setup') return setup(req, env, b);
   const me = await userOf(req, env);
   if (m === 'GET' && p === '/api/me') return me ? J(me) : E('No has iniciado sesión', 401);
-  if (m === 'POST' && p === '/api/perfil') return perfilGuardar(env, me, b);
   if (!me) return E('No has iniciado sesión', 401);
+  if (m === 'POST' && p === '/api/perfil') return perfilGuardar(env, me, b);
   if (p.startsWith('/api/modulos/')) return routeModulos(req, env, me, m, p, b);
   if (m === 'POST' && p === '/api/auth/logout') {
     await env.DB.prepare('DELETE FROM sesiones WHERE id=?').bind(await sha(getCookie(req, 'sid'))).run();
@@ -102,9 +102,12 @@ async function route(req, env, url, p) {
 async function userOf(req, env) {
   const sid = getCookie(req, 'sid');
   if (!sid) return null;
-  const r = await env.DB.prepare(`SELECT h.id,h.nombre,h.email,h.telefono,h.foto_id,h.estado,h.es_admin,c.nombre cargo,COALESCE(c.permiso,'none') permiso FROM sesiones s JOIN hermanas h ON h.id=s.hermana_id LEFT JOIN cargos c ON c.id=h.cargo_id WHERE s.id=? AND s.expira>? AND h.estado!='Baja'`).bind(await sha(sid), Date.now()).first();
+  const r = await env.DB.prepare(`SELECT h.id,h.nombre,h.email,h.telefono,h.foto_id,h.estado,h.es_admin,c.nombre cargo,COALESCE(c.permiso,'none') permiso,
+    COALESCE((SELECT a.alergias FROM lts_perfil_alergias a WHERE a.hermana_id=h.id),(SELECT a.alergias FROM alergias_hermanas a WHERE a.hermana_id=h.id),'') alergias,
+    COALESCE((SELECT a.observaciones FROM lts_perfil_alergias a WHERE a.hermana_id=h.id),(SELECT a.observaciones FROM alergias_hermanas a WHERE a.hermana_id=h.id),'') alergias_observaciones
+    FROM sesiones s JOIN hermanas h ON h.id=s.hermana_id LEFT JOIN cargos c ON c.id=h.cargo_id WHERE s.id=? AND s.expira>? AND h.estado!='Baja'`).bind(await sha(sid), Date.now()).first();
   if (!r) return null;
-  return { id: r.id, nombre: r.nombre, email: r.email, telefono: r.telefono || '', foto_id: r.foto_id || null, estado: r.estado, cargo: r.cargo, cargo_permiso: r.permiso, admin: !!r.es_admin, tes: !!(r.es_admin || r.permiso === 'tes'), actas: !!(r.es_admin || r.permiso === 'actas') };
+  return { id: r.id, nombre: r.nombre, email: r.email, telefono: r.telefono || '', foto_id: r.foto_id || null, alergias: r.alergias || '', alergias_observaciones: r.alergias_observaciones || '', estado: r.estado, cargo: r.cargo, cargo_permiso: r.permiso, admin: !!r.es_admin, tes: !!(r.es_admin || r.permiso === 'tes'), actas: !!(r.es_admin || r.permiso === 'actas') };
 }
 async function session(req, env, hid, body = { ok: true }, redirect) {
   const raw = rand(32);
@@ -183,7 +186,15 @@ async function perfilGuardar(env, me, b) {
   }
   if (nueva) { await borrarImagen(env,foto); foto=nueva; }
   else if (b.quitar_foto) { await borrarImagen(env,foto); foto=null; }
-  await env.DB.prepare('UPDATE hermanas SET nombre=?,telefono=?,foto_id=? WHERE id=?').bind(nombre,telefono,foto,me.id).run();
+  const alergias = String(b.alergias || '').slice(0,1000);
+  const alergiasObservaciones = String(b.alergias_observaciones || '').trim().slice(0,1000) || null;
+  await env.DB.batch([
+    env.DB.prepare('UPDATE hermanas SET nombre=?,telefono=?,foto_id=? WHERE id=?').bind(nombre,telefono,foto,me.id),
+    env.DB.prepare(`INSERT INTO alergias_hermanas(hermana_id,alergias,observaciones,actualizado) VALUES(?,?,?,datetime('now'))
+      ON CONFLICT(hermana_id) DO UPDATE SET alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`).bind(me.id,alergias,alergiasObservaciones),
+    env.DB.prepare(`INSERT INTO lts_perfil_alergias(hermana_id,alergias,observaciones,actualizado) VALUES(?,?,?,datetime('now'))
+      ON CONFLICT(hermana_id) DO UPDATE SET alergias=excluded.alergias,observaciones=excluded.observaciones,actualizado=datetime('now')`).bind(me.id,alergias,alergiasObservaciones)
+  ]);
   return J({ok:true});
 }
 async function setup(req, env, b) {
