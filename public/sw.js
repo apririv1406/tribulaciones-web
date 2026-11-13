@@ -39,8 +39,7 @@ self.addEventListener('fetch', event => {
         const hasCookie = response.headers.has('Set-Cookie');
         const isPrivate = /private|no-store|no-cache/.test(cacheControl);
         if (!hasCookie && !isPrivate) {
-          const copy = response.clone();
-          event.waitUntil(caches.open(CACHE).then(cache => cache.put(request, copy)));
+          return caches.open(CACHE).then(cache => cache.put(request, response.clone())).then(() => response);
         }
       }
       return response;
