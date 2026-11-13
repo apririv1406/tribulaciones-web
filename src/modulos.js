@@ -81,6 +81,29 @@ async function syncCargosHermanas(db) {
 export async function routeModulos(req, env, me, method, path, body) {
   let m;
 
+  // EVENTOS GENERALES DEL CUARTEL: lectura para hermanas; gestión exclusiva de administración.
+  if (path === '/api/modulos/eventos' && method === 'GET') {
+    const eventos = await rows(env.DB.prepare(me.admin ? 'SELECT * FROM eventos_cuartel ORDER BY fecha,id' : "SELECT * FROM eventos_cuartel WHERE estado='publicado' AND fecha>=date('now') ORDER BY fecha,id"));
+    return J(eventos);
+  }
+  if (path === '/api/modulos/eventos' && method === 'POST') {
+    if (!me.admin) return E('Solo la administradora puede gestionar los eventos', 403);
+    const titulo=txt(body.titulo,150), fecha=txt(body.fecha,10), tipos=['cofradia','cruz_mayo','cultos','convivencia','otros'];
+    if (titulo.length<2 || !isoDate(fecha)) return E('Indica un título y una fecha válida');
+    const tipo=tipos.includes(body.tipo)?body.tipo:'otros';
+    const r=await env.DB.prepare('INSERT INTO eventos_cuartel(titulo,tipo,fecha,hora,lugar,descripcion,estado,creado_por) VALUES(?,?,?,?,?,?,?,?)').bind(titulo,tipo,fecha,txt(body.hora,10)||null,txt(body.lugar,180)||null,txt(body.descripcion,3000)||null,body.estado==='cancelado'?'cancelado':'publicado',me.id).run();
+    return J({ok:true,id:r.meta.last_row_id});
+  }
+  if ((m=path.match(/^\/api\/modulos\/eventos\/(\d+)$/)) && (method==='PUT'||method==='DELETE')) {
+    if (!me.admin) return E('Solo la administradora puede gestionar los eventos',403);
+    const id=Number(m[1]), actual=await env.DB.prepare('SELECT * FROM eventos_cuartel WHERE id=?').bind(id).first();
+    if (!actual) return E('Evento no encontrado',404);
+    if (method==='DELETE') { await env.DB.prepare("UPDATE eventos_cuartel SET estado='cancelado',actualizado=datetime('now') WHERE id=?").bind(id).run(); return J({ok:true}); }
+    const titulo=txt(body.titulo??actual.titulo,150), fecha=txt(body.fecha??actual.fecha,10), tipos=['cofradia','cruz_mayo','cultos','convivencia','otros'];
+    if (titulo.length<2 || !isoDate(fecha)) return E('Indica un título y una fecha válida');
+    await env.DB.prepare("UPDATE eventos_cuartel SET titulo=?,tipo=?,fecha=?,hora=?,lugar=?,descripcion=?,estado=?,actualizado=datetime('now') WHERE id=?").bind(titulo,tipos.includes(body.tipo)?body.tipo:actual.tipo,fecha,txt(body.hora??actual.hora,10)||null,txt(body.lugar??actual.lugar,180)||null,txt(body.descripcion??actual.descripcion,3000)||null,body.estado==='cancelado'?'cancelado':'publicado',id).run();
+    return J({ok:true});
+  }
   // SÁBADOS Y ASISTENCIA
   if (path === '/api/modulos/sabados' && method === 'GET') {
     await syncCargosHermanas(env.DB);
