@@ -1013,3 +1013,32 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
    min-width:0;
  }
 }
+
+/* Tesorería móvil: impedir que el formulario y sus controles desborden el panel */
+@media(max-width:640px){
+ .zona #app,
+ .zona #app .tes-report-range{
+   min-width:0!important;
+   max-width:100%!important;
+ }
+ .zona #app .tes-report-range{
+   width:100%!important;
+   box-sizing:border-box!important;
+   overflow:hidden;
+ }
+ .zona #app .tes-report-range>*{
+   min-width:0!important;
+   max-width:100%!important;
+   box-sizing:border-box!important;
+ }
+ .zona #app .tes-report-range input,
+ .zona #app .tes-report-range button{
+   min-width:0!important;
+   max-width:100%!important;
+   box-sizing:border-box!important;
+ }
+ .zona #app .tes-report-range .tes-report-actions{
+   display:grid!important;
+   grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+ }
+}
