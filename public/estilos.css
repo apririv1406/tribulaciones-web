@@ -979,3 +979,37 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
  .zona #app .tes-report-kp{grid-template-columns:repeat(3,minmax(0,1fr))}
  .zona #app .tes-report-range{gap:10px}
 }
+
+/* Corrección definitiva: fechas apiladas en pantallas estrechas */
+@media(max-width:640px){
+ .zona #app .tes-report-range{
+   display:grid!important;
+   grid-template-columns:minmax(0,1fr)!important;
+   align-items:stretch;
+ }
+ .zona #app .tes-report-range>div,
+ .zona #app .tes-report-range .tes-report-date{
+   grid-column:1!important;
+   width:100%;
+   min-width:0!important;
+   max-width:100%;
+   box-sizing:border-box;
+ }
+ .zona #app .tes-report-range .tes-report-date{
+   display:block;
+ }
+ .zona #app .tes-report-range .tes-report-date input.t,
+ .zona #app .tes-report-range input[type="date"]{
+   display:block!important;
+   width:100%!important;
+   min-width:0!important;
+   max-width:100%!important;
+   box-sizing:border-box!important;
+   margin:0;
+ }
+ .zona #app .tes-report-range .tes-report-actions{
+   grid-column:1!important;
+   width:100%;
+   min-width:0;
+ }
+}
