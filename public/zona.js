@@ -390,6 +390,7 @@ function cambioTurnoMarkup(turno,miTurno,disponibles,cambios,turnos,asignaciones
 async function vCocina() {
   const d = await api('GET', '/modulos/cocina');
   const admin = ME.admin || ME.tes;
+  const turnosAsignados = d.asignaciones.filter(a => d.turnos.some(t => t.id === a.turno_id && t.fecha >= fechaHoyLocal()));
   const turnos = d.turnos.filter(t => COCINA_TAB === 'mis' ? d.asignaciones.some(a=>a.turno_id===t.id && a.hermana_id===ME.id) : true);
   const tarjetas = turnos.map(t => {
     const asignadas=d.asignaciones.filter(a=>a.turno_id===t.id);
