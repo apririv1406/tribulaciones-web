@@ -42,7 +42,7 @@ assert.ok(colsConsumo.results.some(x => x.name === 'refrescos'));
 ok('migración compatible: repara columnas antiguas sin borrar datos');
 
 // 1 público y arranque
-let r = await call('GET', '/api/public'); assert.equal(r.status, 200); assert.equal(r.data.hitos.length, 2); ok('arranque: tablas creadas y datos de partida');
+let r = await call('GET', '/api/public'); assert.equal(r.status, 200); assert.equal(r.data.hitos.length, 7); assert.equal(r.data.hitos.at(-1).anio, '2026'); ok('arranque: tablas creadas y cronología actualizada');
 // 2 petición sin cabecera
 r = await worker.fetch(new Request('https://ejemplo.es/api/auth/login', { method: 'POST', body: '{}' }), env); assert.equal(r.status, 403); ok('rechaza peticiones sin cabecera de seguridad');
 // 3 setup
