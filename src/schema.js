@@ -160,6 +160,10 @@ export const MIGRATIONS = [
     "INSERT INTO hitos(anio,texto,orden) SELECT 'Octubre de 2025','En colaboración con nuestra hermana Alicia Cosano, organizamos el taller Manos que salvan, dedicado a la RCP básica y a la maniobra de desobstrucción de la vía aérea por atragantamiento. La formación comenzó con las hermanas y continuó con jornadas dirigidas a personas vinculadas a la Semana Santa, los cuarteles y las hermandades.',6 WHERE (SELECT COUNT(*) FROM hitos)=5",
     "INSERT INTO hitos(anio,texto,orden) SELECT '2026','Estrenamos nueva sede en la calle San Sebastián, 27. Comienza una nueva etapa entre nuevas paredes y en una nueva ubicación, con las mismas ganas de compartir la Cuaresma y la Semana Santa, mantener vivas nuestras tradiciones y seguir creando recuerdos.',7 WHERE (SELECT COUNT(*) FROM hitos)=6"
   ]},
+  { v: 18, sql: [
+    "CREATE TABLE IF NOT EXISTS eventos_cuartel(id INTEGER PRIMARY KEY AUTOINCREMENT,titulo TEXT NOT NULL,tipo TEXT NOT NULL DEFAULT 'otros' CHECK(tipo IN('cofradia','cruz_mayo','cultos','convivencia','otros')),fecha TEXT NOT NULL,hora TEXT,lugar TEXT,descripcion TEXT,estado TEXT NOT NULL DEFAULT 'publicado' CHECK(estado IN('publicado','cancelado')),creado_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')),actualizado TEXT NOT NULL DEFAULT (datetime('now')))",
+    "CREATE INDEX IF NOT EXISTS ix_eventos_cuartel_fecha ON eventos_cuartel(estado,fecha)"
+  ]},
 ]; 
 
 async function ensureColumn(db, table, column, definition) {
