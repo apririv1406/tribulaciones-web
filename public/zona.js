@@ -40,7 +40,7 @@ function mostrarPopup(titulo, contenido, err = false) {
 }
 function toast(msg, err) {
   const texto = String(msg || '');
-  const esGuardado = /\\b(guardad[oa]s?|actualizad[oa]s?|registrad[oa]s?|cread[oa]s?|añadid[oa]s?|cambiad[oa]s?)\\b/i.test(texto);
+  const esGuardado = /\b(guardad[oa]s?|actualizad[oa]s?|registrad[oa]s?|cread[oa]s?|añadid[oa]s?|cambiad[oa]s?)\b/i.test(texto);
   const titulo = err ? 'No se ha podido completar' : (esGuardado ? 'GUARDADO CORRECTAMENTE' : 'OPERACIÓN COMPLETADA');
   mostrarPopup(titulo, '<p>' + esc(msg) + '</p>', !!err);
 }
