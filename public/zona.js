@@ -39,7 +39,10 @@ function mostrarPopup(titulo, contenido, err = false) {
   modal.querySelector('.lts-popup-ok').focus();
 }
 function toast(msg, err) {
-  mostrarPopup(err ? 'No se ha podido completar' : 'GUARDADO CORRECTAMENTE', '<p>' + esc(msg) + '</p>', !!err);
+  const texto = String(msg || '');
+  const esGuardado = /\\b(guardad[oa]s?|actualizad[oa]s?|registrad[oa]s?|cread[oa]s?|añadid[oa]s?|cambiad[oa]s?)\\b/i.test(texto);
+  const titulo = err ? 'No se ha podido completar' : (esGuardado ? 'GUARDADO CORRECTAMENTE' : 'OPERACIÓN COMPLETADA');
+  mostrarPopup(titulo, '<p>' + esc(msg) + '</p>', !!err);
 }
 function reducir(file, max, q = 0.82) {
   return new Promise((res, rej) => {
