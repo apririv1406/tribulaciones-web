@@ -504,3 +504,71 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .cocina-draw-selects .t{margin-top:4px}
 .cocina-draw-selects .chip{grid-column:1/-1;justify-self:start}
 @media(max-width:700px){.cocina-draw-row{grid-template-columns:minmax(0,1fr);gap:6px}.cocina-draw-selects{grid-template-columns:minmax(0,1fr)}.cocina-draw-selects .chip{grid-column:auto}}
+
+
+/* Ventanas emergentes propias: confirmaciones y consulta de asistentes */
+.lts-popup-backdrop{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px;background:rgba(24,20,14,.56);backdrop-filter:blur(3px)}
+.lts-popup{position:relative;width:min(100%,480px);max-height:min(82vh,720px);overflow:auto;padding:28px 26px 22px;border:1px solid var(--ln);border-radius:20px;background:var(--pa);box-shadow:0 24px 80px rgba(0,0,0,.24);text-align:center;animation:ltsPopupIn .18s ease-out}
+@keyframes ltsPopupIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.lts-popup-close{position:absolute;top:10px;right:13px;width:36px;height:36px;border:0;border-radius:50%;background:var(--gs);color:var(--dk);font-size:25px;line-height:1;cursor:pointer}
+.lts-popup-mark{display:grid;place-items:center;width:54px;height:54px;margin:0 auto 12px;border-radius:50%;background:var(--gs);color:var(--gd);font-size:30px;font-weight:700}
+.lts-popup.is-error .lts-popup-mark{background:#fbe9e7;color:#a83225}
+.lts-popup h3{margin:0 30px 10px;color:var(--dk);font:700 23px "Cormorant Garamond",Georgia,serif}
+.lts-popup-content{color:var(--tx);font-size:14px;line-height:1.5;text-align:left}
+.lts-popup-content>p{text-align:center;margin:0 0 16px}
+.lts-popup-ok{min-width:125px;margin-top:14px}
+.lts-attendance-list{display:grid;gap:8px;max-height:52vh;overflow:auto;padding:2px}
+.lts-attendance-row{padding:11px 13px;border:1px solid var(--ln);border-radius:12px;background:#fff}
+.lts-attendance-row>div{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lts-attendance-row p{margin:5px 0 0;color:var(--mu);font-size:12px}
+.lts-attendance-status{display:inline-flex;flex:none;padding:4px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.lts-attendance-status.yes{background:#e8f3e9;color:#276238}
+.lts-attendance-status.no{background:#f4ece7;color:#80543e}
+
+/* Normalización responsive de la zona privada */
+.zona #app,.zona #app *{box-sizing:border-box}
+.zona #app{width:100%;min-width:0}
+.zona #app img,.zona #app canvas,.zona #app svg{max-width:100%}
+.zona #app .card,.zona #app .sec,.zona #app .top,.zona #app form,.zona #app .grid,.zona #app .g2,.zona #app .two,.zona #app .row{min-width:0;max-width:100%}
+.zona #app .grid>*,.zona #app .g2>*,.zona #app .two>*,.zona #app .row>*{min-width:0}
+.zona #app input,.zona #app select,.zona #app textarea{max-width:100%;min-width:0}
+.zona #app input.t,.zona #app select.t,.zona #app textarea.t{width:100%;font-size:16px}
+.zona #app button,.zona #app .btn,.zona #app .chip{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.zona #app .wrap{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.zona #app .rt{min-width:640px}
+.zona #app .sub,.zona #app .admin-subnav{max-width:100%;overscroll-behavior-x:contain}
+@media(max-width:760px){
+  .zona #app{padding:0 14px calc(90px + env(safe-area-inset-bottom,0px))}
+  .zona #app .top{padding:22px 0 10px}
+  .zona #app .top h2,.zona #app h2{font-size:clamp(23px,6vw,29px);line-height:1.15}
+  .zona #app .sec{padding:18px 0}
+  .zona #app .card{padding:15px;border-radius:15px}
+  .zona #app .row{flex-wrap:wrap;gap:10px}
+  .zona #app .row>*{flex:1 1 100px!important}
+  .zona #app .two,.zona #app .two.r,.zona #app .formgrid,.zona #app .actas-junta-fields{grid-template-columns:minmax(0,1fr)!important}
+  .zona #app .g2{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .zona #app .kp{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .zona #app .mv{align-items:flex-start;gap:9px;padding:11px 0}
+  .zona #app .mv>*{min-width:0;overflow-wrap:anywhere}
+  .zona #app .sub{gap:16px}
+  .zona #app .sub button{font-size:13px;flex:none}
+  .zona #app .btn,.zona #app button.btn{min-height:42px}
+  .zona #app .tes-heading,.zona #app .tes-section-intro{align-items:flex-start;flex-direction:column}
+  .zona #app .tes-pending-summary{max-width:100%;white-space:normal}
+  .zona #app .tes-fixed-toolbar{align-items:stretch;flex-direction:column}
+  .zona #app .tes-fixed-toolbar .btn{width:100%}
+  .zona #app .tes-balance-accounts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .zona #app .lts-popup-backdrop{padding:12px}
+  .zona #app .lts-popup{width:100%;max-height:86vh;padding:25px 17px 18px;border-radius:18px}
+  .zona #app .lts-popup h3{font-size:22px}
+  .zona #app .lts-attendance-list{max-height:55vh}
+}
+@media(max-width:420px){
+  .zona #app{padding-left:11px;padding-right:11px}
+  .zona #app .card{padding:13px}
+  .zona #app .g2,.zona #app .kp{grid-template-columns:minmax(0,1fr)}
+  .zona #app .g2>:last-child:nth-child(odd){grid-column:auto}
+  .zona #app .tes-stats-kp,.zona #app .tes-debt-kp,.zona #app .tes-report-kp{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .zona #app .tes-stats-kp>.card:last-child,.zona #app .tes-debt-kp>.card:last-child,.zona #app .tes-report-kp>.card:last-child{grid-column:1/-1}
+  .zona #app .profile-photo{width:88px;height:88px}
+}
