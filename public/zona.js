@@ -216,7 +216,7 @@ async function vCalendario() {
   sabados.forEach(s=>eventos.push({fecha:s.fecha,tipo:'sabado',titulo:s.titulo||'Encuentro del cuartel',hora:s.hora||'',detalle:s.categoria||'Encuentro',estado:s.estado==='cancelado'?'Cancelado':''}));
   (juntas.juntas||[]).forEach(j=>eventos.push({fecha:j.fecha,tipo:'junta',titulo:j.lugar||'Junta del cuartel',hora:j.hora||'',detalle:j.convocatoria||'Convocatoria de junta',estado:j.estado||''}));
   (cocina.turnos||[]).forEach(t=>eventos.push({fecha:t.fecha,tipo:'cocina',titulo:t.turno||'Turno de cocina',hora:'',detalle:t.responsable||t.menu||'Organización de cocina',estado:''}));
-  CAL_EVENTOS=eventos.filter(x=>/^\\d{4}-\\d{2}-\\d{2}$/.test(x.fecha||''));
+  CAL_EVENTOS=eventos.filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x.fecha||''));
   return shell(vCalendarioHTML(CAL_EVENTOS));
 }
 
