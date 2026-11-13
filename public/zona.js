@@ -746,7 +746,7 @@ const ACT = {
   'cuenta-pago-open'() { PAGO_MODAL=true; render(); },
   'cuenta-pago-close'() { PAGO_MODAL=false; render(); },
   'cuenta-pago-stop'() {},
-  'rsvp-choice'(el) { const f = el.closest('form'); f.querySelector('[name=asiste]').value = el.dataset.value; f.querySelectorAll('[data-a=\"rsvp-choice\"]').forEach(b => b.classList.remove('y','n')); el.classList.add(el.dataset.value === '1' ? 'y' : 'n'); actualizarResumenRSVP(f); },
+  'rsvp-choice'(el) { const f = el.closest('form'); f.querySelector('[name=asiste]').value = el.dataset.value; f.querySelectorAll('[data-a=\"rsvp-choice\"]').forEach(b => { b.classList.remove('y','n'); b.setAttribute('aria-pressed',String(b===el)); }); el.classList.add(el.dataset.value === '1' ? 'y' : 'n'); actualizarResumenRSVP(f); },
   'rsvp-invitadas-step'(el) {
     const f=el.closest('form'), input=f.querySelector('[name=acompanantes]');
     const cantidad=Math.max(0,Math.min(20,Number(input.value||0)+Number(el.dataset.delta||0)));
