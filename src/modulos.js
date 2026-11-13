@@ -107,7 +107,7 @@ export async function routeModulos(req, env, me, method, path, body) {
   // RESUMEN MENSUAL: consulta agregada sobre datos existentes; no crea ni duplica registros.
   if (path === '/api/modulos/resumen-mensual' && method === 'GET') {
     if (!me.admin && !tes(me)) return E('No tienes permiso para consultar el resumen mensual', 403);
-    const periodo = txt(url.searchParams.get('periodo'), 7);
+    const periodo = txt(new URL(req.url).searchParams.get('periodo'), 7);
     if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) return E('Indica un mes válido');
     const [anio, mes] = periodo.split('-').map(Number);
     const inicio = periodo + '-01';
