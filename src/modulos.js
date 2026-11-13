@@ -361,6 +361,11 @@ export async function routeModulos(req, env, me, method, path, body) {
     const cfg = await env.DB.prepare("SELECT valor FROM config WHERE clave='cocina_personas_por_turno'").first();
     return J({ turnos, alergias, tickets, hermanas, asignaciones, cambios, personas_por_turno: cfg?.valor ? Number(cfg.valor) : 2 });
   }
+  if (path === '/api/modulos/cocina/sorteo' && method === 'DELETE') {
+    if (!tes(me)) return E('No tienes permiso para eliminar el sorteo', 403);
+    const r = await env.DB.prepare("DELETE FROM turnos_cocina_hermanas WHERE turno_id IN (SELECT id FROM turnos_cocina WHERE fecha>=date('now'))").run();
+    return J({ ok: true, asignaciones_eliminadas: r.meta?.changes || 0 });
+  }
   if (path === '/api/modulos/cocina/sorteo' && method === 'POST') {
     if (!tes(me)) return E('No tienes permiso para realizar el sorteo', 403);
     const personas = num(body.personas_por_turno);
