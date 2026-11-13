@@ -144,7 +144,7 @@ export async function routeModulos(req, env, me, method, path, body) {
       const sabadosCelebrados = sabados.filter(x => x.estado !== 'cancelado');
       const juntasCelebradas = juntas.filter(x => x.estado === 'celebrada');
       return {
-        periodo: p, ingresos, gastos, resultado: ingresos - gastos, movimientos: movimientos.length,
+        periodo: p, ingresos, gastos, resultado: ingresos - gastos, movimientos, numero_movimientos: movimientos.length,
         cuotas: cuotas || { cantidad: 0, generado: 0, cobrado: 0, pendiente: 0 },
         sabados: sabadosCelebrados, sabados_programados: sabados.filter(x => x.estado !== 'cancelado').length,
         asistencia: sabadosCelebrados.reduce((n,x) => n + Number(x.asistentes || 0) + Number(x.invitadas || 0), 0),
