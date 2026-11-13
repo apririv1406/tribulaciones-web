@@ -119,26 +119,56 @@ function vSetup() {
 }
 
 /* ---------- zona ---------- */
-function vInicio() {
+async function vInicio() {
   const nombre = esc((ME.nombre || '').split(' ')[0] || 'hermana');
-  const mod = (t, d, href, etiqueta) => `<a class="card" href="${href}" style="display:block;color:inherit;text-decoration:none">
-    <div class="tag">${etiqueta}</div><h3 style="margin:5px 0 8px">${t}</h3><p class="mu" style="margin:0">${d}</p><div style="margin-top:16px;color:var(--gd);font-weight:600;font-size:13px">Entrar <span aria-hidden="true">→</span></div></a>`;
-  shell(`<section class="hero2">
-    <div class="tag" style="color:var(--go)">Zona hermana</div>
-    <h2 style="color:#fff;margin:7px 0 4px">¡Hola, ${nombre}!</h2>
-    <p style="margin:0;color:rgba(255,255,255,.78)">${esc(ME.cargo || 'Hermana')} · Las Tribulaciones de Sara</p>
-    <p style="margin:18px 0 0;color:rgba(255,255,255,.78);font-size:14px">Aquí tienes a mano la información y las gestiones del cuartel.</p>
-  </section>
-  ${ME.admin ? `<section class="sec" style="padding-bottom:12px"><div class="cta2"><div><b>Administración del cuartel</b><span>Hermanas, cargos, bienvenida, noticias e historia.</span></div><a class="btn" href="#/admin/hermanas">Acceder</a></div></section>` : ''}
-  <section class="sec" style="padding-top:28px"><div class="tag">Tu espacio</div><h2 style="margin:4px 0 18px">Zona hermana</h2>
-    <div class="g2">
-      ${mod('Sábados y asistencia','Confirma si vas a asistir, añade acompañantes y comunica alergias.','#/sabados','Organización')}
-      ${mod('Mi cuenta','Consulta tus cuotas, pagos e historial de movimientos.','#/cuenta','Tesorería personal')}
-      ${mod('Cocina','Consulta los turnos, menús, presupuestos y alergias.','#/cocina','Cuartel')}
-      ${mod('Actas y estatutos','Consulta las convocatorias, las actas y los estatutos del cuartel.','#/actas','Documentación')}
-      ${ME.tes ? mod('Tesorería','Gestiona cuotas, ingresos, gastos, tickets e informes.','#/tesoreria','Gestión económica') : ''}
-    </div>
-  </section>`);
+  const resultados = await Promise.allSettled([
+    api('GET', '/modulos/sabados'),
+    api('GET', '/modulos/cuenta')
+  ]);
+  const sabados = resultados[0].status === 'fulfilled' ? resultados[0].value : [];
+  const cuenta = resultados[1].status === 'fulfilled' ? resultados[1].value : null;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const siguiente = sabados.filter(s => s.estado !== 'cancelado' && new Date(s.fecha + 'T12:00:00') >= hoy).sort((a,b) => a.fecha.localeCompare(b.fecha))[0];
+  const fechaSiguiente = siguiente ? new Date(siguiente.fecha + 'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}) : '';
+  const asistencia = siguiente ? (Number(siguiente.mi_asistencia) === 1 ? 'Has confirmado que vas' : Number(siguiente.mi_asistencia) === 0 ? 'Has indicado que no asistirás' : 'Consulta tu asistencia') : '';
+  const cuotasPendientes = cuenta ? (cuenta.cuotas || []).filter(c => c.estado !== 'pagada').reduce((a,c) => a + Number(c.restante_centimos || 0),0) : null;
+  const cargosPendientes = cuenta ? (cuenta.cargos || []).reduce((a,c) => a + Number(c.restante_centimos || 0),0) : 0;
+  const pagosRevision = cuenta ? (cuenta.pagos || []).filter(p => p.estado === 'pendiente').reduce((a,p) => a + Number(p.importe_centimos || 0),0) : 0;
+  const deuda = cuenta ? Math.max(0,cuotasPendientes + cargosPendientes - pagosRevision) : null;
+  const mod = (t, d, href, etiqueta, icono) => `<a class="sister-module" href="${href}"><span class="sister-module-icon" aria-hidden="true">${icono}</span><span class="sister-module-copy"><small>${etiqueta}</small><b>${t}</b><span>${d}</span></span><span class="sister-module-arrow" aria-hidden="true">→</span></a>`;
+  shell(`<div class="sister-home">
+    <section class="hero2 sister-welcome">
+      <div class="tag" style="color:var(--go)">LAS TRIBULACIONES DE SARA</div>
+      <h2 style="color:#fff;margin:7px 0 4px">¡Hola, ${nombre}!</h2>
+      <p class="sister-welcome-sub">${esc(ME.cargo || 'Hermana')}</p>
+      <p class="sister-welcome-note">Tu espacio para estar al día con el cuartel.</p>
+    </section>
+    <section class="sister-home-status" aria-label="Tu información">
+      <article class="sister-status-card">
+        <div class="sister-status-heading"><span class="sister-status-icon">◷</span><span>PRÓXIMO SÁBADO</span></div>
+        ${siguiente ? `<b class="sister-status-main">${esc(siguiente.titulo || 'Sábado de cuartel')}</b><span class="sister-status-detail">${esc(fechaSiguiente)}${siguiente.hora ? ' · ' + esc(siguiente.hora) : ''}</span><span class="sister-status-state">${esc(asistencia)}</span>` : '<b class="sister-status-main">Sin sábados programados</b><span class="sister-status-detail">Cuando se publique el próximo, aparecerá aquí.</span>'}
+        <a href="#/sabados" class="sister-status-link">${siguiente ? 'Ver sábado y asistencia' : 'Consultar sábados'} <span>→</span></a>
+      </article>
+      <article class="sister-status-card">
+        <div class="sister-status-heading"><span class="sister-status-icon">€</span><span>MI CUENTA</span></div>
+        ${cuenta ? `<b class="sister-status-main sister-status-money">${euros(deuda)}</b><span class="sister-status-detail">Pendiente de pago</span>${pagosRevision ? '<span class="sister-status-state">' + euros(pagosRevision) + ' en revisión por Tesorería</span>' : '<span class="sister-status-state">' + (deuda > 0 ? 'Consulta el desglose de tus cuotas' : 'No tienes importes pendientes') + '</span>'}` : '<b class="sister-status-main">Consulta tu cuenta</b><span class="sister-status-detail">Revisa tus cuotas y tus pagos.</span>'}
+        <a href="#/cuenta" class="sister-status-link">Ir a mi cuenta <span>→</span></a>
+      </article>
+    </section>
+    ${ME.admin ? `<section class="sister-admin-shortcut"><div><b>Administración del cuartel</b><span>Accede a las herramientas de gestión.</span></div><a class="btn" href="#/admin">Abrir panel</a></section>` : ''}
+    <section class="sister-home-modules">
+      <div class="tag">TU ESPACIO</div><h2>¿Qué necesitas hacer?</h2>
+      <div class="sister-module-list">
+        ${mod('Sábados y asistencia','Confirma tu asistencia y organiza tus invitadas.','#/sabados','ORGANIZACIÓN','◷')}
+        ${mod('Mi cuenta','Consulta cuotas, registra pagos y revisa tu historial.','#/cuenta','TESORERÍA PERSONAL','€')}
+        ${mod('Cocina','Consulta tus turnos, menús y la información del sábado.','#/cocina','CUARTEL','⌂')}
+        ${mod('Actas y estatutos','Consulta convocatorias, actas y documentación.','#/actas','DOCUMENTACIÓN','▤')}
+        ${ME.tes ? mod('Tesorería','Gestiona cuotas, ingresos, gastos e informes.','#/tesoreria','GESTIÓN ECONÓMICA','＋') : ''}
+        ${ME.admin ? mod('Gestión de hermanas','Fichas, cargos, permisos y cuentas.','#/admin/hermanas','ADMINISTRACIÓN','♙') : ''}
+      </div>
+    </section>
+    <div class="sister-home-footer"><a href="#/perfil">Mi perfil</a><span>·</span><a href="#/actas">Documentación del cuartel</a></div>
+  </div>`);
 }
 
 const ALERGIAS_TAGS = ['Sin gluten (celiaquía)','Sin lactosa','Frutos secos','Marisco y pescado','Huevo','Vegetariana'];
@@ -894,10 +924,10 @@ async function render() {
     if (h === '#/cuenta') return await vCuenta();
     if (h === '#/cocina') return await vCocina();
     if (h === '#/actas') return await vActas();
-    if (h === '#/tesoreria') return ME.admin || ME.tes ? await vTesoreria() : vInicio();
-    if (h === '#/admin') return ME.admin ? vAdminInicio() : vInicio();
-    if (h.startsWith('#/admin/')) return ME.admin ? await vAdmin(h.slice(8)) : vInicio();
-    return vInicio();
+    if (h === '#/tesoreria') return ME.admin || ME.tes ? await vTesoreria() : await vInicio();
+    if (h === '#/admin') return ME.admin ? vAdminInicio() : await vInicio();
+    if (h.startsWith('#/admin/')) return ME.admin ? await vAdmin(h.slice(8)) : await vInicio();
+    return await vInicio();
   } catch (er) {
     if (er.status === 401) { ME = null; return vLogin(); }
     shell(`<div class="card"><p>${esc(er.message)}</p></div>`);
