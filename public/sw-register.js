@@ -41,6 +41,8 @@ if ('serviceWorker' in navigator) {
       button.style.cssText = 'flex:none;border:0;border-radius:10px;padding:11px 14px;background:#642d3b;color:#fff;font:600 13px Inter,Arial,sans-serif;cursor:pointer';
 
       button.addEventListener('click', () => {
+        const confirmed = window.confirm('Antes de actualizar, guarda cualquier formulario o cambio que tengas en curso. La aplicación se recargará. ¿Quieres continuar?');
+        if (!confirmed) return;
         button.disabled = true;
         button.textContent = 'Actualizando…';
         if (registration && registration.waiting) {
