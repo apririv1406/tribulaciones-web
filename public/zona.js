@@ -874,7 +874,46 @@ const ACT = {
   'cal-next'() { CAL_MES=new Date(CAL_MES.getFullYear(),CAL_MES.getMonth()+1,1); render(); },
   'cal-hoy'() { CAL_MES=new Date(new Date().getFullYear(),new Date().getMonth(),1); CAL_SELECCION=fechaISOlocal(new Date()); render(); },
   'cal-dia'(el) { CAL_SELECCION=el.dataset.fecha; shell(vCalendarioHTML(CAL_EVENTOS)); },
-  async 'resumen-pdf'() { if(!RESUMEN_DATA) return; const d=RESUMEN_DATA, p=d.periodo, t=new Date(p+'-01T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'}), m=d.movimientos||[], ing=m.filter(x=>x.tipo==='ingreso').reduce((n,x)=>n+Number(x.importe_centimos||0),0), gas=m.filter(x=>x.tipo==='gasto').reduce((n,x)=>n+Number(x.importe_centimos||0),0), q=d.cuotas||{}; const lineas=['LAS TRIBULACIONES DE SARA','RESUMEN MENSUAL · '+t,'','SITUACIÓN ECONÓMICA','Ingresos: '+euros(ing),'Gastos: '+euros(gas),'Resultado: '+euros(ing-gas),'Movimientos contabilizados: '+m.length,'','CUOTAS DEL PERIODO','Cuotas generadas: '+Number(q.cantidad||0)+' · '+euros(q.generado),'Cobrado: '+euros(q.cobrado),'Pendiente actual: '+euros(q.pendiente),'','ACTIVIDAD DEL CUARTEL','Sábados del mes: '+d.sabados_programados,'Asistencia: '+d.asistencia+' ('+d.hermanas_asistentes+' hermanas, '+d.invitadas+' invitadas)','Juntas celebradas: '+d.juntas_celebradas,'','MOVIMIENTOS']; m.slice(0,14).forEach(x=>lineas.push(x.fecha+' · '+String(x.concepto||'').slice(0,38)+' · '+(x.tipo==='gasto'?'-':'+')+euros(x.importe_centimos))); if(m.length>14) lineas.push('... y '+(m.length-14)+' movimientos más (consulta la web).'); lineas.push('','SÁBADOS'); (d.sabados||[]).slice(0,6).forEach(x=>lineas.push(x.fecha+' · '+String(x.titulo||'Sábado').slice(0,34)+' · '+x.asistentes+' hermanas / '+x.invitadas+' invitadas)); if(d.juntas?.length) { lineas.push('','JUNTAS'); d.juntas.slice(0,4).forEach(x=>lineas.push(x.fecha+' · '+String(x.lugar||'Junta').slice(0,35)+' · '+x.estado)); } if(d.eventos?.length) { lineas.push('','OTROS EVENTOS'); d.eventos.slice(0,4).forEach(x=>lineas.push(x.fecha+' · '+String(x.titulo||'').slice(0,38)+' · '+(x.estado==='cancelado'?'Cancelado':'Publicado'))); } await entregarPDF(await crearPDFSimple(lineas),'resumen-mensual-'+p+'.pdf','Resumen mensual · '+t,'Informe mensual de Las Tribulaciones de Sara'); },
+  async 'resumen-pdf'() {
+    if (!RESUMEN_DATA) return;
+    const d = RESUMEN_DATA, p = d.periodo;
+    const titulo = new Date(p + '-01T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+    const movimientos = d.movimientos || [];
+    const ingresos = movimientos.filter(x => x.tipo === 'ingreso').reduce((n,x) => n + Number(x.importe_centimos || 0),0);
+    const gastos = movimientos.filter(x => x.tipo === 'gasto').reduce((n,x) => n + Number(x.importe_centimos || 0),0);
+    const cuotas = d.cuotas || {};
+    const lineas = [
+      'LAS TRIBULACIONES DE SARA','RESUMEN MENSUAL · ' + titulo,'',
+      'SITUACIÓN ECONÓMICA','Ingresos: ' + euros(ingresos),'Gastos: ' + euros(gastos),
+      'Resultado: ' + euros(ingresos-gastos),'Movimientos contabilizados: ' + movimientos.length,'',
+      'CUOTAS DEL PERIODO','Cuotas generadas: ' + Number(cuotas.cantidad || 0) + ' · ' + euros(cuotas.generado),
+      'Cobrado: ' + euros(cuotas.cobrado),'Pendiente actual: ' + euros(cuotas.pendiente),'',
+      'ACTIVIDAD DEL CUARTEL','Sábados del mes: ' + d.sabados_programados,
+      'Asistencia: ' + d.asistencia + ' (' + d.hermanas_asistentes + ' hermanas, ' + d.invitadas + ' invitadas)',
+      'Juntas celebradas: ' + d.juntas_celebradas,'','MOVIMIENTOS'
+    ];
+    movimientos.slice(0,14).forEach(x => {
+      lineas.push(x.fecha + ' · ' + String(x.concepto || '').slice(0,38) + ' · ' + (x.tipo === 'gasto' ? '-' : '+') + euros(x.importe_centimos));
+    });
+    if (movimientos.length > 14) lineas.push('... y ' + (movimientos.length - 14) + ' movimientos más (consulta la web).');
+    lineas.push('','SÁBADOS');
+    (d.sabados || []).slice(0,6).forEach(x => {
+      lineas.push(x.fecha + ' · ' + String(x.titulo || 'Sábado').slice(0,34) + ' · ' + x.asistentes + ' hermanas / ' + x.invitadas + ' invitadas');
+    });
+    if (d.juntas?.length) {
+      lineas.push('','JUNTAS');
+      d.juntas.slice(0,4).forEach(x => {
+        lineas.push(x.fecha + ' · ' + String(x.lugar || 'Junta').slice(0,35) + ' · ' + x.estado);
+      });
+    }
+    if (d.eventos?.length) {
+      lineas.push('','OTROS EVENTOS');
+      d.eventos.slice(0,4).forEach(x => {
+        lineas.push(x.fecha + ' · ' + String(x.titulo || '').slice(0,38) + ' · ' + (x.estado === 'cancelado' ? 'Cancelado' : 'Publicado'));
+      });
+    }
+    await entregarPDF(await crearPDFSimple(lineas),'resumen-mensual-' + p + '.pdf','Resumen mensual · ' + titulo,'Informe mensual de Las Tribulaciones de Sara');
+  },
   'module-tab'(el) { const k=el.dataset.tab; if(el.dataset.module==='cuenta') CUENTA_TAB=k; if(el.dataset.module==='cocina') COCINA_TAB=k; if(el.dataset.module==='tesoreria') TES_TAB=k; if(el.dataset.module==='tesrec') TES_REC_TAB=k; if(el.dataset.module==='tescfg') TES_CFG_TAB=k; if(el.dataset.module==='adminher') ADMIN_HERM_TAB=k; if(el.dataset.module==='actas') ACTAS_TAB=k; render(); },
   'extra-add'() { $('#tes-extras-rows').insertAdjacentHTML('beforeend',extraRow({})); },
   'extra-del'(el) { el.closest('.extra-row').remove(); },
