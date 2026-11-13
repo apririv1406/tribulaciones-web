@@ -109,7 +109,7 @@ const menuGroups = () => {
     { title: 'Gestión', links: [['#/calendario', 'Calendario'], ['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina'], ...(admin ? [['#/admin/eventos', 'Otros eventos']] : []), ] },
   ];
   if (admin) groups.push({ title: 'Hermanas', links: [['#/admin/hermanas', 'Hermanas y cargos']] });
-  if (ME.tes || admin) groups.push({ title: 'Economía', links: [['#/tesoreria', 'Tesorería y cuotas']] });
+  if (ME.tes || admin) groups.push({ title: 'Tesorería', links: [['#/tesoreria', 'Tesorería y cuotas']] });
   groups.push({ title: 'Secretaría', links: [[admin ? '#/admin/actas' : '#/actas', 'Actas y juntas']] });
   if (admin) groups.push({ title: 'Comunicación', links: [['#/admin/noticias', 'Publicaciones'], ['#/admin/historia', 'Historia']] });
   groups.push({ title: 'Mi espacio', links: [['#/cuenta', 'Mi cuenta'], ['#/perfil', 'Mi perfil']] });
@@ -137,7 +137,7 @@ function shell(html) {
   </aside>` : '';
   const bottom=$('#bottom-nav');
   if(bottom) bottom.style.display = MENU ? 'none' : '';
-  if(bottom && ME_REAL?.admin && !VISTA_HERMANA) bottom.innerHTML = `<nav class="admin-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur.startsWith('#/admin/hermanas')?'on':''}" href="#/admin/hermanas"><span>♙</span>Hermanas</a><a class="${cur.startsWith('#/tesoreria')?'on':''}" href="#/tesoreria"><span>€</span>Economía</a><a class="${cur.startsWith('#/admin/actas')||cur==='#/actas'?'on':''}" href="#/admin/actas"><span>▤</span>Secretaría</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
+  if(bottom && ME_REAL?.admin && !VISTA_HERMANA) bottom.innerHTML = `<nav class="admin-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur.startsWith('#/admin/hermanas')?'on':''}" href="#/admin/hermanas"><span>♙</span>Hermanas</a><a class="${cur.startsWith('#/tesoreria')?'on':''}" href="#/tesoreria"><span>€</span>Tesorería</a><a class="${cur.startsWith('#/admin/actas')||cur==='#/actas'?'on':''}" href="#/admin/actas"><span>▤</span>Secretaría</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
   else if(bottom && ME) bottom.innerHTML = `<nav class="admin-bottom-nav sister-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur==='#/sabados'||cur==='#/cocina'?'on':''}" href="#/sabados"><span>◷</span>Gestión</a><a class="${cur==='#/cuenta'||cur==='#/tesoreria'?'on':''}" href="#/cuenta"><span>€</span>Mi cuenta</a><a class="${cur==='#/actas'||cur==='#/admin/actas'?'on':''}" href="#/actas"><span>▤</span>Actas</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
   else if(bottom) bottom.innerHTML = '';
   $('#app').innerHTML = html;
@@ -849,7 +849,7 @@ async function vAdmin(tab) {
 const hitoRow = h => `<div class="row" style="margin-bottom:12px;align-items:flex-start"><input class="t" name="anio" style="width:90px" value="${esc(h.anio)}" placeholder="Año"><textarea class="t" name="texto" rows="2" style="flex:1;min-width:200px" placeholder="Qué pasó">${esc(h.texto)}</textarea><button type="button" class="chip" data-a="hito-del">✕</button></div>`;
 function rowHer(h, cs) {
   const puedeInvitar=h.estado!=='Baja'&&!!h.telefono;
-  return `<form class="card" data-f="her-save" data-id="${h.id}" style="margin-bottom:12px${h.estado==='Baja'?';opacity:.65':''}">
+  return `<form class="card" data-f="her-save" data-id="${h.id}" data-search="${esc([h.nombre,h.email,h.telefono,cs.find(c=>Number(c.id)===Number(h.cargo_id))?.nombre,h.estado].filter(Boolean).join(' '))}" style="margin-bottom:12px${h.estado==='Baja'?';opacity:.65':''}">
   <div class="row" style="align-items:flex-end"><div style="flex:2 1 190px">${campo('nombre','Nombre','required value="'+esc(h.nombre)+'"')}</div><div style="flex:2 1 200px">${campo('email','Correo','type="email" value="'+esc(h.email||'')+'"')}</div><div style="flex:2 1 190px">${campo('telefono','WhatsApp','type="tel" placeholder="+34 600 000 000" value="'+esc(h.telefono||'')+'"')}</div><div style="flex:1 1 145px"><label class="fl">Cargo</label><select class="t" name="cargo_id">${cs.map(c=>`<option value="${c.id}" ${c.id===h.cargo_id?'selected':''}>${esc(c.nombre)}</option>`).join('')}</select></div><div style="flex:1 1 115px"><label class="fl">Estado</label><select class="t" name="estado">${['Activa','Pasiva','Baja'].map(e=>`<option ${e===h.estado?'selected':''}>${e}</option>`).join('')}</select></div><div style="flex:0 0 110px">${campo('anio_entrada','Año de entrada','type="number" min="1900" max="2100" value="'+(h.anio_entrada||'')+'"')}</div></div>
   <div class="row" style="align-items:center;margin-top:12px"><div class="av" style="margin:0;width:56px;height:56px;font-size:18px">${h.foto?`<img src="/media/${h.foto}" alt="">`:iniciales(h.nombre)}</div><div style="flex:1 1 200px"><label class="fl">Foto</label><input type="file" name="foto" accept="image/*" style="font-size:13px"></div>${h.foto?`<button type="button" class="chip" data-a="her-quitar-foto" data-id="${h.id}">Quitar foto</button>`:''}<label class="mu" style="font-size:13px"><input type="checkbox" name="visible_web" ${h.visible_web?'checked':''}> Aparece en la web</label><label class="mu" style="font-size:13px"><input type="checkbox" name="es_admin" ${h.es_admin?'checked':''}> Administradora</label></div>
   <div class="row" style="align-items:center;margin-top:14px"><button class="btn" style="padding:9px 20px">Guardar</button><span class="pill ${h.cuenta==='activa'?'ok':''}">${CUENTA[h.cuenta]}</span>${puedeInvitar?(h.cuenta==='activa'?`<button type="button" class="chip" data-a="her-reset" data-id="${h.id}">Restablecer contraseña por correo</button>`:`<button type="button" class="chip" data-a="her-invitar" data-id="${h.id}">${h.cuenta==='invitada'?'Reenviar bienvenida por WhatsApp':'Enviar bienvenida por WhatsApp'}</button>`):''}</div></form>`;
@@ -1140,7 +1140,7 @@ document.addEventListener('input', e => {
   const filas=Array.from(document.querySelectorAll('#hermanas-lista > form[data-f="her-save"]'));
   let visibles=0;
   filas.forEach(f=>{
-    const coincide=!texto || f.textContent.toLocaleLowerCase('es').includes(texto);
+    const coincide=!texto || (f.dataset.search||'').toLocaleLowerCase('es').includes(texto);
     f.hidden=!coincide;
     f.style.display=coincide?'':'none';
     if(coincide) visibles++;
