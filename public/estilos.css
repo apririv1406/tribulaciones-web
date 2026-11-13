@@ -601,3 +601,60 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .zona #app .tes-overview-kpis b.positive{color:var(--ok)}
 .zona #app .tes-overview-kpis b.negative{color:var(--ko)}
 @media(max-width:650px){.zona #app .tes-overview-head{align-items:flex-start;flex-direction:column}.zona #app .tes-overview-actions{width:100%}.zona #app .tes-overview-actions button{flex:1}.zona #app .tes-overview-kpis{grid-template-columns:1fr}.zona #app .tes-overview-kpis article{padding:11px 13px}.zona #app .tes-overview-kpis b{font-size:22px}}
+
+
+/* Inicio de zona hermana: panel personal y accesos claros */
+.zona #app .sister-home{width:100%;max-width:1080px;margin:0 auto;padding:8px 0 28px}
+.zona #app .sister-welcome{margin:10px 0 16px;padding:30px 32px;border-radius:22px;background:linear-gradient(120deg,#30271f 0%,#60472d 100%)}
+.zona #app .sister-welcome:after{content:"";position:absolute;width:230px;height:230px;right:-75px;top:-105px;border:1px solid rgba(255,255,255,.12);border-radius:50%;box-shadow:0 0 0 24px rgba(255,255,255,.035),0 0 0 50px rgba(255,255,255,.025)}
+.zona #app .sister-welcome-sub{margin:0;color:rgba(255,255,255,.82);font-size:14px}
+.zona #app .sister-welcome-note{margin:18px 0 0;color:rgba(255,255,255,.7);font-size:14px}
+.zona #app .sister-home-status{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:0 0 28px}
+.zona #app .sister-status-card{display:flex;flex-direction:column;align-items:flex-start;min-width:0;padding:18px 20px;border:1px solid var(--ln);border-radius:17px;background:var(--pa);box-shadow:0 5px 18px rgba(59,44,28,.045)}
+.zona #app .sister-status-heading{display:flex;align-items:center;gap:8px;margin-bottom:13px;color:var(--gd);font-size:10px;font-weight:700;letter-spacing:.12em}
+.zona #app .sister-status-icon{display:grid;place-items:center;width:27px;height:27px;border-radius:9px;background:var(--gs);font-size:16px;letter-spacing:0}
+.zona #app .sister-status-main{color:var(--dk);font:700 21px "Cormorant Garamond",Georgia,serif;line-height:1.2}
+.zona #app .sister-status-money{font-size:30px}
+.zona #app .sister-status-detail{margin-top:5px;color:var(--mu);font-size:13px;line-height:1.4}
+.zona #app .sister-status-state{margin-top:8px;color:var(--gd);font-size:12px;font-weight:600;line-height:1.4}
+.zona #app .sister-status-link{display:inline-flex;align-items:center;gap:8px;margin-top:16px;color:var(--dk);font-size:12px;font-weight:700;text-decoration:none}
+.zona #app .sister-status-link span{font-size:17px;transition:transform .18s}
+.zona #app .sister-status-link:hover span{transform:translateX(3px)}
+.zona #app .sister-home-modules{padding-top:2px}
+.zona #app .sister-home-modules>h2{margin:4px 0 16px;font-size:27px}
+.zona #app .sister-module-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.zona #app .sister-module{display:flex;align-items:center;gap:13px;min-width:0;min-height:94px;padding:15px 16px;border:1px solid var(--ln);border-radius:15px;background:var(--pa);color:var(--tx);text-decoration:none;transition:border-color .18s,transform .18s,box-shadow .18s}
+.zona #app .sister-module:hover{border-color:var(--go);transform:translateY(-2px);box-shadow:0 7px 18px rgba(59,44,28,.07)}
+.zona #app .sister-module-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:13px;background:var(--gs);color:var(--gd);font-size:21px}
+.zona #app .sister-module-copy{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
+.zona #app .sister-module-copy small{color:var(--gd);font-size:9px;font-weight:700;letter-spacing:.1em}
+.zona #app .sister-module-copy b{color:var(--dk);font-size:15px;line-height:1.25}
+.zona #app .sister-module-copy>span{color:var(--mu);font-size:11px;line-height:1.35}
+.zona #app .sister-module-arrow{flex:none;color:var(--gd);font-size:19px}
+.zona #app .sister-admin-shortcut{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 25px;padding:14px 17px;border:1px solid var(--ln);border-radius:14px;background:var(--gs)}
+.zona #app .sister-admin-shortcut>div{display:flex;flex-direction:column;gap:3px}
+.zona #app .sister-admin-shortcut b{color:var(--dk);font-size:14px}
+.zona #app .sister-admin-shortcut span{color:var(--mu);font-size:12px}
+.zona #app .sister-home-footer{display:flex;gap:9px;align-items:center;margin-top:22px;color:var(--mu);font-size:12px}
+.zona #app .sister-home-footer a{color:var(--gd);font-weight:600;text-decoration:none}
+@media(max-width:760px){
+ .zona #app .sister-home{padding-top:2px}
+ .zona #app .sister-welcome{padding:24px 21px;border-radius:18px}
+ .zona #app .sister-home-status{gap:9px;margin-bottom:23px}
+ .zona #app .sister-status-card{padding:14px 13px;border-radius:14px}
+ .zona #app .sister-status-heading{font-size:9px;gap:6px;margin-bottom:10px}
+ .zona #app .sister-status-main{font-size:19px}
+ .zona #app .sister-status-money{font-size:25px}
+ .zona #app .sister-status-detail{font-size:11px}
+ .zona #app .sister-status-state{font-size:11px}
+ .zona #app .sister-status-link{font-size:11px;margin-top:13px}
+ .zona #app .sister-module-list{grid-template-columns:1fr;gap:8px}
+ .zona #app .sister-module{min-height:82px;padding:12px 13px}
+ .zona #app .sister-home-modules>h2{font-size:24px}
+}
+@media(max-width:420px){
+ .zona #app .sister-home-status{grid-template-columns:1fr}
+ .zona #app .sister-status-card{padding:15px}
+ .zona #app .sister-admin-shortcut{align-items:flex-start;flex-direction:column}
+ .zona #app .sister-admin-shortcut .btn{width:100%}
+}
