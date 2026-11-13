@@ -942,8 +942,10 @@ const ACT = {
     if(!window.jspdf?.jsPDF) throw new Error('No se ha podido cargar el generador de PDF.');
     const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
     if(typeof doc.autoTable!=='function') throw new Error('No se ha podido cargar el complemento de tablas PDF. Recarga la página y vuelve a intentarlo.');
-    const desde=TES_REPORT_FROM,hasta=TES_REPORT_TO;
+    const form=document.querySelector('form[data-f="tes-report-range"]');
+    const desde=String(form?.querySelector('[name=desde]')?.value||TES_REPORT_FROM),hasta=String(form?.querySelector('[name=hasta]')?.value||TES_REPORT_TO);
     if(!desde||!hasta||desde>hasta) throw new Error('Selecciona un rango de fechas válido antes de generar el informe.');
+    if(desde!==TES_REPORT_FROM||hasta!==TES_REPORT_TO){TES_REPORT_FROM=desde;TES_REPORT_TO=hasta;await vTesoreria();}
     const fecha=new Date().toLocaleDateString('es-ES'),periodo=fechaBonita(desde)+' – '+fechaBonita(hasta),margen=12,ancho=273;
     const color=[65,55,43],oro=[173,133,49],gris=[112,105,95];
     const cabecera=(subtitulo)=>{
