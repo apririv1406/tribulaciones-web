@@ -715,10 +715,34 @@ async function vTesoreria() {
       tabla('Detalle de movimientos',['Fecha','Tipo','Concepto','Categoría','Cuenta','Importe'],detalle)+'</div>'+
       '<p class="mu tes-report-note">El informe recoge ingresos y gastos confirmados. Los traspasos entre Banco y Caja no se consideran ingresos ni gastos, aunque sí se reflejan en los saldos de cada cuenta. El saldo inicial se calcula con los saldos de partida configurados y los movimientos anteriores al periodo.</p>';
   }
-  const tabs=[['res','Estadísticas'],['mov','Movimientos'],['rec','Gastos fijos'],['pun','Por validar ('+(d.pagos_pendientes.length+(d.movimientos_pendientes||[]).length+d.tickets.filter(t=>t.estado==='pendiente'||(!t.estado&&!t.movimiento_id)).length)+')'],['gp','Gastos pendientes'],['pen','Cuotas pendientes'],['inf','Informe'],['cfg','Precios y cuota'],['imp','Importar']];
-  return shell(`<div class="tesoreria"><div class="top tes-heading"><div><div class="tag">Gestión económica</div><h2>Tesorería</h2><p class="mu" style="margin:0">Control económico del cuartel · movimientos, pagos e informes.</p></div><div class="tes-pending-summary"><b>${d.pagos_pendientes.length+(d.movimientos_pendientes||[]).length+d.tickets.filter(t=>t.estado==='pendiente'||(!t.estado&&!t.movimiento_id)).length}</b><span>elementos por revisar</span></div></div>
+  if(TES_TAB==='cfg') {
+    const p=d.parametros||{};
+    const valor=k=>p[k]===undefined?'':(Number(p[k])/100).toFixed(2);
+    contenido=`<div class="tes-section-intro"><div><div class="tag">Configuración económica</div><h3>Cuotas y precios</h3><p class="mu">Define los importes que se utilizan para generar cuotas y cargos del cuartel.</p></div></div>
+    <form data-f="tes-config" class="card two formgrid tes-config-form">
+      <div><label class="fl">Cuota mensual (€)</label><input class="t" name="cuota_mensual" type="number" min="0.01" step="0.01" required value="${d.cuota_mensual===null?'':Number(d.cuota_mensual).toFixed(2)}"></div>
+      <div><label class="fl">Precio por persona en cocina (€)</label><input class="t" name="cocina_precio_persona" type="number" min="0" step="0.01" value="${valor('cocina_precio_persona_centimos')}"></div>
+      <div><label class="fl">Precio de asistencia al sábado (€)</label><input class="t" name="sabado_precio" type="number" min="0" step="0.01" value="${valor('sabado_precio_centimos')}"></div>
+      <div><label class="fl">Precio por invitada (€)</label><input class="t" name="invitada_precio" type="number" min="0" step="0.01" value="${valor('invitada_precio_centimos')}"></div>
+      <div><label class="fl">Precio de copa (€)</label><input class="t" name="copa_precio" type="number" min="0" step="0.01" value="${valor('copa_precio_centimos')}"></div>
+      <div><label class="fl">Precio de refresco (€)</label><input class="t" name="refresco_precio" type="number" min="0" step="0.01" value="${valor('refresco_precio_centimos')}"></div>
+      <div><label class="fl">Personas por turno de cocina</label><select class="t" name="personas_por_turno"><option value="2" ${Number(p.cocina_personas_por_turno||2)===2?'selected':''}>2 personas</option><option value="3" ${Number(p.cocina_personas_por_turno)===3?'selected':''}>3 personas</option></select></div>
+      <div class="row" style="grid-column:1/-1;justify-content:flex-end"><button class="btn">Guardar configuración</button></div>
+    </form>`;
+  }
+  const pendientesTotal=pendientesRevision;
+  const grupoActual=['res','inf'].includes(TES_TAB)?'res':['mov','rec'].includes(TES_TAB)?'ops':['pun','gp','pen'].includes(TES_TAB)?'pend':'cfg';
+  const grupos=[['res','Resumen'],['mov','Operaciones'],['pun','Pendientes'+(pendientesTotal?' · '+pendientesTotal:'')],['cfg','Configuración']];
+  const subpaginas={
+    res:[['res','Situación económica'],['inf','Informe económico']],
+    ops:[['mov','Movimientos'],['rec','Gastos fijos']],
+    pend:[['pun','Por validar ('+pendientesTotal+')'],['gp','Justificantes de gastos'],['pen','Cuotas pendientes']],
+    cfg:[['cfg','Cuotas y precios']]
+  };
+  return shell(`<div class="tesoreria"><div class="top tes-heading"><div><div class="tag">Gestión económica</div><h2>Tesorería</h2><p class="mu" style="margin:0">Control económico del cuartel · movimientos, pagos e informes.</p></div><div class="tes-pending-summary"><b>${pendientesTotal}</b><span>elementos por revisar</span></div></div>
   <section class="hero2 tes-balance"><div class="tes-balance-total"><span>Total disponible</span><b>${euros(saldo)}</b></div><div class="tes-balance-accounts"><div><small>Banco</small><b>${euros(d.totales.banco_centimos)}</b></div><div><small>Caja fuerte</small><b>${euros(d.totales.caja_centimos)}</b></div></div></section>
-  ${subnav('tesoreria',TES_TAB,tabs)}
+  <nav class="tes-main-nav" aria-label="Secciones de tesorería">${grupos.map(([k,l])=>`<button type="button" class="${grupoActual===({res:'res',mov:'ops',pun:'pend',cfg:'cfg'}[k])?'on':''}" data-a="module-tab" data-module="tesoreria" data-tab="${k}">${l}</button>`).join('')}</nav>
+  ${subnav('tesoreria',TES_TAB,subpaginas[grupoActual])}
   <div class="tes-content">${contenido}</div></div>`);
 }
 
