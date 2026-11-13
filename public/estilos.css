@@ -1042,3 +1042,53 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
  }
 }
+
+/* Contención real del informe dentro del panel de Tesorería en móvil */
+@media(max-width:640px){
+ .zona #app{
+   width:100%;
+   max-width:100%;
+   min-width:0;
+   overflow-x:hidden;
+ }
+ .zona #app .tesoreria,
+ .zona #app .tes-content{
+   display:block;
+   width:100%!important;
+   max-width:100%!important;
+   min-width:0!important;
+   box-sizing:border-box!important;
+   overflow-x:hidden!important;
+ }
+ .zona #app .tes-content>*{
+   min-width:0!important;
+   max-width:100%!important;
+   box-sizing:border-box!important;
+ }
+ .zona #app .tes-content .tes-report-heading,
+ .zona #app .tes-content .tes-report-range,
+ .zona #app .tes-content .tes-report-kp,
+ .zona #app .tes-content .tes-report-tables,
+ .zona #app .tes-content .tes-report-note{
+   width:100%!important;
+   min-width:0!important;
+   max-width:100%!important;
+   box-sizing:border-box!important;
+ }
+ .zona #app .tes-content .tes-report-range{
+   margin-left:0!important;
+   margin-right:0!important;
+ }
+ .zona #app .tes-content .tes-report-tables{
+   display:grid!important;
+   grid-template-columns:minmax(0,1fr)!important;
+ }
+ .zona #app .tes-content .tes-report-tables>.card{
+   width:100%!important;
+   min-width:0!important;
+   max-width:100%!important;
+ }
+ .zona #app .tes-content .tes-report-tables>.card:last-child .rt{
+   min-width:650px;
+ }
+}
