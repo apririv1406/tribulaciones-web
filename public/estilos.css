@@ -756,3 +756,27 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .mn-footer>.mn-logout{border-color:#a43c35;background:#a43c35;color:#fff;box-shadow:0 4px 12px rgba(164,60,53,.18)}
 .mn-footer>.mn-logout span{font-size:18px;line-height:1}
 .mn-footer>.mn-logout:hover{background:#87302b}
+
+
+/* Calendario general del cuartel */
+.calendar-wrap{max-width:1100px;margin:24px auto 50px}
+.calendar-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px}
+.calendar-head h2{margin:5px 0}.calendar-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.calendar-controls>b{text-transform:capitalize;min-width:145px;text-align:center}
+.calendar-legend{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0;color:var(--mu);font-size:13px}
+.calendar-legend span{display:flex;align-items:center;gap:7px}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.calendar-weekdays{margin-bottom:7px;text-align:center;color:var(--mu);font-size:12px}
+.cal-day,.cal-empty{min-height:78px;border:1px solid var(--ln);border-radius:12px;background:var(--pa)}
+.cal-day{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;padding:9px 4px;color:var(--tx);font:inherit;cursor:pointer}
+.cal-day:hover,.cal-day.today{border-color:var(--gd);background:var(--gs)}
+.cal-day.has-events{font-weight:700}.cal-day>span{display:flex;gap:4px;min-height:8px}.cal-day small{font-size:10px;color:var(--mu)}
+.cal-dot{display:inline-block;width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:var(--br)}
+.cal-dot.sabado{background:#b88a28}.cal-dot.junta{background:#6682a3}.cal-dot.cocina{background:#7a9870}
+.calendar-day-events{margin-top:22px;padding:20px;background:var(--pa);border:1px solid var(--ln);border-radius:18px}
+.calendar-day-events h3{margin:5px 0 14px;text-transform:capitalize}
+.calendar-event{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-top:1px solid var(--ln)}
+.calendar-event>.cal-dot{margin-top:7px}.calendar-event>div{flex:1;min-width:0}
+.calendar-event p{margin:3px 0 0;color:var(--mu);font-size:13px}
+.calendar-event-type{font-size:11px;color:var(--mu);white-space:nowrap}
+@media(max-width:600px){.calendar-wrap{margin:12px auto 35px}.calendar-head{align-items:flex-start}.calendar-controls{width:100%;justify-content:space-between}.calendar-controls>b{min-width:0;flex:1}.calendar-grid{gap:4px}.cal-day,.cal-empty{min-height:58px;border-radius:9px}.cal-day{padding:7px 2px;gap:6px}.calendar-day-events{padding:15px}.calendar-event-type{font-size:10px}}
