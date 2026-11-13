@@ -1211,3 +1211,30 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
   .lts-popup-actions{display:grid;grid-template-columns:1fr 1fr}
   .lts-popup-actions .chip,.lts-popup-actions .btn{width:100%;min-width:0}
 }
+
+
+/* Sorteo de cocina: disposición y jerarquía visual */
+.cocina-sorteo-layout{display:grid;grid-template-columns:minmax(260px,.78fr) minmax(0,1.22fr);gap:18px;align-items:start;margin-top:16px}
+.cocina-sorteo-config h3,.cocina-sorteo-results h3{margin:5px 0 8px}
+.cocina-sorteo-config>p{line-height:1.55;margin:0 0 18px}
+.cocina-sorteo-form{display:flex;flex-direction:column;gap:12px}
+.cocina-sorteo-field{max-width:260px;width:100%}
+.cocina-sorteo-form .btn{align-self:flex-start;margin:2px 0 0}
+.cocina-sorteo-note{font-size:12px;line-height:1.5;margin:16px 0 0;padding-top:13px;border-top:1px solid var(--ln)}
+.cocina-sorteo-results-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.cocina-sorteo-count{font-size:12px;font-weight:600;color:var(--gd);background:var(--gs);padding:7px 11px;border-radius:99px}
+.cocina-sorteo-list{display:flex;flex-direction:column;margin-top:12px}
+.cocina-sorteo-row{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--ln)}
+.cocina-sorteo-row:last-child{border-bottom:0}
+.cocina-sorteo-date{width:48px;height:48px;flex:0 0 48px;border-radius:13px;background:var(--gs);display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--dk)}
+.cocina-sorteo-date b{font:700 22px "Cormorant Garamond",serif;line-height:1}
+.cocina-sorteo-date span{font-size:9px;text-transform:uppercase;letter-spacing:.04em}
+.cocina-sorteo-info{min-width:0;display:flex;flex-direction:column;gap:4px}
+.cocina-sorteo-info b{font-size:14px}
+.cocina-sorteo-info span{font-size:13px;color:var(--mu);line-height:1.45;overflow-wrap:anywhere}
+.cocina-sorteo-empty{padding:18px 0;line-height:1.55}
+.cocina-sorteo-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--ln);padding-top:14px;margin-top:12px}
+.cocina-sorteo-footer p{font-size:12px;margin:0}
+.cocina-sorteo-delete{border-color:#d9b6ad;color:#9b493b}
+.cocina-sorteo-delete:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:760px){.cocina-sorteo-layout{grid-template-columns:1fr;gap:14px}.cocina-sorteo-config,.cocina-sorteo-results{padding:17px}.cocina-sorteo-form .btn{width:100%}.cocina-sorteo-footer{align-items:flex-start}.cocina-sorteo-delete{width:100%;text-align:center;padding:9px 12px}}
