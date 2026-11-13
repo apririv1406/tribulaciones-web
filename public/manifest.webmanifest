@@ -1,0 +1,43 @@
+{
+  "id": "/",
+  "name": "Las Tribulaciones de Sara",
+  "short_name": "Tribulaciones",
+  "description": "Web oficial y zona hermana de Las Tribulaciones de Sara",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#fbf6e9",
+  "theme_color": "#fbf6e9",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Zona hermana",
+      "short_name": "Zona hermana",
+      "url": "/zona/",
+      "icons": [
+        {
+          "src": "/logo.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
