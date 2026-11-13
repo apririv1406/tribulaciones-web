@@ -1071,3 +1071,54 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
     min-width:650px;
   }
 }
+
+
+/* Safari iOS: evitar el ancho intrínseco de los controles de fecha */
+@supports (-webkit-touch-callout: none){
+  @media(max-width:640px){
+    .zona #app .tes-content form.tes-report-range{
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      width:100%;
+      min-width:0;
+      max-width:100%;
+      box-sizing:border-box;
+    }
+    .zona #app .tes-content form.tes-report-range>div,
+    .zona #app .tes-content form.tes-report-range .tes-report-date,
+    .zona #app .tes-content form.tes-report-range .tes-report-actions{
+      display:block;
+      flex:0 0 auto;
+      width:100%;
+      min-width:0;
+      max-width:100%;
+      box-sizing:border-box;
+    }
+    .zona #app .tes-content form.tes-report-range input[type="date"]{
+      display:block;
+      -webkit-appearance:none;
+      appearance:none;
+      width:100%;
+      min-width:0;
+      max-width:100%;
+      height:46px;
+      padding:10px 9px;
+      font-size:16px;
+      line-height:normal;
+      box-sizing:border-box;
+    }
+    .zona #app .tes-content form.tes-report-range .tes-report-actions{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .zona #app .tes-content form.tes-report-range .tes-report-actions button{
+      width:100%;
+      min-width:0;
+      max-width:100%;
+      min-height:44px;
+      box-sizing:border-box;
+    }
+  }
+}
