@@ -223,33 +223,34 @@ async function vSabados() {
     const partes = String(s.fecha || '').split('-');
     const dia = partes.length === 3 ? partes[2] : '—';
     const mes = partes.length === 3 ? fecha.toLocaleDateString('es-ES',{month:'short'}).replace('.','') : '';
+    const respondida = s.mi_asistencia !== null && s.mi_asistencia !== undefined;
     const asiste = Number(s.mi_asistencia) === 1;
     const invitadas = Math.max(0,Number(s.mis_acompanantes || 0));
     const plazas = Number(s.plazas_ocupadas ?? (Number(s.confirmadas||0)+Number(s.invitadas||0)));
     const importe = (asiste ? Number(s.precio_sabado_centimos ?? precioSabado) : 0) + invitadas*Number(s.precio_invitada_centimos ?? precioInvitada);
     const alergias = campoAlergias(s,'hermana',0,'Yo');
     const alergiasInvitadas = Array.from({length:20},(_,i)=>campoAlergias(s,'invitada',i+1,'Invitada '+(i+1),i+1>invitadas)).join('');
-    return `<article class="card sab ${pasado ? 'past' : abierto ? 'next' : ''}">
+    return `<article class="card sab ${pasado ? 'past' : ''} ${s.id === siguiente?.id ? 'sab-featured' : ''}">
       <div class="date"><b>${esc(dia)}</b><span>${esc(mes)}</span></div>
       <div class="bd">
-        <div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">${esc(s.titulo)}</h3><span class="pill ${puedeEditar?'ok':''}">${pasado?'Celebrado':puedeEditar?'Abierto hasta jueves, 23:00':s.estado==='cancelado'?'Cancelado':'Confirmación cerrada'}</span></div>
+        <div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">${esc(s.titulo)}</h3><span class="pill ${puedeEditar?'ok':''}">${pasado?'Celebrado':s.estado==='cancelado'?'Cancelado':puedeEditar?'Abierto hasta jueves, 23:00':'Confirmación cerrada'}</span></div>
         <div class="menu" style="margin:6px 0 12px">${fechaBonita(s.fecha)}${s.hora?' · '+esc(s.hora):''}</div>
-        ${!pasado && abierto ? `<form data-f="sabado-rsvp" data-id="${s.id}" data-plazas-otras="${Math.max(0,plazas-(s.mi_asistencia===1?1:0)-invitadas)}" data-precio-sabado="${Number(s.precio_sabado_centimos ?? precioSabado)}" data-precio-invitada="${Number(s.precio_invitada_centimos ?? precioInvitada)}" style="margin-top:10px">
-          <div class="seg"><button type="button" class="${asiste?'y':''}" data-a="rsvp-choice" data-value="1">Voy</button><button type="button" class="${!asiste?'n':''}" data-a="rsvp-choice" data-value="0">No voy</button></div>
-          <input type="hidden" name="asiste" value="${asiste?'1':'0'}">
+        ${!pasado && abierto && puedeEditar ? `<form data-f="sabado-rsvp" data-id="${s.id}" data-plazas-otras="${Math.max(0,plazas-(s.mi_asistencia===1?1:0)-invitadas)}" data-precio-sabado="${Number(s.precio_sabado_centimos ?? precioSabado)}" data-precio-invitada="${Number(s.precio_invitada_centimos ?? precioInvitada)}" style="margin-top:10px">
+          <div class="seg"><button type="button" class="${respondida && asiste?'y':''}" data-a="rsvp-choice" data-value="1" aria-pressed="${respondida && asiste}">Voy</button><button type="button" class="${respondida && !asiste?'n':''}" data-a="rsvp-choice" data-value="0" aria-pressed="${respondida && !asiste}">No voy</button></div>
+          <input type="hidden" name="asiste" value="${respondida?(asiste?'1':'0'):''}">
           <div class="st" style="margin-top:12px"><span>Invitadas</span><button type="button" data-a="rsvp-invitadas-step" data-delta="-1" aria-label="Quitar invitada">−</button><b data-invitadas-count>${invitadas}</b><button type="button" data-a="rsvp-invitadas-step" data-delta="1" aria-label="Añadir invitada">+</button><input type="hidden" name="acompanantes" value="${invitadas}"></div>
-          <div style="margin-top:14px"><b>Alergias o dietas</b><p class="mu" style="margin:4px 0 0">Indica las de cada persona, sin necesidad de poner nombres. Solo las verá el turno de cocina y la junta.</p>
-          ${alergias}${alergiasInvitadas}</div>
+          <details class="rsvp-allergies" style="margin-top:14px"><summary>Alergias o dietas <span>· Opcional</span></summary><p class="mu" style="margin:7px 0 9px">Indica las de cada persona, sin necesidad de poner nombres. Solo las verá el turno de cocina y la junta.</p>
+          ${alergias}${alergiasInvitadas}</details>
           <label class="fl" style="margin-top:12px">Observaciones del sábado</label><textarea class="t" name="observaciones" rows="2">${esc(s.mi_observaciones || '')}</textarea>
-          <div class="pay" style="margin-top:12px"><span class="mu" data-rsvp-summary>${asiste?'Sábado '+euros(s.precio_sabado_centimos ?? precioSabado)+(invitadas?' · '+invitadas+' invitada(s) × '+euros(s.precio_invitada_centimos ?? precioInvitada):''):'Sin asistencia'}${!asiste&&invitadas?' · invitadas: '+invitadas:''}</span><b data-rsvp-total>${euros(importe)}</b></div>
+          <div class="pay rsvp-pay" style="margin-top:12px"><span class="mu" data-rsvp-summary>${!respondida?'Selecciona si vas a asistir':asiste?'Asistencia confirmada':'Has indicado que no vas'}${invitadas?' · '+invitadas+' invitada(s) × '+euros(s.precio_invitada_centimos ?? precioInvitada):''}</span><b data-rsvp-total>${!respondida&&!invitadas?'—':euros(importe)}</b></div>
           <div class="meter" style="margin-top:12px"><i data-rsvp-seats-bar style="width:${Math.min(100,plazas/40*100)}%"></i></div><div class="menu" data-rsvp-seats-label>${plazas} de 40 plazas ocupadas</div>
           <button class="btn" style="margin-top:12px">Guardar asistencia</button>
         </form>` : pasado && s.mi_asistencia === 1 ? `<p class="mu" style="margin:12px 0 6px">Apunta las consumiciones que tomaste después del sábado.</p><form data-f="sabado-consumos" data-id="${s.id}"><div class="row"><div style="flex:1 1 130px">${campo('copas','Copas','type="number" min="0" max="50" value="'+(s.mis_copas || 0)+'"')}</div><div style="flex:1 1 130px">${campo('refrescos','Refrescos','type="number" min="0" max="50" value="'+(s.mis_refrescos || 0)+'"')}</div></div><button class="btn" style="margin-top:10px">Guardar consumiciones</button></form>` : pasado ? '<p class="mu" style="margin:12px 0 0">No confirmaste asistencia a este sábado.</p>' : '<p class="mu" style="margin:14px 0 0">El plazo de confirmación terminó el jueves a las 23:00.</p>'}
         ${ME.admin || ME.tes ? `<p style="margin:12px 0 0"><button class="chip" type="button" data-a="sabado-asistentes" data-id="${s.id}">Ver asistentes</button></p>` : ''}
       </div></article>`;
   }).join('');
-  const cabecera = `<div class="top"><div class="tag">Cuaresma ${siguiente ? new Date(siguiente.fecha+'T12:00:00').getFullYear() : new Date().getFullYear()}</div><h2>Hola, ${esc(nombre)}</h2><p class="mu" style="margin:0">Confirma tu asistencia antes del jueves a las 23:00. El menú es sorpresa. Precio del sábado: ${euros(precioSabado)} · invitada: ${euros(precioInvitada)}.</p></div>`;
-  const resumen = siguiente ? `<div class="card" style="margin:16px 0;background:var(--gs);border-color:var(--go)"><b>Próximo: ${esc(siguiente.titulo)}, ${fechaBonita(siguiente.fecha)}</b><div class="meter"><i style="width:${Math.min(100,Number(siguiente.plazas_ocupadas||0)/40*100)}%"></i></div><span class="mu">${Number(siguiente.plazas_ocupadas||0)} de 40 plazas ocupadas</span></div>` : '';
+  const cabecera = `<div class="top sabados-heading"><div class="tag">CUARTEL · SÁBADOS</div><h2>Hola, ${esc(nombre)}</h2><p class="mu" style="margin:0">Consulta los próximos encuentros y confirma tu asistencia antes del jueves a las 23:00.</p></div>`;
+  const resumen = '';
   const alta = ME.admin || ME.tes ? `<details class="card" style="margin:16px 0"><summary class="chip">Gestionar sábados</summary><form data-f="sabado-new" style="margin-top:14px"><div class="row" style="align-items:flex-end"><div style="flex:1 1 150px">${campo('fecha','Fecha','type="date" required')}</div><div style="flex:1 1 120px">${campo('hora','Hora','type="time"')}</div><div style="flex:2 1 220px">${campo('titulo','Actividad','required maxlength="120"')}</div><div style="flex:1 1 150px"><label class="fl">Concepto de cobro</label><select class="t" name="categoria"><option>Cuaresma</option><option>Semana Santa</option><option>Otros</option></select></div></div><label class="fl">Información del encuentro</label><textarea class="t" name="descripcion" rows="2"></textarea><button class="btn" style="margin-top:10px">Publicar sábado</button></form></details>` : '';
   return shell(cabecera+resumen+alta+`<div class="sub s2"><button type="button" class="${SAB_TAB==='prox'?'on':''}" data-a="sabados-tab" data-tab="prox">Próximos sábados</button><button type="button" class="${SAB_TAB==='ant'?'on':''}" data-a="sabados-tab" data-tab="ant">Ya celebrados · apuntar bebidas</button></div><section class="sec" style="padding-top:12px">${SAB_TAB==='prox'?(tarjetas(proximos)||'<div class="card"><p class="mu" style="margin:0">No hay próximos sábados publicados.</p></div>'):(tarjetas(celebrados)||'<div class="card"><p class="mu" style="margin:0">Todavía no hay sábados celebrados.</p></div>')}</section>`);
 }
@@ -666,6 +667,7 @@ const FORM = {
   async 'noticia-save'(f,d) { const b={tipo:d.get('tipo'),titulo:d.get('titulo'),texto:d.get('texto'),fecha:d.get('fecha'),url:d.get('url'),quitar_imagen:d.get('quitar_imagen')==='on'}; const fl=d.get('foto'); if(fl&&fl.size)b.imagen=await reducir(fl,1400,0.8); await api('PUT','/admin/noticias/'+f.dataset.id,b); NOTICIA_EDITANDO=null; toast('Publicación actualizada'); render(); },
   async 'sabado-new'(f,d) { await api('POST','/modulos/sabados',{fecha:d.get('fecha'),hora:d.get('hora'),titulo:d.get('titulo'),categoria:d.get('categoria'),descripcion:d.get('descripcion')}); toast('Sábado creado'); render(); },
   async 'sabado-rsvp'(f,d) {
+    if(d.get('asiste')!=='1' && d.get('asiste')!=='0') throw new Error('Selecciona si vas a asistir o no antes de guardar.');
     const personas=[];
     const propias=d.getAll('alergia_hermana_0');
     const notaPropia=d.get('alergia_extra_hermana_0')||'';
@@ -712,7 +714,9 @@ const FORM = {
 
 function actualizarResumenRSVP(form) {
   const cantidad=Number(form.querySelector('[name=acompanantes]').value||0);
-  const asiste=form.querySelector('[name=asiste]').value==='1';
+  const respuesta=form.querySelector('[name=asiste]').value;
+  const asiste=respuesta==='1';
+  const respondida=respuesta==='1'||respuesta==='0';
   const precioSabado=Number(form.dataset.precioSabado||0);
   const precioInvitada=Number(form.dataset.precioInvitada||0);
   const plazasOtras=Number(form.dataset.plazasOtras||0);
@@ -722,8 +726,8 @@ function actualizarResumenRSVP(form) {
   const importe=form.querySelector('[data-rsvp-total]');
   const barra=form.querySelector('[data-rsvp-seats-bar]');
   const etiqueta=form.querySelector('[data-rsvp-seats-label]');
-  if(resumen) resumen.textContent=asiste?'Sábado '+euros(precioSabado)+(cantidad?' · '+cantidad+' invitada(s) × '+euros(precioInvitada):''):(cantidad?'Sin asistencia · invitadas: '+cantidad:'Sin asistencia');
-  if(importe) importe.textContent=euros(total);
+  if(resumen) resumen.textContent=!respondida?'Selecciona si vas a asistir':(asiste?'Asistencia confirmada':'Has indicado que no vas')+(cantidad?' · '+cantidad+' invitada(s) × '+euros(precioInvitada):'');
+  if(importe) importe.textContent=!respondida&&!cantidad?'—':euros(total);
   if(barra) barra.style.width=Math.min(100,plazas/40*100)+'%';
   if(etiqueta) etiqueta.textContent=plazas+' de 40 plazas ocupadas';
 }
