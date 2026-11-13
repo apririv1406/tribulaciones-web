@@ -130,7 +130,7 @@ async function vInicio() {
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const siguiente = sabados.filter(s => s.estado !== 'cancelado' && new Date(s.fecha + 'T12:00:00') >= hoy).sort((a,b) => a.fecha.localeCompare(b.fecha))[0];
   const fechaSiguiente = siguiente ? new Date(siguiente.fecha + 'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}) : '';
-  const asistencia = siguiente ? (Number(siguiente.mi_asistencia) === 1 ? 'Has confirmado que vas' : Number(siguiente.mi_asistencia) === 0 ? 'Has indicado que no asistirás' : 'Consulta tu asistencia') : '';
+  const asistencia = siguiente ? (siguiente.mi_asistencia == null ? 'Aún no has confirmado tu asistencia' : Number(siguiente.mi_asistencia) === 1 ? 'Has confirmado que vas' : 'Has indicado que no asistirás') : '';
   const cuotasPendientes = cuenta ? (cuenta.cuotas || []).filter(c => c.estado !== 'pagada').reduce((a,c) => a + Number(c.restante_centimos || 0),0) : null;
   const cargosPendientes = cuenta ? (cuenta.cargos || []).reduce((a,c) => a + Number(c.restante_centimos || 0),0) : 0;
   const pagosRevision = cuenta ? (cuenta.pagos || []).filter(p => p.estado === 'pendiente').reduce((a,p) => a + Number(p.importe_centimos || 0),0) : 0;
