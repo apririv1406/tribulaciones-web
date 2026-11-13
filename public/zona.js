@@ -42,8 +42,10 @@ function shell(html) {
   LAST = html;
   const cur = location.hash || '#/', its = items();
   const on = h => (h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h.slice(0, 8)));
-  $('#nav').innerHTML = `<a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a>` + its.map(([h, t]) => `<a class="dk ${on(h) ? 'on' : ''}" href="${h}">${t}</a>`).join('') + `<a class="dk" href="/">Web pública</a>` + (ME_REAL?.admin ? `<button class="cta dk" type="button" data-a="cambiar-vista">${VISTA_HERMANA ? 'Vista administradora' : 'Ver como hermana'}</button>` : '') + (ME ? `<a class="cta dk" href="#/" data-a="salir">Salir</a>` : '') + `<button class="hb" data-a="menu" aria-label="Menú"><i></i><i></i><i></i></button>`;
-  $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><div class="mn"><button class="x" data-a="menu" aria-label="Cerrar">✕</button>${its.map(([h, t]) => `<a href="${h}">${t}</a>`).join('')}<hr><a href="/">Web pública</a>${ME_REAL?.admin ? `<button type="button" data-a="cambiar-vista">${VISTA_HERMANA ? 'Vista administradora' : 'Ver como hermana'}</button>` : ''}${ME ? '<a href="#/" data-a="salir">Salir</a>' : ''}</div>` : '';
+  $('#nav').innerHTML = `<a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a>` + its.map(([h,t]) => `<a class="dk ${on(h)?'on':''}" href="${h}">${t}</a>`).join('') + `<a class="dk" href="/">Web pública</a>` + (ME_REAL?.admin ? `<button class="cta dk" type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Vista administradora':'Ver como hermana'}</button>` : '') + (ME ? `<a class="cta dk" href="#/" data-a="salir">Salir</a>` : '') + `<button class="hb" data-a="menu" aria-label="Menú"><i></i><i></i><i></i></button>`;
+  $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><div class="mn"><button class="x" data-a="menu" aria-label="Cerrar">✕</button>${its.map(([h,t])=>`<a href="${h}">${t}</a>`).join('')}<hr><a href="/">Web pública</a>${ME_REAL?.admin?`<button type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Vista administradora':'Ver como hermana'}</button>`:''}${ME?'<a href="#/" data-a="salir">Salir</a>':''}</div>` : '';
+  const bottom=$('#bottom-nav');
+  if(bottom) bottom.innerHTML = ME_REAL?.admin && !VISTA_HERMANA ? `<nav class="admin-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur.startsWith('#/admin/hermanas')?'on':''}" href="#/admin/hermanas"><span>♙</span>Hermanas</a><a class="${cur.startsWith('#/tesoreria')?'on':''}" href="#/tesoreria"><span>€</span>Economía</a><a class="${cur.startsWith('#/admin/actas')?'on':''}" href="#/admin/actas"><span>▤</span>Secretaría</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>` : '';
   $('#app').innerHTML = html;
 }
 const subnav = (mod, actual, opciones) => `<div class="sub" style="margin:16px 0 20px">${opciones.map(([k,l])=>`<button type="button" class="${actual===k?'on':''}" data-a="module-tab" data-module="${mod}" data-tab="${k}">${l}</button>`).join('')}</div>`;
@@ -451,8 +453,13 @@ function vPerfil() {
 const PERM = { none: 'Solo zona hermana', tes: 'Tesorería', actas: 'Actas' };
 const CUENTA = { sin: 'Sin invitar', invitada: 'Invitación preparada', activa: 'Cuenta activa' };
 const TABS = [['noticias', 'Publicaciones'], ['historia', 'Historia'], ['actas', 'Actas'], ['cocina', 'Sorteo de turnos'], ['hermanas', 'Hermanas y cargos']];
-const adm = (tab, html) => `<div class="top"><div class="tag">Panel privado</div><h2>Administración</h2></div><div class="sub" style="margin-top:14px">${TABS.map(([k, t]) => `<a class="${k === tab ? 'on' : ''}" href="#/admin/${k}">${t}</a>`).join('')}</div>${html}`;
+const adm = (tab, html) => `<div class="admin-page-head"><a class="admin-back" href="#/admin">← Panel de administración</a><div class="tag">Gestión del cuartel</div><h2>${TABS.find(x=>x[0]===tab)?.[1] || 'Administración'}</h2></div><div class="sub admin-subnav">${TABS.map(([k,t])=>`<a class="${k===tab?'on':''}" href="#/admin/${k}">${t}</a>`).join('')}</div>${html}`;
+function vAdminInicio() {
+ const cards = [ ['Personas','Hermanas y cargos','Altas, bajas, fichas, cargos y permisos.','#/admin/hermanas'], ['Economía','Tesorería','Cuotas, pagos, ingresos, gastos e informes.','#/tesoreria'], ['Secretaría','Actas y convocatorias','Prepara juntas y consulta la documentación.','#/admin/actas'], ['Organización','Sábados y asistencia','Gestiona fechas y consulta asistentes.','#/sabados'], ['Cocina','Sorteo de turnos','Organiza los turnos y las asignaciones.','#/admin/cocina'], ['Comunicación','Publicaciones','Publica noticias y crónicas.','#/admin/noticias'], ['Web','Historia','Edita los hitos históricos del cuartel.','#/admin/historia'] ];
+ return shell(`<section class="admin-hub"><div class="tag">Panel privado</div><h2>Administración</h2><p class="mu admin-hub-intro">¿Qué necesitas gestionar hoy? Accede directamente a cada área del cuartel.</p><div class="admin-hub-grid">${cards.map(x=>`<a class="admin-hub-card" href="${x[3]}"><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small><b>Acceder →</b></a>`).join('')}</div><div class="admin-hub-footer"><button type="button" class="chip" data-a="cambiar-vista">Ver como hermana</button><a href="#/perfil">Mi perfil</a></div></section>`);
+}
 async function vAdmin(tab) {
+ if(tab==='') return vAdminInicio();
   if(tab==='actas') return await vActas();
   if(tab==='cocina') {
     const d=await api('GET','/modulos/cocina');
@@ -776,6 +783,7 @@ async function render() {
     if (h === '#/cocina') return await vCocina();
     if (h === '#/actas') return await vActas();
     if (h === '#/tesoreria') return ME.admin || ME.tes ? await vTesoreria() : vInicio();
+    if (h === '#/admin') return ME.admin ? vAdminInicio() : vInicio();
     if (h.startsWith('#/admin/')) return ME.admin ? await vAdmin(h.slice(8)) : vInicio();
     return vInicio();
   } catch (er) {
