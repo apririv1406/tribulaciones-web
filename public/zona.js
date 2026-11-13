@@ -12,7 +12,35 @@ async function api(method, path, body) {
   if (!r.ok) throw Object.assign(new Error(d.error || 'Ha ocurrido un error'), { status: r.status });
   return d;
 }
-function toast(msg, err) { const t = $('#toast'); t.innerHTML = `<div class="toast ${err ? 'err' : ''}">${esc(msg)}</div>`; clearTimeout(toast.t); toast.t = setTimeout(() => (t.innerHTML = ''), 5000); }
+function mostrarPopup(titulo, contenido, err = false) {
+  let modal = document.getElementById('lts-popup');
+  if (modal) modal.remove();
+  modal = document.createElement('div');
+  modal.id = 'lts-popup';
+  modal.className = 'lts-popup-backdrop';
+  modal.innerHTML = `<section class="lts-popup ${err ? 'is-error' : 'is-success'}" role="dialog" aria-modal="true" aria-labelledby="lts-popup-title">
+    <button type="button" class="lts-popup-close" aria-label="Cerrar">×</button>
+    <div class="lts-popup-mark">${err ? '!' : '✓'}</div>
+    <h3 id="lts-popup-title">${esc(titulo)}</h3>
+    <div class="lts-popup-content">${contenido}</div>
+    <button type="button" class="btn lts-popup-ok">Aceptar</button>
+  </section>`;
+  document.body.appendChild(modal);
+  const cerrar = () => modal.remove();
+  modal.querySelector('.lts-popup-close').addEventListener('click', cerrar);
+  modal.querySelector('.lts-popup-ok').addEventListener('click', cerrar);
+  modal.addEventListener('click', e => { if (e.target === modal) cerrar(); });
+  document.addEventListener('keydown', function escapePopup(e) {
+    if (e.key === 'Escape' && document.getElementById('lts-popup') === modal) {
+      cerrar();
+      document.removeEventListener('keydown', escapePopup);
+    }
+  });
+  modal.querySelector('.lts-popup-ok').focus();
+}
+function toast(msg, err) {
+  mostrarPopup(err ? 'No se ha podido completar' : 'GUARDADO CORRECTAMENTE', '<p>' + esc(msg) + '</p>', !!err);
+}
 function reducir(file, max, q = 0.82) {
   return new Promise((res, rej) => {
     const reader = new FileReader();
@@ -685,7 +713,7 @@ const ACT = {
   async 'noticia-del'(el) { if (!confirm('¿Eliminar esta publicación?')) return; await api('DELETE','/admin/noticias/'+el.dataset.id); if(NOTICIA_EDITANDO?.id===Number(el.dataset.id))NOTICIA_EDITANDO=null; toast('Publicación eliminada'); render(); },
   async 'noticia-edit'(el) { const d=await api('GET','/admin/noticias'); NOTICIA_EDITANDO=d.find(n=>n.id===Number(el.dataset.id))||null; if(!NOTICIA_EDITANDO)throw new Error('No se ha encontrado la publicación'); render(); },
   'noticia-edit-cancel'() { NOTICIA_EDITANDO=null; render(); },
-  async 'sabado-asistentes'(el) { const a=await api('GET','/modulos/sabados/'+el.dataset.id+'/asistencias'); alert(a.length ? a.map(x=>`${x.nombre}: ${x.asiste?'Asiste':'No asiste'}${x.acompanantes?' + '+x.acompanantes+' acompañantes':''}${x.alergias?' · Alergias: '+x.alergias:''}`).join('\n') : 'Todavía no hay confirmaciones.'); },
+  async 'sabado-asistentes'(el) { const a=await api('GET','/modulos/sabados/'+el.dataset.id+'/asistencias'); const contenido=a.length ? '<div class="lts-attendance-list">'+a.map(x=>'<article class="lts-attendance-row"><div><b>'+esc(x.nombre)+'</b><span class="lts-attendance-status '+(x.asiste?'yes':'no')+'">'+(x.asiste?'Asiste':'No asiste')+'</span></div>'+(x.acompanantes?'<p>'+Number(x.acompanantes)+' acompañante(s)</p>':'')+(x.alergias?'<p><b>Alergias:</b> '+esc(x.alergias)+'</p>':'')+'</article>').join('')+'</div>' : '<p class="mu">Todavía no hay confirmaciones.</p>'; mostrarPopup('Asistencia del sábado',contenido); },
   'sabados-tab'(el) { SAB_TAB=el.dataset.tab==='ant'?'ant':'prox'; render(); },
   async 'pago-confirm'(el) { if(!confirm('¿Confirmar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/confirmar'); toast('Pago confirmado'); render(); },
   async 'pago-reject'(el) { if(!confirm('¿Rechazar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/rechazar'); toast('Pago rechazado'); render(); },
