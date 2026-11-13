@@ -38,6 +38,43 @@ function mostrarPopup(titulo, contenido, err = false) {
   document.addEventListener('keydown', escapePopup);
   modal.querySelector('.lts-popup-ok').focus();
 }
+
+function confirmarAccion(mensaje, textoBoton = 'Confirmar') {
+  return new Promise(resolve => {
+    const anterior = document.getElementById('lts-popup');
+    if (anterior) anterior.remove();
+    const modal = document.createElement('div');
+    modal.id = 'lts-popup';
+    modal.className = 'lts-popup-backdrop';
+    modal.innerHTML = `<section class="lts-popup lts-popup-question" role="dialog" aria-modal="true" aria-labelledby="lts-popup-title">
+      <button type="button" class="lts-popup-close" aria-label="Cerrar">×</button>
+      <div class="lts-popup-mark">?</div>
+      <h3 id="lts-popup-title">¿Quieres continuar?</h3>
+      <div class="lts-popup-content"><p>${esc(mensaje)}</p></div>
+      <div class="lts-popup-actions">
+        <button type="button" class="chip lts-popup-cancel">Cancelar</button>
+        <button type="button" class="btn lts-popup-accept">${esc(textoBoton)}</button>
+      </div>
+    </section>`;
+    document.body.appendChild(modal);
+    let resuelta = false;
+    const cerrar = valor => {
+      if (resuelta) return;
+      resuelta = true;
+      modal.remove();
+      document.removeEventListener('keydown', tecla);
+      resolve(valor);
+    };
+    const tecla = e => { if (e.key === 'Escape' && document.getElementById('lts-popup') === modal) cerrar(false); };
+    modal.querySelector('.lts-popup-close').addEventListener('click', () => cerrar(false));
+    modal.querySelector('.lts-popup-cancel').addEventListener('click', () => cerrar(false));
+    modal.querySelector('.lts-popup-accept').addEventListener('click', () => cerrar(true));
+    modal.addEventListener('click', e => { if (e.target === modal) cerrar(false); });
+    document.addEventListener('keydown', tecla);
+    modal.querySelector('.lts-popup-cancel').focus();
+  });
+}
+
 function toast(msg, err) {
   const texto = String(msg || '');
   const esGuardado = /\b(guardad[oa]s?|actualizad[oa]s?|registrad[oa]s?|cread[oa]s?|añadid[oa]s?|cambiad[oa]s?)\b/i.test(texto);
@@ -798,8 +835,8 @@ const FORM = {
   async 'sabado-consumos'(f,d) { await api('POST','/modulos/sabados/'+f.dataset.id+'/consumos',{copas:d.get('copas'),refrescos:d.get('refrescos')}); toast('Consumiciones guardadas'); render(); },
   async 'cuenta-pago'(f,d) { await api('POST','/modulos/cuenta/pagos',{categoria:d.get('categoria'),importe:d.get('importe'),fecha_pago:d.get('fecha_pago'),metodo:d.get('metodo'),concepto:d.get('concepto')}); PAGO_MODAL=false; toast('Pago registrado y pendiente de revisión'); render(); },
   async 'cocina-new'(f,d) { await api('POST','/modulos/cocina',{fecha:d.get('fecha'),turno:d.get('turno'),responsable:d.get('responsable'),presupuesto:d.get('presupuesto'),menu:d.get('menu'),observaciones:d.get('observaciones')}); toast('Turno añadido'); render(); },
-  async 'cocina-cambio'(f,d) { const id=f.dataset.id; const hermana_id=d.get('hermana_id'); if(!hermana_id) throw new Error('Selecciona la hermana que te sustituye'); if(!confirm('¿Confirmas el cambio de turno? La otra hermana quedará asignada en tu lugar.')) return; await api('POST','/modulos/cocina/'+id+'/cambio',{hermana_id:Number(hermana_id)}); toast('Cambio de turno registrado'); render(); },
-  async 'cocina-intercambio'(f,d) { const partes=String(d.get('destino')||'').split(':').map(Number); if(partes.length!==2||!partes[0]||!partes[1]) throw new Error('Selecciona el sábado y la hermana con quien intercambiar'); if(!confirm('¿Confirmas el intercambio de los dos sábados?')) return; await api('POST','/modulos/cocina/'+f.dataset.id+'/intercambio',{turno_destino_id:partes[0],hermana_destino_id:partes[1]}); toast('Intercambio de sábados registrado'); render(); },
+  async 'cocina-cambio'(f,d) { const id=f.dataset.id; const hermana_id=d.get('hermana_id'); if(!hermana_id) throw new Error('Selecciona la hermana que te sustituye'); if(!await confirmarAccion('La otra hermana quedará asignada en tu lugar. ¿Confirmas el cambio de turno?','Confirmar cambio')) return; await api('POST','/modulos/cocina/'+id+'/cambio',{hermana_id:Number(hermana_id)}); toast('Cambio de turno registrado'); render(); },
+  async 'cocina-intercambio'(f,d) { const partes=String(d.get('destino')||'').split(':').map(Number); if(partes.length!==2||!partes[0]||!partes[1]) throw new Error('Selecciona el sábado y la hermana con quien intercambiar'); if(!await confirmarAccion('Se intercambiarán las asignaciones de los dos sábados. ¿Quieres continuar?','Confirmar intercambio')) return; await api('POST','/modulos/cocina/'+f.dataset.id+'/intercambio',{turno_destino_id:partes[0],hermana_destino_id:partes[1]}); toast('Intercambio de sábados registrado'); render(); },
   async 'cocina-asignar'(f,d) { await api('PUT','/modulos/cocina/'+f.dataset.id+'/asignacion',{hermanas:d.getAll('hermana')}); toast('Asignación de cocina guardada'); render(); },
   async 'cocina-edit'(f,d) { await api('PUT','/modulos/cocina/'+f.dataset.id,{fecha:d.get('fecha'),turno:d.get('turno'),responsable:d.get('responsable'),presupuesto:d.get('presupuesto'),menu:d.get('menu'),observaciones:d.get('observaciones')}); toast('Turno actualizado'); render(); },
   async 'cocina-ticket'(f,d) { const file=d.get('ticket'); if(!file || !file.size) throw new Error('Selecciona un ticket'); if(file.size>1024*1024) throw new Error('El archivo no puede superar 1 MB'); const datos=await readFileData(file); await api('POST','/modulos/cocina/tickets',{turno_cocina_id:d.get('turno_cocina_id')||null,nombre_archivo:file.name,comercio:d.get('comercio'),importe:d.get('importe'),forma_pago:d.get('forma_pago'),datos}); toast('Ticket enviado a Tesorería'); render(); },
@@ -814,7 +851,7 @@ const FORM = {
   async 'tes-config'(f,d) { await api('PUT','/modulos/tesoreria/config',{cuota_mensual:d.get('cuota_mensual'),sabado_precio:d.get('sabado_precio'),invitada_precio:d.get('invitada_precio'),copa_precio:d.get('copa_precio'),refresco_precio:d.get('refresco_precio'),cocina_precio_persona:d.get('cocina_precio_persona'),personas_por_turno:d.get('personas_por_turno')}); toast('Parámetros guardados'); render(); },
   async 'tes-extras'(f) { const cuotas_extraordinarias=[...f.querySelectorAll('.extra-row')].map(r=>({nombre:r.querySelector('[name=nombre]').value,categoria:r.querySelector('[name=categoria]').value,importe:r.querySelector('[name=importe]').value,tipo:r.querySelector('[name=tipo]').value})); await api('PUT','/modulos/tesoreria/config',{cuotas_extraordinarias}); toast('Cuotas extraordinarias guardadas'); render(); },
   async 'cocina-sorteo'(f,d) { const r=await api('POST','/modulos/cocina/sorteo',{personas_por_turno:d.get('personas_por_turno')}); COCINA_SORTEO_RESULTADO=r.asignaciones||[]; toast('Sorteo realizado: '+r.turnos_sorteados+' turnos'+(r.turnos_omitidos?' · '+r.turnos_omitidos+' ya tenían asignación y se han conservado':'')); render(); },
-  async 'cocina-sorteo-del'(el) { if(!confirm('¿Eliminar el sorteo? Se borrarán las asignaciones de todos los turnos de cocina futuros. Los sábados, los turnos y los tickets se conservarán. Esta acción no se puede deshacer.')) return; const r=await api('DELETE','/modulos/cocina/sorteo'); COCINA_SORTEO_RESULTADO=[]; toast('Sorteo eliminado · '+r.asignaciones_eliminadas+' asignaciones borradas'); render(); },
+  async 'cocina-sorteo-del'(el) { if(!await confirmarAccion('Se borrarán las asignaciones de todos los turnos de cocina futuros. Los sábados, los turnos y los tickets se conservarán. Esta acción no se puede deshacer.','Sí, eliminar sorteo')) return; const r=await api('DELETE','/modulos/cocina/sorteo'); COCINA_SORTEO_RESULTADO=[]; toast('Sorteo eliminado · '+r.asignaciones_eliminadas+' asignaciones borradas'); render(); },
   async 'tes-report-range'(f,d) { const desde=String(d.get('desde')||''),hasta=String(d.get('hasta')||''); if(!/^\d{4}-\d{2}-\d{2}$/.test(desde)||!/^\d{4}-\d{2}-\d{2}$/.test(hasta)||desde>hasta) throw new Error('Revisa las fechas: la fecha inicial no puede ser posterior a la final.'); TES_REPORT_FROM=desde; TES_REPORT_TO=hasta; render(); },
   async 'tes-filtro'(f,d) { TES_FILTRO={tipo:d.get('tipo')||'todos',texto:d.get('texto')||'',desde:d.get('desde')||'',hasta:d.get('hasta')||'',cuenta:d.get('cuenta')||'',hermana:d.get('hermana')||'',anio:d.get('anio')||'',categoria:d.get('categoria')||''}; if(TES_FILTRO.desde && TES_FILTRO.hasta && TES_FILTRO.desde>TES_FILTRO.hasta) throw new Error('La fecha inicial no puede ser posterior a la final'); render(); },
   async 'tes-movimiento'(f,d) { await api('POST','/modulos/tesoreria/movimientos',{tipo:d.get('tipo'),fecha:d.get('fecha'),concepto:d.get('concepto'),categoria:d.get('categoria'),cuenta:d.get('cuenta'),importe:d.get('importe')}); TES_MOV_MODAL=false; toast('Movimiento registrado'); render(); },
@@ -855,7 +892,7 @@ const ACT = {
   'tes-mov-close'() { TES_MOV_MODAL=false; TES_TRANSFER_MODAL=false; render(); },
   'tes-fixed-open'() { TES_NEW_FIXED_MODAL=true; render(); },
   'tes-fixed-close'() { TES_NEW_FIXED_MODAL=false; render(); },
-  async 'her-publicar-activas'() { if(!confirm('Se mostrarán en la web los nombres de todas las hermanas cuyo estado sea Activa. ¿Quieres continuar?'))return; await api('POST','/admin/hermanas/publicar-activas',{}); toast('Hermanas activas visibles en la web'); render(); },
+  async 'her-publicar-activas'() { if(!await confirmarAccion('Se mostrarán en la web los nombres de todas las hermanas cuyo estado sea Activa. ¿Quieres continuar?','Publicar hermanas'))return; await api('POST','/admin/hermanas/publicar-activas',{}); toast('Hermanas activas visibles en la web'); render(); },
   'cal-prev'() { CAL_MES=new Date(CAL_MES.getFullYear(),CAL_MES.getMonth()-1,1); render(); },
   'cal-next'() { CAL_MES=new Date(CAL_MES.getFullYear(),CAL_MES.getMonth()+1,1); render(); },
   'cal-hoy'() { CAL_MES=new Date(new Date().getFullYear(),new Date().getMonth(),1); CAL_SELECCION=fechaISOlocal(new Date()); render(); },
@@ -922,24 +959,24 @@ const ACT = {
   async 'her-invitar'(el) { const w=window.open('about:blank','_blank'); try { const r=await api('POST','/admin/hermanas/'+el.dataset.id+'/invitar'); if(!r.whatsapp) { if(w) w.close(); throw new Error(r.error||'No se ha podido preparar la bienvenida'); } if(w) w.location.href=r.whatsapp; else location.href=r.whatsapp; toast('Mensaje preparado. Revísalo y pulsa Enviar en WhatsApp.'); render(); } catch(e) { if(w) w.close(); throw e; } },
   async 'her-reset'(el) { const r=await api('POST','/admin/hermanas/'+el.dataset.id+'/reset'); toast(r.enviado?'Correo para restablecer contraseña enviado':'No se ha podido enviar el correo',!r.enviado); render(); },
   async 'her-quitar-foto'(el) { await api('PUT', '/admin/hermanas/' + el.dataset.id, { quitar_foto: true }); toast('Foto quitada'); render(); },
-  async 'cargo-del'(el) { if (!confirm('¿Borrar este cargo?')) return; await api('DELETE', '/admin/cargos/' + el.dataset.id); render(); },
+  async 'cargo-del'(el) { if (!await confirmarAccion('Se eliminará este cargo. ¿Quieres continuar?','Sí, borrar cargo')) return; await api('DELETE', '/admin/cargos/' + el.dataset.id); render(); },
   async 'evento-edit'(el) { const d=await api('GET','/modulos/eventos'); EVENTO_EDITANDO=d.find(x=>Number(x.id)===Number(el.dataset.id))||null; if(!EVENTO_EDITANDO) throw new Error('No se ha encontrado el evento'); render(); },
-  async 'evento-cancel'(el) { if(!confirm('¿Cancelar este evento? Dejará de mostrarse en la agenda de las hermanas.')) return; await api('PUT','/modulos/eventos/'+el.dataset.id,{estado:'cancelado'}); toast('Evento cancelado'); render(); },
+  async 'evento-cancel'(el) { if(!await confirmarAccion('El evento dejará de mostrarse en la agenda de las hermanas. ¿Quieres cancelarlo?','Cancelar evento')) return; await api('PUT','/modulos/eventos/'+el.dataset.id,{estado:'cancelado'}); toast('Evento cancelado'); render(); },
   'evento-edit-cancel'() { EVENTO_EDITANDO=null; render(); },
-  async 'noticia-del'(el) { if (!confirm('¿Eliminar esta publicación?')) return; await api('DELETE','/admin/noticias/'+el.dataset.id); if(NOTICIA_EDITANDO?.id===Number(el.dataset.id))NOTICIA_EDITANDO=null; toast('Publicación eliminada'); render(); },
+  async 'noticia-del'(el) { if (!await confirmarAccion('La publicación se eliminará de la web. ¿Quieres continuar?','Sí, eliminar')) return; await api('DELETE','/admin/noticias/'+el.dataset.id); if(NOTICIA_EDITANDO?.id===Number(el.dataset.id))NOTICIA_EDITANDO=null; toast('Publicación eliminada'); render(); },
   async 'noticia-edit'(el) { const d=await api('GET','/admin/noticias'); NOTICIA_EDITANDO=d.find(n=>n.id===Number(el.dataset.id))||null; if(!NOTICIA_EDITANDO)throw new Error('No se ha encontrado la publicación'); render(); },
   'noticia-edit-cancel'() { NOTICIA_EDITANDO=null; render(); },
   async 'sabado-asistentes'(el) { const a=await api('GET','/modulos/sabados/'+el.dataset.id+'/asistencias'); const contenido=a.length ? '<div class="lts-attendance-list">'+a.map(x=>'<article class="lts-attendance-row"><div><b>'+esc(x.nombre)+'</b><span class="lts-attendance-status '+(x.asiste?'yes':'no')+'">'+(x.asiste?'Asiste':'No asiste')+'</span></div>'+(x.acompanantes?'<p>'+Number(x.acompanantes)+' acompañante(s)</p>':'')+(x.alergias?'<p><b>Alergias:</b> '+esc(x.alergias)+'</p>':'')+'</article>').join('')+'</div>' : '<p class="mu">Todavía no hay confirmaciones.</p>'; mostrarPopup('Asistencia del sábado',contenido); },
   'sabados-tab'(el) { SAB_TAB=el.dataset.tab==='ant'?'ant':'prox'; render(); },
-  async 'pago-confirm'(el) { if(!confirm('¿Confirmar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/confirmar'); toast('Pago confirmado'); render(); },
-  async 'pago-reject'(el) { if(!confirm('¿Rechazar este pago?')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/rechazar'); toast('Pago rechazado'); render(); },
-  async 'mov-confirm'(el) { if(!confirm('¿Has comprobado que este movimiento se ha realizado?')) return; await api('POST','/modulos/tesoreria/movimientos/'+el.dataset.id+'/revisar',{estado:'confirmado'}); toast('Movimiento confirmado'); render(); },
-  async 'mov-reject'(el) { if(!confirm('¿Rechazar este movimiento?')) return; await api('POST','/modulos/tesoreria/movimientos/'+el.dataset.id+'/revisar',{estado:'rechazado'}); toast('Movimiento rechazado'); render(); },
+  async 'pago-confirm'(el) { if(!await confirmarAccion('El pago quedará confirmado en Tesorería. ¿Has comprobado que es correcto?','Confirmar pago')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/confirmar'); toast('Pago confirmado'); render(); },
+  async 'pago-reject'(el) { if(!await confirmarAccion('El pago quedará rechazado y no se descontará de la deuda. ¿Quieres continuar?','Rechazar pago')) return; await api('POST','/modulos/tesoreria/pagos/'+el.dataset.id+'/rechazar'); toast('Pago rechazado'); render(); },
+  async 'mov-confirm'(el) { if(!await confirmarAccion('El movimiento quedará validado en la contabilidad. ¿Has comprobado que se ha realizado?','Validar movimiento')) return; await api('POST','/modulos/tesoreria/movimientos/'+el.dataset.id+'/revisar',{estado:'confirmado'}); toast('Movimiento confirmado'); render(); },
+  async 'mov-reject'(el) { if(!await confirmarAccion('El movimiento quedará rechazado y no se incluirá en los informes. ¿Quieres continuar?','Rechazar movimiento')) return; await api('POST','/modulos/tesoreria/movimientos/'+el.dataset.id+'/revisar',{estado:'rechazado'}); toast('Movimiento rechazado'); render(); },
   async 'tes-filtro-reset'() { TES_FILTRO={tipo:'todos',texto:'',desde:'',hasta:'',cuenta:'',hermana:'',anio:'',categoria:''}; render(); },
-  async 'fijo-del'(el) { if(!confirm('¿Desactivar este gasto fijo? Se conservará su historial.')) return; await api('DELETE','/modulos/tesoreria/gastos-fijos/'+el.dataset.id); render(); },
+  async 'fijo-del'(el) { if(!await confirmarAccion('El gasto fijo dejará de generar nuevos cargos, pero se conservará su historial. ¿Quieres continuar?','Desactivar gasto')) return; await api('DELETE','/modulos/tesoreria/gastos-fijos/'+el.dataset.id); render(); },
   async 'fijo-registrar-todos'() { const forms=[...document.querySelectorAll('form[data-f=tes-fijo-registrar]')]; let n=0; for(const f of forms){if(!f.reportValidity()) return; const d=new FormData(f); await api('POST','/modulos/tesoreria/gastos-fijos/'+f.dataset.id+'/registrar',{periodo:d.get('periodo'),importe:d.get('importe')}); n++;} toast(n+' gasto(s) fijo(s) enviados a validación'); render(); },
 
-  async 'tes-ticket-reject'(el) { if(!confirm('¿Rechazar este ticket?')) return; await api('PUT','/modulos/tesoreria/tickets/'+el.dataset.id,{estado:'rechazado'}); toast('Ticket rechazado'); render(); },
+  async 'tes-ticket-reject'(el) { if(!await confirmarAccion('El ticket será rechazado y no se incluirá en la contabilidad. ¿Quieres continuar?','Rechazar ticket')) return; await api('PUT','/modulos/tesoreria/tickets/'+el.dataset.id,{estado:'rechazado'}); toast('Ticket rechazado'); render(); },
   async 'tes-report-export'() {
     if(!window.jspdf?.jsPDF) throw new Error('No se ha podido cargar el generador de PDF.');
     const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
@@ -1030,8 +1067,8 @@ const ACT = {
     await entregarPDF(blob,nombre,'Estado de cuentas','Relación de cuotas y conceptos pendientes de Las Tribulaciones de Sara.');
   },
 
-  async 'cocina-del'(el) { if(!confirm('¿Eliminar este turno?')) return; await api('DELETE','/modulos/cocina/'+el.dataset.id); render(); },
-  async 'junta-del'(el) { if(!confirm('¿Eliminar esta junta y su acta?')) return; await api('DELETE','/modulos/actas/juntas/'+el.dataset.id); render(); },
+  async 'cocina-del'(el) { if(!await confirmarAccion('Se eliminará este turno de cocina. ¿Quieres continuar?','Sí, eliminar turno')) return; await api('DELETE','/modulos/cocina/'+el.dataset.id); render(); },
+  async 'junta-del'(el) { if(!await confirmarAccion('Se eliminarán la convocatoria y el acta asociada. ¿Quieres continuar?','Sí, eliminar junta')) return; await api('DELETE','/modulos/actas/juntas/'+el.dataset.id); render(); },
   'hito-add'() { $('#hitos').insertAdjacentHTML('beforeend', hitoRow({ anio: '', texto: '' })); },
   'hito-del'(el) { el.closest('.row').remove(); },
 };
