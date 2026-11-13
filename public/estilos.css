@@ -895,3 +895,20 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
  .monthly-export{align-items:flex-start;flex-direction:column}
  .monthly-export .btn{width:100%}
 }
+
+/* Informe de Tesorería para juntas con periodos de fechas libres */
+.zona #app .tes-report-range{display:grid;grid-template-columns:minmax(220px,1.4fr) repeat(2,minmax(145px,.7fr)) auto;align-items:end;gap:12px;padding:15px 17px;margin:0 0 13px}
+.zona #app .tes-report-range h3{margin:0 0 3px;font-size:19px}
+.zona #app .tes-report-range p{margin:0}
+.zona #app .tes-report-date{min-width:0}
+.zona #app .tes-report-date .fl{display:block;margin:0 0 5px}
+.zona #app .tes-report-date .t{width:100%;min-width:0}
+.zona #app .tes-report-actions{display:flex;gap:7px;flex-wrap:wrap}
+.zona #app .tes-report-actions button{white-space:nowrap}
+.zona #app .tes-report-tables{align-items:start}
+.zona #app .tes-report-tables>.card{padding:0;overflow:hidden;min-width:0}
+.zona #app .tes-report-tables>.card h3{padding:15px 17px 8px;margin:0;font-size:17px}
+.zona #app .tes-report-tables .rt{width:100%}
+.zona #app .tes-report-note{margin:12px 2px 0;font-size:12px}
+@media(max-width:850px){.zona #app .tes-report-range{grid-template-columns:repeat(2,minmax(0,1fr))}.zona #app .tes-report-range>div:first-child{grid-column:1/-1}.zona #app .tes-report-actions{grid-column:1/-1}}
+@media(max-width:560px){.zona #app .tes-report-range{grid-template-columns:1fr;padding:13px}.zona #app .tes-report-range>div:first-child,.zona #app .tes-report-actions{grid-column:auto}.zona #app .tes-report-actions button{flex:1}.zona #app .tes-report-tables{grid-template-columns:1fr!important}}
