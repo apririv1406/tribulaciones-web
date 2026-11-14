@@ -164,6 +164,32 @@ export const MIGRATIONS = [
     "CREATE TABLE IF NOT EXISTS eventos_cuartel(id INTEGER PRIMARY KEY AUTOINCREMENT,titulo TEXT NOT NULL,tipo TEXT NOT NULL DEFAULT 'otros' CHECK(tipo IN('cofradia','cruz_mayo','cultos','convivencia','otros')),fecha TEXT NOT NULL,hora TEXT,lugar TEXT,descripcion TEXT,estado TEXT NOT NULL DEFAULT 'publicado' CHECK(estado IN('publicado','cancelado')),creado_por INTEGER REFERENCES hermanas(id),creado TEXT NOT NULL DEFAULT (datetime('now')),actualizado TEXT NOT NULL DEFAULT (datetime('now')))",
     "CREATE INDEX IF NOT EXISTS ix_eventos_cuartel_fecha ON eventos_cuartel(estado,fecha)"
   ]},
+  { v: 19, sql: [
+    `CREATE TABLE IF NOT EXISTS compras_listas(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL,
+      tipo TEXT NOT NULL DEFAULT 'extraordinaria' CHECK(tipo IN('general','cuaresma','semana_santa','extraordinaria')),
+      anio INTEGER,
+      creado_por INTEGER REFERENCES hermanas(id),
+      creado TEXT NOT NULL DEFAULT (datetime('now')),
+      actualizado TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    `CREATE INDEX IF NOT EXISTS ix_compras_listas_tipo_anio ON compras_listas(tipo,anio,id)`,
+    `CREATE TABLE IF NOT EXISTS compras_items(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      lista_id INTEGER NOT NULL REFERENCES compras_listas(id) ON DELETE CASCADE,
+      producto TEXT NOT NULL,
+      cantidad TEXT NOT NULL DEFAULT '',
+      notas TEXT,
+      comprado INTEGER NOT NULL DEFAULT 0 CHECK(comprado IN(0,1)),
+      creado_por INTEGER REFERENCES hermanas(id),
+      actualizado_por INTEGER REFERENCES hermanas(id),
+      creado TEXT NOT NULL DEFAULT (datetime('now')),
+      actualizado TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    `CREATE INDEX IF NOT EXISTS ix_compras_items_lista ON compras_items(lista_id,comprado,id)`,
+    `INSERT INTO compras_listas(nombre,tipo) SELECT 'Lista general','general' WHERE NOT EXISTS(SELECT 1 FROM compras_listas WHERE tipo='general')`
+  ]},
 ]; 
 
 async function ensureColumn(db, table, column, definition) {
