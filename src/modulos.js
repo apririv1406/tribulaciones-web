@@ -630,8 +630,11 @@ export async function routeModulos(req, env, me, method, path, body) {
         .bind(tipo, fecha, concepto, txt(body.categoria, 80) || null, importe, cuenta, me.id).run();
       return J({ ok: true, id: r.meta.last_row_id });
     }
-    if ((m = path.match(/^\\/api\\/modulos\\/tesoreria\\/movimientos\\/(\\d+)$/)) && method === 'PUT') {
-      const id=Number(m[1]);
+    const movimientoPrefix='/api/modulos/tesoreria/movimientos/';
+    if (path.startsWith(movimientoPrefix) && method === 'PUT') {
+      const idTexto=path.slice(movimientoPrefix.length);
+      if(!/^\\d+$/.test(idTexto)) return E('Movimiento no encontrado',404);
+      const id=Number(idTexto);
       const movimiento=await env.DB.prepare('SELECT id,estado,traspaso_id,gasto_fijo_id FROM movimientos WHERE id=?').bind(id).first();
       if(!movimiento) return E('Movimiento no encontrado',404);
       if(movimiento.estado!=='confirmado'||movimiento.traspaso_id||movimiento.gasto_fijo_id) return E('Este movimiento no se puede editar desde aquí',409);
