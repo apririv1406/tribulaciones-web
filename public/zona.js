@@ -410,7 +410,9 @@ async function vCompras() {
   };
   shell(`<div class="shopping-simple">
     <div class="shopping-simple-head"><div><h2>Lista de la compra</h2><p>Lista compartida. Añade lo que haga falta y marca lo que ya hayamos comprado.</p></div></div>
-    <form data-f="compra-lista-new" class="shopping-simple-new">
+    <details class="shopping-simple-create-menu">
+      <summary>Crear una lista</summary>
+      <form data-f="compra-lista-new" class="shopping-simple-new">
       <input class="t" name="nombre" required maxlength="100" placeholder="Nombre de la nueva lista (ej. Cuaresma 2027)">
       <select class="t" name="tipo" aria-label="Tipo de lista">
         <option value="cuaresma">Cuaresma</option>
@@ -419,9 +421,11 @@ async function vCompras() {
       </select>
       <input class="t" name="anio" type="number" min="2020" max="2100" value="${fechaHoyLocal().slice(0,4)}" aria-label="Año">
       <button class="btn" type="submit">Crear lista</button>
-    </form>
+</form>
+    </details>
+
     <div class="shopping-simple-toolbar">
-      <label><span>Lista</span><select class="t" id="compras-lista">${listas.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(lista.id)?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
+      <label><span>Mis listas</span><select class="t" id="compras-lista">${listas.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(lista.id)?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
       <div class="shopping-simple-list-actions">
         <button class="btn" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar lista</button>
         <button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="${lista.id}">Eliminar lista</button>
