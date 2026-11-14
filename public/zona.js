@@ -413,7 +413,7 @@ async function vCompras() {
     <div class="shopping-simple-toolbar">
       <label><span>Lista</span><select class="t" id="compras-lista">${listas.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(lista.id)?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
       <button class="btn" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar lista</button>
-      ${lista.duplicada_de?'<button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="'+lista.id+'">Eliminar esta lista</button>':''}
+      <button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="${lista.id}" ${lista.duplicada_de?'':'disabled title="La lista original no se puede eliminar"'}>${lista.duplicada_de?'Eliminar lista':'Lista original'}</button>
     </div>
     <form data-f="compra-add" data-id="${lista.id}" class="shopping-simple-add">
       <input class="t" name="producto" required maxlength="140" placeholder="¿Qué tenemos que comprar?">
