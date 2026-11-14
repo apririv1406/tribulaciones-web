@@ -630,6 +630,20 @@ export async function routeModulos(req, env, me, method, path, body) {
         .bind(tipo, fecha, concepto, txt(body.categoria, 80) || null, importe, cuenta, me.id).run();
       return J({ ok: true, id: r.meta.last_row_id });
     }
+    if ((m = path.match(/^\\/api\\/modulos\\/tesoreria\\/movimientos\\/(\\d+)$/)) && method === 'PUT') {
+      const id=Number(m[1]);
+      const movimiento=await env.DB.prepare('SELECT id,estado,traspaso_id,gasto_fijo_id FROM movimientos WHERE id=?').bind(id).first();
+      if(!movimiento) return E('Movimiento no encontrado',404);
+      if(movimiento.estado!=='confirmado'||movimiento.traspaso_id||movimiento.gasto_fijo_id) return E('Este movimiento no se puede editar desde aquí',409);
+      const tipo=body.tipo==='ingreso'?'ingreso':body.tipo==='gasto'?'gasto':null;
+      const importe=money(body.importe),fecha=isoDate(body.fecha)?body.fecha:null,concepto=txt(body.concepto,180);
+      const cuenta=['Banco','Caja fuerte'].includes(body.cuenta)?body.cuenta:'Banco';
+      const categoria=txt(body.categoria,80);
+      if(!tipo||!Number.isInteger(importe)||importe<=0||!fecha||concepto.length<2||!categoria) return E('Revisa tipo, fecha, concepto, categoría e importe');
+      await env.DB.prepare('UPDATE movimientos SET tipo=?,fecha=?,concepto=?,categoria=?,importe_centimos=?,cuenta=? WHERE id=?')
+        .bind(tipo,fecha,concepto,categoria,importe,cuenta,id).run();
+      return J({ok:true,id});
+    }
     if (path === '/api/modulos/tesoreria/traspasos' && method === 'POST') {
       const importe=money(body.importe),fecha=isoDate(body.fecha)?body.fecha:null,origen=body.origen,destino=body.destino;
       if(!Number.isInteger(importe)||!fecha||!['Banco','Caja fuerte'].includes(origen)||!['Banco','Caja fuerte'].includes(destino)||origen===destino) return E('Revisa importe, fecha y cuentas del traspaso');
