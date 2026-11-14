@@ -289,7 +289,7 @@ async function media(req, env, id) {
 /* ---------- parte pública ---------- */
 async function publico(env) {
   const [h, n, t] = await Promise.all([
-    env.DB.prepare("SELECT h.nombre,c.nombre cargo,h.anio_entrada anio,h.foto_id foto FROM hermanas h LEFT JOIN cargos c ON c.id=h.cargo_id WHERE h.visible_web=1 AND h.estado!='Baja' ORDER BY COALESCE(c.orden,99),h.nombre").all(),
+    env.DB.prepare("SELECT h.nombre,c.nombre cargo,h.anio_entrada anio,h.foto_id foto FROM hermanas h LEFT JOIN cargos c ON c.id=h.cargo_id WHERE h.visible_web=1 AND h.estado!='Baja' ORDER BY CASE WHEN lower(COALESCE(c.nombre,''))='hermana' THEN 1 ELSE 0 END,COALESCE(c.orden,99),h.nombre").all(),
     env.DB.prepare("SELECT id,titulo,texto,fecha,imagen_id imagen,url,tipo FROM noticias ORDER BY fecha DESC,id DESC LIMIT 12").all(),
     env.DB.prepare('SELECT anio,texto FROM hitos ORDER BY orden,id').all(),
   ]);
