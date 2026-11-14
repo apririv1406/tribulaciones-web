@@ -642,7 +642,7 @@ export async function routeModulos(req, env, me, method, path, body) {
     const movimientoPrefix='/api/modulos/tesoreria/movimientos/';
     if (path.startsWith(movimientoPrefix) && method === 'PUT') {
       const idTexto=path.slice(movimientoPrefix.length);
-      if(!/^\\d+$/.test(idTexto)) return E('Movimiento no encontrado',404);
+      if(!/^\d+$/.test(idTexto)) return E('Movimiento no encontrado',404);
       const id=Number(idTexto);
       const movimiento=await env.DB.prepare('SELECT id,estado,traspaso_id,gasto_fijo_id FROM movimientos WHERE id=?').bind(id).first();
       if(!movimiento) return E('Movimiento no encontrado',404);
