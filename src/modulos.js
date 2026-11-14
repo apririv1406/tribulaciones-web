@@ -114,9 +114,9 @@ export async function routeModulos(req, env, me, method, path, body) {
   }
   if ((m=path.match(/^\/api\/modulos\/compras\/listas\/(\d+)$/)) && method==='DELETE') {
     const id=Number(m[1]);
-    const lista=await env.DB.prepare('SELECT id,duplicada_de,tipo FROM compras_listas WHERE id=?').bind(id).first();
+    const lista=await env.DB.prepare('SELECT id FROM compras_listas WHERE id=?').bind(id).first();
     if(!lista) return E('No se ha encontrado la lista',404);
-    if(!lista.duplicada_de || lista.tipo==='general') return E('Solo se pueden eliminar listas creadas mediante una duplicación',409);
+    await env.DB.prepare('DELETE FROM compras_items WHERE lista_id=?').bind(id).run();
     await env.DB.prepare('DELETE FROM compras_listas WHERE id=?').bind(id).run();
     return J({ok:true});
   }
