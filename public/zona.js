@@ -406,7 +406,7 @@ async function vCompras() {
   </article>`;
   shell(`<div class="shopping-page">
     <header class="shopping-heading"><div><div class="tag">Gestión compartida</div><h2>Lista de la compra</h2><p class="mu">Una lista común para todas. Cualquier hermana puede añadir productos, cambiar cantidades o marcar lo que ya se ha comprado.</p></div><div class="shopping-total"><b>${pendientes.length}</b><span>pendientes</span><small>${comprados.length} comprados</small></div></header>
-    <section class="card shopping-list-select"><div class="shopping-select-main"><label class="fl" for="compras-lista">Lista</label><select class="t" id="compras-lista" data-a="compra-select">${opciones}</select><span class="shopping-list-type">${esc(tipoNombre[lista.tipo]||'Lista')} ${lista.anio?'· '+lista.anio:''}</span></div><button class="chip" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar para otro año</button></section>
+    <section class="card shopping-list-select"><div class="shopping-select-main"><label class="fl" for="compras-lista">Lista</label><select class="t" id="compras-lista">${opciones}</select><span class="shopping-list-type">${esc(tipoNombre[lista.tipo]||'Lista')} ${lista.anio?'· '+lista.anio:''}</span></div><button class="chip" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar para otro año</button></section>
     <section class="card shopping-add-card"><div class="shopping-section-title"><div><h3>Añadir a la lista</h3><p class="mu">Se actualizará para todas las hermanas.</p></div></div><form data-f="compra-add" data-id="${lista.id}" class="shopping-add-form"><label><span>Producto</span><input class="t" name="producto" required maxlength="140" placeholder="¿Qué hace falta comprar?"></label><label><span>Cantidad</span><input class="t" name="cantidad" maxlength="80" placeholder="Ej.: 3 botellas"></label><label><span>Nota</span><input class="t" name="notas" maxlength="300" placeholder="Marca, tamaño…"></label><button class="btn">Añadir producto</button></form></section>
     <div class="shopping-columns"><section class="card shopping-items-card"><div class="shopping-section-title"><div><h3>Por comprar</h3><p class="mu">${pendientes.length? 'Productos que todavía faltan':'Todo comprado por ahora'}</p></div><span class="shopping-count">${pendientes.length}</span></div>${pendientes.length?pendientes.map(fila).join(''):'<p class="shopping-empty">No hay productos pendientes. Puedes añadir algo cuando lo necesites.</p>'}</section>
     <section class="card shopping-items-card shopping-bought-card"><div class="shopping-section-title"><div><h3>Comprado</h3><p class="mu">Puedes volver a marcar un producto como pendiente.</p></div><span class="shopping-count">${comprados.length}</span></div>${comprados.length?comprados.map(fila).join(''):'<p class="shopping-empty">Aquí aparecerán los productos cuando se marquen como comprados.</p>'}</section></div>
@@ -1189,6 +1189,8 @@ document.addEventListener('input', e => {
   if(contador) contador.textContent=texto ? visibles+' de '+filas.length+' hermanas' : filas.length+' hermanas registradas';
 });
 document.addEventListener('change', e => {
+  const compraSelect=e.target.closest('#compras-lista');
+  if(compraSelect) { COMPRAS_LISTA_ID=Number(compraSelect.value); render(); return; }
   const alergia=e.target.closest('input[name="alergia_perfil"]');
   if(alergia) {
     const chip=alergia.closest('.chip');
