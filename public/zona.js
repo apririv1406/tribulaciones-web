@@ -411,7 +411,7 @@ async function vCompras() {
   shell(`<div class="shopping-simple">
     <div class="shopping-simple-head"><div><h2>Lista de la compra</h2><p>Lista compartida. Añade lo que haga falta y marca lo que ya hayamos comprado.</p></div></div>
     <div class="shopping-simple-toolbar">
-      <label><span>Lista</span><select class="t" data-a="compra-select">${listas.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(lista.id)?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
+      <label><span>Lista</span><select class="t" id="compras-lista">${listas.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(lista.id)?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
       <button class="btn" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar lista</button>
       ${lista.duplicada_de?'<button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="'+lista.id+'">Eliminar esta lista</button>':''}
     </div>
