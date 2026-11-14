@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'lts-pwa-v2';
+const CACHE = 'lts-pwa-v3';
 const SHELL = ['/', '/zona/', '/logo.png', '/estilos.css'];
 
 self.addEventListener('install', event => {
