@@ -1459,3 +1459,5 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .zona #app .shopping-check.checked{width:28px;padding:0}
 .zona #app .shopping-hero-art,.zona #app .shopping-list-emoji,.zona #app .shopping-current-icon,.zona #app .shopping-add-icon,.zona #app .shopping-create-icon{display:none}
 .zona #app .shopping-duplicate{font-size:11px}
+
+@media(max-width:560px){.zona #app .shopping-duplicate span{display:inline}.zona #app .shopping-list-tile{padding:10px}.zona #app .shopping-list-delete{font-size:10px}}
