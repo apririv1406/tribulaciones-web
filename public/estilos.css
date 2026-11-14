@@ -1447,3 +1447,15 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
  .zona #app .shopping-new-form label:first-child{grid-column:1/-1}
  .zona #app .shopping-new-form button{grid-column:1/-1;width:100%}
 }
+
+/* Lista de la compra: controles sin iconografía y eliminación de duplicados */
+.zona #app .shopping-list-tile{display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:0}
+.zona #app .shopping-list-tile-select{display:flex;align-items:center;gap:9px;width:100%;min-width:0;padding:0;border:0;background:transparent;text-align:left;color:inherit;cursor:pointer}
+.zona #app .shopping-list-tile-info{flex:1;min-width:0}
+.zona #app .shopping-list-delete{align-self:flex-start;border:0;background:transparent;color:#93645b;padding:4px 0;font:500 10px Inter,sans-serif;text-decoration:underline;cursor:pointer}
+.zona #app .shopping-icon-action{width:auto;height:auto;padding:6px 8px;font:500 10px Inter,sans-serif;border:1px solid var(--ln);background:#fff}
+.zona #app .shopping-icon-action.delete{font-size:10px;color:#93645b}
+.zona #app .shopping-check{width:auto;min-width:28px;height:28px;padding:0 7px;border-radius:20px;font-size:9px;white-space:nowrap}
+.zona #app .shopping-check.checked{width:28px;padding:0}
+.zona #app .shopping-hero-art,.zona #app .shopping-list-emoji,.zona #app .shopping-current-icon,.zona #app .shopping-add-icon,.zona #app .shopping-create-icon{display:none}
+.zona #app .shopping-duplicate{font-size:11px}
