@@ -410,6 +410,15 @@ async function vCompras() {
   };
   shell(`<div class="shopping-simple">
     <div class="shopping-simple-head"><div><h2>Lista de la compra</h2><p>Lista compartida. Añade lo que haga falta y marca lo que ya hayamos comprado.</p></div></div>
+<div class="shopping-simple-toolbar">
+      <label><span>Mis listas</span><select class="t" id="compras-lista">${listas.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(lista.id)?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
+      <div class="shopping-simple-list-actions">
+        <button class="btn" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar lista</button>
+        <button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="${lista.id}">Eliminar lista</button>
+      </div>
+      ${lista.creado_por_nombre?'<p class="shopping-simple-list-meta">Creada por '+esc(lista.creado_por_nombre)+'</p>':''}
+    </div>
+
     <details class="shopping-simple-create-menu">
       <summary>Crear una lista</summary>
       <form data-f="compra-lista-new" class="shopping-simple-new">
@@ -423,15 +432,6 @@ async function vCompras() {
       <button class="btn" type="submit">Crear lista</button>
 </form>
     </details>
-
-    <div class="shopping-simple-toolbar">
-      <label><span>Mis listas</span><select class="t" id="compras-lista">${listas.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(lista.id)?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
-      <div class="shopping-simple-list-actions">
-        <button class="btn" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar lista</button>
-        <button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="${lista.id}">Eliminar lista</button>
-      </div>
-      ${lista.creado_por_nombre?'<p class="shopping-simple-list-meta">Creada por '+esc(lista.creado_por_nombre)+'</p>':''}
-    </div>
     <form data-f="compra-add" data-id="${lista.id}" class="shopping-simple-add">
       <input class="t" name="producto" required maxlength="140" placeholder="¿Qué tenemos que comprar?">
       <input class="t" name="cantidad" maxlength="80" placeholder="Cantidad (opcional)">
