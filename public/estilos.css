@@ -1473,7 +1473,7 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .zona #app .shopping-hero p{font-size:13px;color:var(--mu);line-height:1.55}
 .zona #app .shopping-hero-meta{margin-top:12px;gap:8px 16px;color:var(--mu);font-size:11px}
 .zona #app .shopping-list-picker{padding:17px;background:var(--sf);border:1px solid var(--ln);border-radius:18px;gap:13px}
-.zona #app .shopping-section-heading h3,.zona #app .shopping-current-head h3{font:600 21px/1.25 inherit;color:var(--dk)}
+.zona #app .shopping-section-heading h3,.zona #app .shopping-current-head h3{font-family:inherit;font-size:21px;line-height:1.25;font-weight:600;color:var(--dk)}
 .zona #app .shopping-list-tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .zona #app .shopping-list-tile{display:flex;flex-direction:column;align-items:stretch;gap:7px;padding:12px;border:1px solid var(--ln);border-radius:13px;background:var(--sf);box-shadow:none}
 .zona #app .shopping-list-tile:hover{transform:none;border-color:var(--gd)}
@@ -1486,27 +1486,27 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .zona #app .shopping-current-head{padding:4px 0;align-items:center}
 .zona #app .shopping-current-head h3{margin:3px 0}
 .zona #app .shopping-current-head p{font-size:11px;color:var(--mu)}
-.zona #app .shopping-duplicate{padding:9px 13px;border:1px solid var(--ln);border-radius:11px;background:var(--sf);color:var(--dk);font:600 11px inherit}
+.zona #app .shopping-duplicate{padding:9px 13px;border:1px solid var(--ln);border-radius:11px;background:var(--sf);color:var(--dk);font-family:inherit;font-size:11px;font-weight:600}
 .zona #app .shopping-progress-card,.zona #app .shopping-add-panel,.zona #app .shopping-items-section,.zona #app .shopping-create-panel{padding:17px;border:1px solid var(--ln);border-radius:18px;background:var(--sf);box-shadow:none}
 .zona #app .shopping-progress-top>div b{font-size:15px}
 .zona #app .shopping-progress-top>strong{color:var(--gd)}
 .zona #app .shopping-progress-track{background:var(--pa)}
 .zona #app .shopping-progress-track i{background:var(--gd)}
 .zona #app .shopping-add-panel{background:var(--sf)}
-.zona #app .shopping-add-heading h3,.zona #app .shopping-create-intro h3{font:600 19px/1.3 inherit;color:var(--dk)}
+.zona #app .shopping-add-heading h3,.zona #app .shopping-create-intro h3{font-family:inherit;font-size:19px;line-height:1.3;font-weight:600;color:var(--dk)}
 .zona #app .shopping-add-heading p,.zona #app .shopping-create-intro p{font-size:11px;color:var(--mu)}
 .zona #app .shopping-add-form label,.zona #app .shopping-new-form label{font-size:11px;font-weight:500;color:var(--mu)}
 .zona #app .shopping-add-form .t,.zona #app .shopping-new-form .t,.zona #app .shopping-item-fields .t{background:var(--sf);border:1px solid #e4d8c1;border-radius:11px}
 .zona #app .shopping-columns{gap:14px}
 .zona #app .shopping-items-section{min-width:0}
 .zona #app .shopping-section-title{margin-bottom:12px}
-.zona #app .shopping-section-title h3{font:600 20px/1.25 inherit;color:var(--dk)}
+.zona #app .shopping-section-title h3{font-family:inherit;font-size:20px;line-height:1.25;font-weight:600;color:var(--dk)}
 .zona #app .shopping-product-card{border:1px solid var(--ln);border-radius:12px;background:var(--sf);box-shadow:none}
 .zona #app .shopping-product-card.is-bought{background:var(--pa);border-color:var(--ln)}
 .zona #app .shopping-check{border-radius:8px}
 .zona #app .shopping-check.checked{background:var(--ok);border-color:var(--ok)}
 .zona #app .shopping-quantity{background:var(--pa);color:var(--dk)}
-.zona #app .shopping-icon-action{width:auto;height:auto;padding:6px 9px;border:1px solid var(--ln);border-radius:9px;background:var(--sf);color:var(--dk);font:500 10px inherit}
+.zona #app .shopping-icon-action{width:auto;height:auto;padding:6px 9px;border:1px solid var(--ln);border-radius:9px;background:var(--sf);color:var(--dk);font-family:inherit;font-size:10px;font-weight:500}
 .zona #app .shopping-icon-action:hover{background:var(--pa);color:var(--dk)}
 .zona #app .shopping-icon-action.delete{color:var(--ko);font-size:10px}
 .zona #app .shopping-count.pending,.zona #app .shopping-count.done{background:var(--pa);color:var(--dk)}
