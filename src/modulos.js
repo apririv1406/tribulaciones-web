@@ -537,8 +537,11 @@ export async function routeModulos(req, env, me, method, path, body) {
       const parametrosRows = await rows(env.DB.prepare("SELECT clave,valor FROM config WHERE clave IN ('cocina_precio_persona_centimos','sabado_precio_centimos','invitada_precio_centimos','copa_precio_centimos','refresco_precio_centimos','cocina_personas_por_turno')"));
       const parametros = Object.fromEntries(parametrosRows.map(x => [x.clave, Number(x.valor)]));
       const extrasRow = await env.DB.prepare("SELECT valor FROM config WHERE clave='cuotas_extraordinarias_json'").first();
+      const categoriasRow = await env.DB.prepare("SELECT valor FROM config WHERE clave='tesoreria_categorias_gastos_json'").first();
       let cuotas_extraordinarias = [];
+      let categorias_gastos = ['Comida y bebida','Limpieza','Material y decoración','Mantenimiento y reparaciones','Actividades y eventos','Cofradía y hermandad','Otros'];
       try { cuotas_extraordinarias = JSON.parse(extrasRow?.valor || '[]'); } catch { cuotas_extraordinarias = []; }
+      try { const guardadas=JSON.parse(categoriasRow?.valor || 'null'); if(Array.isArray(guardadas)) categorias_gastos=[...new Set(guardadas.map(x=>txt(x,60)).filter(Boolean))]; } catch {}
       const [estadisticasMensuales, estadisticasCategorias] = await Promise.all([
         rows(env.DB.prepare(`SELECT strftime('%Y-%m',fecha) periodo,
           SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,
@@ -568,7 +571,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         FROM movimientos WHERE fecha>=? AND estado='confirmado' GROUP BY cuenta`).bind(saldoInicial.fecha));
       const banco=saldoInicial.banco_centimos+Number(saldos.find(x=>x.cuenta==='Banco')?.neto||0);
       const caja=saldoInicial.caja_centimos+Number(saldos.find(x=>x.cuenta==='Caja fuerte')?.neto||0);
-      return J({ movimientos, movimientos_pendientes: movimientosPendientes, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, hermanas, cuotas_pendientes: pendientes, cargos_pendientes, informes, cocina_informe, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco+caja}, saldo_inicial:saldoInicial, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
+      return J({ movimientos, movimientos_pendientes: movimientosPendientes, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, hermanas, cuotas_pendientes: pendientes, cargos_pendientes, informes, cocina_informe, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco+caja}, saldo_inicial:saldoInicial, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, categorias_gastos, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
     }
     if (path === '/api/modulos/tesoreria/config' && method === 'PUT') {
       const campos = {
@@ -595,6 +598,12 @@ export async function routeModulos(req, env, me, method, path, body) {
         const personas = num(body.personas_por_turno);
         if (![2,3].includes(personas)) return E('El sorteo debe asignar 2 o 3 personas por turno');
         ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('cocina_personas_por_turno',?)").bind(String(personas)));
+      }
+      if (body.categorias_gastos !== undefined) {
+        if (!Array.isArray(body.categorias_gastos) || body.categorias_gastos.length > 50) return E('La lista de categorías no es válida');
+        const categorias=[...new Set(body.categorias_gastos.map(x=>txt(x,60)).filter(Boolean))];
+        if (!categorias.length) return E('Debe quedar al menos una categoría');
+        ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('tesoreria_categorias_gastos_json',?)").bind(JSON.stringify(categorias)));
       }
       if (body.cuotas_extraordinarias !== undefined) {
         if (!Array.isArray(body.cuotas_extraordinarias) || body.cuotas_extraordinarias.length > 50) return E('La lista de cuotas extraordinarias no es válida');
