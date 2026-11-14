@@ -4,7 +4,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(''));
 const fechaHoyLocal = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.600 2.400 30.200 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.800 6.100C12.300 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.500 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.700c-.6 3-2.300 5.500-4.800 7.200l7.500 5.800c4.400-4.100 7.100-10.100 7.100-17.500z"/><path fill="#FBBC05" d="M10.400 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.9-4.700l-7.800-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.800-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.700-4.100-13.600-9.800l-7.800 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
-let CAL_MES = new Date(new Date().getFullYear(), new Date().getMonth(), 1), ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_FROM = fechaHoyLocal().slice(0,7) + '-01', TES_REPORT_TO = fechaHoyLocal(), TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_EDIT_MOV_ID = null, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', COCINA_SORTEO_RESULTADO = [], TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
+let CAL_MES = new Date(new Date().getFullYear(), new Date().getMonth(), 1), ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_FROM = fechaHoyLocal().slice(0,7) + '-01', TES_REPORT_TO = fechaHoyLocal(), TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_EDIT_MOV_ID = null, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', COCINA_SORTEO_RESULTADO = [], COMPRAS_LISTA_ID = null, TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
 
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
@@ -106,7 +106,7 @@ const menuGroups = () => {
   const admin = !!ME_REAL?.admin && !VISTA_HERMANA;
   const groups = [
     { title: 'Inicio', links: [['#/', 'Resumen']] },
-    { title: 'Gestión', links: [['#/calendario', 'Calendario'], ['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina'], ...(admin ? [['#/admin/eventos', 'Otros eventos']] : []), ] },
+    { title: 'Gestión', links: [['#/calendario', 'Calendario'], ['#/sabados', 'Sábados y asistencia'], ['#/cocina', 'Cocina'], ['#/compras', 'Lista de la compra'], ...(admin ? [['#/admin/eventos', 'Otros eventos']] : []), ] },
   ];
   if (admin) groups.push({ title: 'Hermanas', links: [['#/admin/hermanas', 'Hermanas y cargos']] });
   if (ME.tes || admin) groups.push({ title: 'Tesorería', links: [['#/tesoreria', 'Tesorería y cuotas']] });
@@ -138,7 +138,7 @@ function shell(html) {
   const bottom=$('#bottom-nav');
   if(bottom) bottom.style.display = MENU ? 'none' : '';
   if(bottom && ME_REAL?.admin && !VISTA_HERMANA) bottom.innerHTML = `<nav class="admin-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur.startsWith('#/admin/hermanas')?'on':''}" href="#/admin/hermanas"><span>♙</span>Hermanas</a><a class="${cur.startsWith('#/tesoreria')?'on':''}" href="#/tesoreria"><span>€</span>Tesorería</a><a class="${cur.startsWith('#/admin/actas')||cur==='#/actas'?'on':''}" href="#/admin/actas"><span>▤</span>Secretaría</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
-  else if(bottom && ME) bottom.innerHTML = `<nav class="admin-bottom-nav sister-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur==='#/sabados'||cur==='#/cocina'?'on':''}" href="#/sabados"><span>◷</span>Gestión</a><a class="${cur==='#/cuenta'||cur==='#/tesoreria'?'on':''}" href="#/cuenta"><span>€</span>Mi cuenta</a><a class="${cur==='#/actas'||cur==='#/admin/actas'?'on':''}" href="#/actas"><span>▤</span>Actas</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
+  else if(bottom && ME) bottom.innerHTML = `<nav class="admin-bottom-nav sister-bottom-nav"><a class="${cur==='#/'?'on':''}" href="#/"><span>⌂</span>Inicio</a><a class="${cur==='#/sabados'||cur==='#/cocina'||cur==='#/compras'?'on':''}" href="#/sabados"><span>◷</span>Gestión</a><a class="${cur==='#/cuenta'||cur==='#/tesoreria'?'on':''}" href="#/cuenta"><span>€</span>Mi cuenta</a><a class="${cur==='#/actas'||cur==='#/admin/actas'?'on':''}" href="#/actas"><span>▤</span>Actas</a><button type="button" data-a="menu"><span>☰</span>Más</button></nav>`;
   else if(bottom) bottom.innerHTML = '';
   $('#app').innerHTML = html;
 }
@@ -387,6 +387,32 @@ function cambioTurnoMarkup(turno,miTurno,disponibles,cambios,turnos,asignaciones
   return formulario+sustitucion+historial;
 }
 
+async function vCompras() {
+  const d=await api('GET','/modulos/compras');
+  const listas=d.listas||[], items=d.items||[];
+  if(!listas.length) throw new Error('No hay listas disponibles.');
+  if(!listas.some(x=>Number(x.id)===Number(COMPRAS_LISTA_ID))) COMPRAS_LISTA_ID=listas[0].id;
+  const lista=listas.find(x=>Number(x.id)===Number(COMPRAS_LISTA_ID))||listas[0];
+  const productos=items.filter(x=>Number(x.lista_id)===Number(lista.id));
+  const pendientes=productos.filter(x=>!x.comprado), comprados=productos.filter(x=>x.comprado);
+  const tipoNombre={general:'Lista general',cuaresma:'Cuaresma',semana_santa:'Semana Santa',extraordinaria:'Extraordinaria'};
+  const opciones=listas.map(x=>'<option value="'+x.id+'" '+(Number(x.id)===Number(lista.id)?'selected':'')+'>'+esc(x.nombre)+(x.anio?' · '+x.anio:'')+'</option>').join('');
+  const fila=x=>`<article class="shopping-item ${x.comprado?'is-bought':''}">
+    <button type="button" class="shopping-check ${x.comprado?'checked':''}" data-a="compra-toggle" data-id="${x.id}" aria-label="${x.comprado?'Marcar como pendiente':'Marcar como comprado'}">${x.comprado?'✓':''}</button>
+    <form class="shopping-item-edit" data-f="compra-edit" data-id="${x.id}">
+      <div class="shopping-item-fields"><label><span>Producto</span><input class="t" name="producto" required maxlength="140" value="${esc(x.producto)}"></label><label><span>Cantidad</span><input class="t" name="cantidad" maxlength="80" value="${esc(x.cantidad||'')}" placeholder="Ej.: 2 paquetes"></label></div>
+      <div class="shopping-item-bottom"><input class="t" name="notas" maxlength="300" value="${esc(x.notas||'')}" placeholder="Nota (opcional)"><span class="shopping-by">${x.creado_por_nombre?'Añadido por '+esc(x.creado_por_nombre):''}</span><button class="chip" type="submit">Guardar</button><button class="chip shopping-remove" type="button" data-a="compra-del" data-id="${x.id}" aria-label="Eliminar producto">Eliminar</button></div>
+    </form>
+  </article>`;
+  shell(`<div class="shopping-page">
+    <header class="shopping-heading"><div><div class="tag">Gestión compartida</div><h2>Lista de la compra</h2><p class="mu">Una lista común para todas. Cualquier hermana puede añadir productos, cambiar cantidades o marcar lo que ya se ha comprado.</p></div><div class="shopping-total"><b>${pendientes.length}</b><span>pendientes</span><small>${comprados.length} comprados</small></div></header>
+    <section class="card shopping-list-select"><div class="shopping-select-main"><label class="fl" for="compras-lista">Lista</label><select class="t" id="compras-lista" data-a="compra-select">${opciones}</select><span class="shopping-list-type">${esc(tipoNombre[lista.tipo]||'Lista')} ${lista.anio?'· '+lista.anio:''}</span></div><button class="chip" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar para otro año</button></section>
+    <section class="card shopping-add-card"><div class="shopping-section-title"><div><h3>Añadir a la lista</h3><p class="mu">Se actualizará para todas las hermanas.</p></div></div><form data-f="compra-add" data-id="${lista.id}" class="shopping-add-form"><label><span>Producto</span><input class="t" name="producto" required maxlength="140" placeholder="¿Qué hace falta comprar?"></label><label><span>Cantidad</span><input class="t" name="cantidad" maxlength="80" placeholder="Ej.: 3 botellas"></label><label><span>Nota</span><input class="t" name="notas" maxlength="300" placeholder="Marca, tamaño…"></label><button class="btn">Añadir producto</button></form></section>
+    <div class="shopping-columns"><section class="card shopping-items-card"><div class="shopping-section-title"><div><h3>Por comprar</h3><p class="mu">${pendientes.length? 'Productos que todavía faltan':'Todo comprado por ahora'}</p></div><span class="shopping-count">${pendientes.length}</span></div>${pendientes.length?pendientes.map(fila).join(''):'<p class="shopping-empty">No hay productos pendientes. Puedes añadir algo cuando lo necesites.</p>'}</section>
+    <section class="card shopping-items-card shopping-bought-card"><div class="shopping-section-title"><div><h3>Comprado</h3><p class="mu">Puedes volver a marcar un producto como pendiente.</p></div><span class="shopping-count">${comprados.length}</span></div>${comprados.length?comprados.map(fila).join(''):'<p class="shopping-empty">Aquí aparecerán los productos cuando se marquen como comprados.</p>'}</section></div>
+    <section class="card shopping-new-list"><div><h3>Crear otra lista</h3><p class="mu">Para Cuaresma y Semana Santa puedes crear una lista cada año. Las compras extraordinarias, como una Cruz de Mayo, se crean solo cuando hagan falta.</p></div><form data-f="compra-lista-new" class="shopping-new-form"><label><span>Nombre de la lista</span><input class="t" name="nombre" required maxlength="100" placeholder="Ej.: Cuaresma 2027"></label><label><span>Tipo</span><select class="t" name="tipo"><option value="cuaresma">Cuaresma</option><option value="semana_santa">Semana Santa</option><option value="extraordinaria">Extraordinaria</option></select></label><label><span>Año</span><input class="t" type="number" name="anio" min="2020" max="2100" value="${new Date().getFullYear()}"></label><button class="chip on">Crear lista</button></form></section>
+  </div>`);
+}
 async function vCocina() {
   const [d, sabados] = await Promise.all([
     api('GET', '/modulos/cocina'),
@@ -880,6 +906,9 @@ const FORM = {
   },
   async 'cargo-new'(f, d) { await api('POST', '/admin/cargos', { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Cargo creado'); render(); },
   async 'cargo-save'(f, d) { await api('PUT', '/admin/cargos/' + f.dataset.id, { nombre: d.get('nombre'), permiso: d.get('permiso') }); toast('Guardado'); render(); },
+  async 'compra-add'(f,d) { await api('POST','/modulos/compras/'+f.dataset.id+'/items',{producto:d.get('producto'),cantidad:d.get('cantidad'),notas:d.get('notas')}); toast('Producto añadido a la lista compartida'); render(); },
+  async 'compra-edit'(f,d) { const r=await api('PUT','/modulos/compras/items/'+f.dataset.id,{producto:d.get('producto'),cantidad:d.get('cantidad'),notas:d.get('notas')}); toast('Producto actualizado'); render(); },
+  async 'compra-lista-new'(f,d) { const r=await api('POST','/modulos/compras/listas',{nombre:d.get('nombre'),tipo:d.get('tipo'),anio:d.get('anio')}); COMPRAS_LISTA_ID=r.id; toast('Lista creada'); render(); },
   async 'evento-save'(f,d) { const b={titulo:d.get('titulo'),tipo:d.get('tipo'),fecha:d.get('fecha'),hora:d.get('hora'),lugar:d.get('lugar'),descripcion:d.get('descripcion'),estado:d.get('estado')}; if(f.dataset.id) await api('PUT','/modulos/eventos/'+f.dataset.id,b); else await api('POST','/modulos/eventos',b); EVENTO_EDITANDO=null; toast(f.dataset.id?'Evento actualizado':'Evento publicado'); render(); },
   async 'noticia-new'(f, d) { const b = { tipo:d.get('tipo'), titulo:d.get('titulo'), texto:d.get('texto'), fecha:d.get('fecha'), url:d.get('url') }; const fl=d.get('foto'); if(fl&&fl.size)b.imagen=await reducir(fl,1400,0.8); await api('POST','/admin/noticias',b); toast(b.tipo==='cronica'?'Crónica publicada.':'Noticia publicada.'); render(); },
   async 'noticia-save'(f,d) { const b={tipo:d.get('tipo'),titulo:d.get('titulo'),texto:d.get('texto'),fecha:d.get('fecha'),url:d.get('url'),quitar_imagen:d.get('quitar_imagen')==='on'}; const fl=d.get('foto'); if(fl&&fl.size)b.imagen=await reducir(fl,1400,0.8); await api('PUT','/admin/noticias/'+f.dataset.id,b); NOTICIA_EDITANDO=null; toast('Publicación actualizada'); render(); },
@@ -1006,6 +1035,10 @@ const ACT = {
     }
     await entregarPDF(await crearPDFSimple(lineas),'resumen-mensual-' + p + '.pdf','Resumen mensual · ' + titulo,'Informe mensual de Las Tribulaciones de Sara');
   },
+  'compra-select'(el) { COMPRAS_LISTA_ID=Number(el.value); render(); },
+  async 'compra-toggle'(el) { const id=Number(el.dataset.id); const item=await api('GET','/modulos/compras'); const x=item.items.find(v=>Number(v.id)===id); if(!x)return; await api('PUT','/modulos/compras/items/'+id,{comprado:!x.comprado}); render(); },
+  async 'compra-del'(el) { if(!await confirmarAccion('Se eliminará este producto de la lista compartida. ¿Quieres continuar?','Eliminar producto'))return; await api('DELETE','/modulos/compras/items/'+el.dataset.id); toast('Producto eliminado'); render(); },
+  async 'compra-duplicar'(el) { const d=await api('POST','/modulos/compras/listas/'+el.dataset.id+'/duplicar',{}); COMPRAS_LISTA_ID=d.id; toast('Lista duplicada para el nuevo año'); render(); },
   'module-tab'(el) { const k=el.dataset.tab; if(el.dataset.module==='cuenta') CUENTA_TAB=k; if(el.dataset.module==='cocina') COCINA_TAB=k; if(el.dataset.module==='tesoreria') TES_TAB=k; if(el.dataset.module==='tesrec') TES_REC_TAB=k; if(el.dataset.module==='tescfg') TES_CFG_TAB=k; if(el.dataset.module==='adminher') ADMIN_HERM_TAB=k; if(el.dataset.module==='actas') ACTAS_TAB=k; render(); },
   'extra-add'() { $('#tes-extras-rows').insertAdjacentHTML('beforeend',extraRow({})); },
   'extra-del'(el) { el.closest('.extra-row').remove(); },
@@ -1207,6 +1240,7 @@ async function render() {
     if (h === '#/sabados') return await vSabados();
     if (h === '#/cuenta') return await vCuenta();
     if (h === '#/cocina') return await vCocina();
+    if (h === '#/compras') return await vCompras();
     if (h === '#/actas') return await vActas();
     if (h === '#/tesoreria') return ME.admin || ME.tes ? await vTesoreria() : await vInicio();
     if (h === '#/admin') return ME.admin ? vAdminInicio() : await vInicio();
