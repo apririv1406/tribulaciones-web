@@ -81,6 +81,55 @@ async function syncCargosHermanas(db) {
 export async function routeModulos(req, env, me, method, path, body) {
   let m;
 
+  // LISTAS DE LA COMPRA: todas las hermanas pueden consultar y mantener las listas compartidas.
+  if (path === '/api/modulos/compras' && method === 'GET') {
+    const listas = await rows(env.DB.prepare(`SELECT l.*,
+      (SELECT COUNT(*) FROM compras_items i WHERE i.lista_id=l.id) total,
+      (SELECT COUNT(*) FROM compras_items i WHERE i.lista_id=l.id AND i.comprado=1) comprados
+      FROM compras_listas l ORDER BY CASE l.tipo WHEN 'general' THEN 0 WHEN 'cuaresma' THEN 1 WHEN 'semana_santa' THEN 2 ELSE 3 END,l.anio DESC,l.id DESC`));
+    const items = await rows(env.DB.prepare(`SELECT i.*,h.nombre creado_por_nombre
+      FROM compras_items i LEFT JOIN hermanas h ON h.id=i.creado_por
+      ORDER BY i.comprado,i.id`));
+    return J({ listas, items });
+  }
+  if (path === '/api/modulos/compras/listas' && method === 'POST') {
+    const nombre=txt(body.nombre,100), tipo=['general','cuaresma','semana_santa','extraordinaria'].includes(body.tipo)?body.tipo:'extraordinaria';
+    const anio=body.anio===''||body.anio==null?null:num(body.anio);
+    if(nombre.length<2) return E('Escribe un nombre para la lista');
+    if(anio!==null&&(!Number.isInteger(anio)||anio<2020||anio>2100)) return E('Indica un año válido');
+    const r=await env.DB.prepare('INSERT INTO compras_listas(nombre,tipo,anio,creado_por) VALUES(?,?,?,?)').bind(nombre,tipo,anio,me.id).run();
+    return J({ok:true,id:r.meta.last_row_id});
+  }
+  if ((m=path.match(/^\/api\/modulos\/compras\/listas\/(\d+)\/duplicar$/)) && method==='POST') {
+    const origen=await env.DB.prepare('SELECT * FROM compras_listas WHERE id=?').bind(+m[1]).first();
+    if(!origen) return E('No se ha encontrado la lista',404);
+    const anio=body.anio===''||body.anio==null?(Number(origen.anio||new Date().getFullYear())+1):num(body.anio);
+    if(!Number.isInteger(anio)||anio<2020||anio>2100) return E('Indica un año válido');
+    const nombre=txt(body.nombre,100)||((origen.nombre.replace(/\s*[·-]?\s*\d{4}\s*$/,'').trim()||origen.nombre)+' · '+anio);
+    const nueva=await env.DB.prepare('INSERT INTO compras_listas(nombre,tipo,anio,creado_por) VALUES(?,?,?,?)').bind(nombre,origen.tipo==='general'?'extraordinaria':origen.tipo,anio,me.id).run();
+    await env.DB.prepare(`INSERT INTO compras_items(lista_id,producto,cantidad,notas,comprado,creado_por,actualizado_por)
+      SELECT ?,producto,cantidad,notas,0,?,? FROM compras_items WHERE lista_id=? ORDER BY id`).bind(nueva.meta.last_row_id,me.id,me.id,origen.id).run();
+    return J({ok:true,id:nueva.meta.last_row_id});
+  }
+  if ((m=path.match(/^\/api\/modulos\/compras\/(\d+)\/items$/)) && method==='POST') {
+    const lista=await env.DB.prepare('SELECT id FROM compras_listas WHERE id=?').bind(+m[1]).first();
+    if(!lista) return E('No se ha encontrado la lista',404);
+    const producto=txt(body.producto,140), cantidad=txt(body.cantidad,80), notas=txt(body.notas,300);
+    if(producto.length<2) return E('Escribe el nombre del producto');
+    const r=await env.DB.prepare('INSERT INTO compras_items(lista_id,producto,cantidad,notas,creado_por,actualizado_por) VALUES(?,?,?,?,?,?)').bind(+m[1],producto,cantidad,notas||null,me.id,me.id).run();
+    return J({ok:true,id:r.meta.last_row_id});
+  }
+  if ((m=path.match(/^\/api\/modulos\/compras\/items\/(\d+)$/)) && (method==='PUT'||method==='DELETE')) {
+    const id=+m[1], actual=await env.DB.prepare('SELECT * FROM compras_items WHERE id=?').bind(id).first();
+    if(!actual) return E('El producto ya no está en la lista',404);
+    if(method==='DELETE') { await env.DB.prepare('DELETE FROM compras_items WHERE id=?').bind(id).run(); return J({ok:true}); }
+    const producto=txt(body.producto??actual.producto,140), cantidad=txt(body.cantidad??actual.cantidad,80), notas=txt(body.notas??actual.notas,300);
+    if(producto.length<2) return E('Escribe el nombre del producto');
+    const comprado=body.comprado===undefined?actual.comprado:(body.comprado?1:0);
+    await env.DB.prepare("UPDATE compras_items SET producto=?,cantidad=?,notas=?,comprado=?,actualizado_por=?,actualizado=datetime('now') WHERE id=?").bind(producto,cantidad,notas||null,comprado,me.id,id).run();
+    return J({ok:true});
+  }
+
   // EVENTOS GENERALES DEL CUARTEL: lectura para hermanas; gestión exclusiva de administración.
   if (path === '/api/modulos/eventos' && method === 'GET') {
     const eventos = await rows(env.DB.prepare(me.admin ? 'SELECT * FROM eventos_cuartel ORDER BY fecha,id' : "SELECT * FROM eventos_cuartel WHERE estado='publicado' ORDER BY fecha,id"));
