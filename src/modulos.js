@@ -83,10 +83,11 @@ export async function routeModulos(req, env, me, method, path, body) {
 
   // LISTAS DE LA COMPRA: todas las hermanas pueden consultar y mantener las listas compartidas.
   if (path === '/api/modulos/compras' && method === 'GET') {
-    const listas = await rows(env.DB.prepare(`SELECT l.*,
+    const listas = await rows(env.DB.prepare(`SELECT l.*,h.nombre creado_por_nombre,
       (SELECT COUNT(*) FROM compras_items i WHERE i.lista_id=l.id) total,
       (SELECT COUNT(*) FROM compras_items i WHERE i.lista_id=l.id AND i.comprado=1) comprados
-      FROM compras_listas l ORDER BY CASE l.tipo WHEN 'general' THEN 0 WHEN 'cuaresma' THEN 1 WHEN 'semana_santa' THEN 2 ELSE 3 END,l.anio DESC,l.id DESC`));
+      FROM compras_listas l LEFT JOIN hermanas h ON h.id=l.creado_por
+      ORDER BY CASE l.tipo WHEN 'general' THEN 0 WHEN 'cuaresma' THEN 1 WHEN 'semana_santa' THEN 2 ELSE 3 END,l.anio DESC,l.id DESC`));
     const items = await rows(env.DB.prepare(`SELECT i.*,h.nombre creado_por_nombre
       FROM compras_items i LEFT JOIN hermanas h ON h.id=i.creado_por
       ORDER BY i.comprado,i.id`));
