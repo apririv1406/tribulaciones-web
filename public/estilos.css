@@ -1326,3 +1326,124 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
  .zona #app .shopping-new-form label:first-child{grid-column:1/-1}
  .zona #app .shopping-new-form button{grid-column:1/-1;width:100%}
 }
+
+/* Lista de la compra · diseño visual de tarjetas y progreso */
+.zona #app .shopping-page{max-width:1080px;margin:18px auto 34px;display:grid;gap:20px;min-width:0}
+.zona #app .shopping-hero{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:30px 34px;border-radius:22px;background:linear-gradient(120deg,#292b27 0%,#41443b 58%,#68634f 100%);color:#fff;min-height:190px}
+.zona #app .shopping-hero:after{content:"";position:absolute;width:280px;height:280px;border:1px solid rgba(255,255,255,.11);border-radius:50%;right:80px;top:-145px;box-shadow:0 0 0 28px rgba(255,255,255,.035),0 0 0 58px rgba(255,255,255,.025)}
+.zona #app .shopping-hero-copy{position:relative;z-index:1;max-width:670px}
+.zona #app .shopping-eyebrow,.zona #app .shopping-kicker{font-size:10px;font-weight:700;letter-spacing:.13em;color:#a89b79}
+.zona #app .shopping-hero h2{font:600 38px "Cormorant Garamond",serif;margin:8px 0 4px;color:#fff}
+.zona #app .shopping-hero p{font-size:13px;line-height:1.6;color:rgba(255,255,255,.82);margin:0}
+.zona #app .shopping-hero-meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:17px;font-size:11px;color:#e8e3d8}
+.zona #app .shopping-hero-art{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:7px;min-width:130px;color:#f0e6ce}
+.zona #app .shopping-hero-art span{font-size:68px;filter:drop-shadow(0 8px 12px rgba(0,0,0,.18))}
+.zona #app .shopping-hero-art small{text-align:center;font-size:10px;line-height:1.5;letter-spacing:.05em}
+.zona #app .shopping-list-picker{display:grid;gap:12px}
+.zona #app .shopping-section-heading{display:flex;align-items:end;justify-content:space-between;gap:12px}
+.zona #app .shopping-section-heading h3,.zona #app .shopping-current-head h3{font:600 25px "Cormorant Garamond",serif;margin:3px 0 0}
+.zona #app .shopping-list-total{font-size:11px;color:var(--mu)}
+.zona #app .shopping-list-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.zona #app .shopping-list-tile{display:flex;align-items:center;gap:10px;min-width:0;text-align:left;padding:13px 12px;border:1px solid var(--ln);border-radius:15px;background:var(--sf);color:var(--dk);cursor:pointer;transition:border-color .15s,transform .15s,background .15s}
+.zona #app .shopping-list-tile:hover{transform:translateY(-2px);border-color:#b5a77f}
+.zona #app .shopping-list-tile.active{border-color:#8f8059;background:#f4f0e5;box-shadow:inset 0 0 0 1px #8f8059}
+.zona #app .shopping-list-emoji{width:39px;height:39px;flex:0 0 39px;border-radius:12px;display:grid;place-items:center;background:#eee9dc;font-size:19px}
+.zona #app .shopping-list-tile-info{display:grid;gap:4px;min-width:0;flex:1}
+.zona #app .shopping-list-tile-info>b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zona #app .shopping-list-tile-info>small{font-size:9px;color:var(--mu);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zona #app .shopping-tile-progress{height:4px;background:#e5e0d5;border-radius:8px;overflow:hidden}
+.zona #app .shopping-tile-progress i{display:block;height:100%;background:#8f8059;border-radius:8px}
+.zona #app .shopping-list-tile-count{font-size:18px;font-weight:700;text-align:center;min-width:25px}
+.zona #app .shopping-list-tile-count small{display:block;font-size:9px;font-weight:500;color:var(--mu)}
+.zona #app .shopping-current-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:3px 2px}
+.zona #app .shopping-current-head>div{display:flex;align-items:center;gap:12px;min-width:0}
+.zona #app .shopping-current-icon{width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:#eee9dc;font-size:24px;flex:0 0 48px}
+.zona #app .shopping-current-head h3{overflow-wrap:anywhere}
+.zona #app .shopping-current-head p{margin:2px 0 0;color:var(--mu);font-size:11px}
+.zona #app .shopping-duplicate{border:1px solid var(--ln);border-radius:10px;background:var(--sf);padding:9px 12px;color:var(--dk);font-size:11px;cursor:pointer;white-space:nowrap}
+.zona #app .shopping-progress-card{padding:15px 18px;border:1px solid var(--ln);border-radius:15px;background:var(--sf)}
+.zona #app .shopping-progress-top,.zona #app .shopping-progress-bottom{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.zona #app .shopping-progress-top>div{font-size:12px}.zona #app .shopping-progress-top>div b{font-size:16px}.zona #app .shopping-progress-top>strong{font-size:18px;color:#82734d}
+.zona #app .shopping-progress-track{height:8px;border-radius:20px;background:#e9e5dc;overflow:hidden;margin:10px 0 7px}
+.zona #app .shopping-progress-track i{height:100%;display:block;background:linear-gradient(90deg,#9c8d63,#6f785f);border-radius:20px;transition:width .25s}
+.zona #app .shopping-progress-bottom{font-size:10px;color:var(--mu)}
+.zona #app .shopping-add-panel{padding:18px 20px;border:1px solid #e4dfd2;border-radius:17px;background:#f8f6f0}
+.zona #app .shopping-add-heading{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.zona #app .shopping-add-icon,.zona #app .shopping-create-icon{width:35px;height:35px;display:grid;place-items:center;border-radius:11px;background:#e9e3d4;color:#665a3d;font-size:22px}
+.zona #app .shopping-add-heading h3,.zona #app .shopping-create-intro h3{font:600 21px "Cormorant Garamond",serif;margin:0}
+.zona #app .shopping-add-heading p,.zona #app .shopping-create-intro p{margin:1px 0 0;font-size:11px;color:var(--mu)}
+.zona #app .shopping-add-form{display:grid;grid-template-columns:minmax(170px,1.3fr) minmax(120px,.65fr) minmax(150px,1fr) auto;gap:10px;align-items:end}
+.zona #app .shopping-add-form label,.zona #app .shopping-new-form label{display:grid;gap:5px;min-width:0;font-size:10px;font-weight:600;color:var(--mu)}
+.zona #app .shopping-add-form .t,.zona #app .shopping-new-form .t{width:100%;min-width:0;background:#fff}
+.zona #app .shopping-add-form .btn{white-space:nowrap;padding:10px 15px}
+.zona #app .shopping-columns{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:18px;align-items:start}
+.zona #app .shopping-items-section{min-width:0}
+.zona #app .shopping-section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 1px 10px}
+.zona #app .shopping-section-title h3{font:600 24px "Cormorant Garamond",serif;margin:2px 0 0}
+.zona #app .shopping-count{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;font-size:12px;font-weight:700}
+.zona #app .shopping-count.pending{background:#f1e8d7;color:#806a3c}.zona #app .shopping-count.done{background:#e5ecdf;color:#607354}
+.zona #app .shopping-product-card{display:grid;grid-template-columns:31px minmax(0,1fr) auto;align-items:center;gap:11px;padding:13px 12px;margin-bottom:8px;border:1px solid var(--ln);border-radius:14px;background:var(--sf);min-width:0;transition:background .15s,border-color .15s}
+.zona #app .shopping-product-card.is-bought{background:#f7f8f5;border-color:#e5e9e0}
+.zona #app .shopping-check{width:28px;height:28px;border:1.5px solid #b9ad8e;border-radius:50%;background:#fff;color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:grid;place-items:center}
+.zona #app .shopping-check.checked{background:#718365;border-color:#718365}
+.zona #app .shopping-product-main{min-width:0;display:grid;gap:5px}
+.zona #app .shopping-product-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.zona #app .shopping-product-title>b{font-size:13px;overflow-wrap:anywhere}
+.zona #app .shopping-quantity{padding:4px 8px;border-radius:99px;background:#eee9dc;color:#675d43;font-size:10px;font-weight:600}
+.zona #app .shopping-product-note{margin:0;color:var(--mu);font-size:11px;line-height:1.4}
+.zona #app .shopping-by{font-size:9px;color:var(--mu)}
+.zona #app .shopping-product-actions{display:flex;gap:4px}
+.zona #app .shopping-icon-action{width:30px;height:30px;border:0;border-radius:9px;background:transparent;color:var(--mu);font-size:18px;cursor:pointer}
+.zona #app .shopping-icon-action:hover{background:#eee9dc;color:var(--dk)}
+.zona #app .shopping-icon-action.delete{font-size:22px}
+.zona #app .shopping-product-card.is-bought .shopping-product-title>b{text-decoration:line-through;color:var(--mu)}
+.zona #app .shopping-product-card.editing{display:block;padding:15px}
+.zona #app .shopping-item-edit{display:grid;gap:10px}
+.zona #app .shopping-item-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(100px,.45fr);gap:9px}
+.zona #app .shopping-item-fields label{display:grid;gap:4px;min-width:0;font-size:10px;color:var(--mu)}
+.zona #app .shopping-item-fields .t{width:100%;min-width:0}
+.zona #app .shopping-edit-note{grid-column:1/-1}
+.zona #app .shopping-edit-actions{display:flex;gap:8px;flex-wrap:wrap}
+.zona #app .shopping-edit-actions .btn,.zona #app .shopping-edit-actions .chip{font-size:11px;padding:8px 12px}
+.zona #app .shopping-empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:140px;padding:18px;border:1px dashed var(--ln);border-radius:15px;text-align:center;color:var(--mu)}
+.zona #app .shopping-empty-state>span{font-size:26px}.zona #app .shopping-empty-state>b{font:600 21px "Cormorant Garamond",serif;color:var(--dk)}
+.zona #app .shopping-empty-state p{margin:0;font-size:11px}.zona #app .shopping-empty-state.compact{min-height:100px}
+.zona #app .shopping-create-panel{display:grid;grid-template-columns:minmax(220px,.8fr) minmax(0,1.2fr);gap:18px;align-items:center;padding:16px 18px;border:1px solid var(--ln);border-radius:16px;background:var(--sf)}
+.zona #app .shopping-create-intro{display:flex;align-items:center;gap:10px}
+.zona #app .shopping-create-intro>div{min-width:0}
+.zona #app .shopping-new-form{display:grid;grid-template-columns:minmax(120px,1fr) minmax(120px,.9fr) 85px auto;gap:8px;align-items:end}
+.zona #app .shopping-new-form .chip{white-space:nowrap}
+@media(max-width:900px){.zona #app .shopping-list-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.zona #app .shopping-columns{grid-template-columns:1fr}.zona #app .shopping-create-panel{grid-template-columns:1fr}.zona #app .shopping-add-form{grid-template-columns:repeat(2,minmax(0,1fr))}.zona #app .shopping-add-form label:first-child{grid-column:1/-1}}
+@media(max-width:560px){
+ .zona #app .shopping-page{margin:10px auto 24px;gap:15px}
+ .zona #app .shopping-hero{min-height:160px;padding:22px 18px;border-radius:17px}
+ .zona #app .shopping-hero h2{font-size:32px}
+ .zona #app .shopping-hero p{font-size:11px;max-width:270px}
+ .zona #app .shopping-hero-meta{gap:8px 12px;font-size:9px;margin-top:12px}
+ .zona #app .shopping-hero-art{min-width:65px}
+ .zona #app .shopping-hero-art span{font-size:43px}
+ .zona #app .shopping-hero-art small{font-size:8px}
+ .zona #app .shopping-list-tiles{grid-template-columns:1fr 1fr;gap:7px}
+ .zona #app .shopping-list-tile{padding:9px 7px;gap:7px;border-radius:12px}
+ .zona #app .shopping-list-emoji{width:32px;height:32px;flex-basis:32px;font-size:16px}
+ .zona #app .shopping-list-tile-info>b{font-size:10px}
+ .zona #app .shopping-list-tile-info>small{font-size:8px}
+ .zona #app .shopping-list-tile-count{font-size:15px;min-width:20px}
+ .zona #app .shopping-section-heading h3,.zona #app .shopping-current-head h3{font-size:22px}
+ .zona #app .shopping-current-icon{width:40px;height:40px;flex-basis:40px;font-size:20px}
+ .zona #app .shopping-current-head{align-items:flex-start}
+ .zona #app .shopping-duplicate{padding:8px 9px;font-size:10px}
+ .zona #app .shopping-duplicate span{display:none}
+ .zona #app .shopping-add-panel{padding:14px;border-radius:14px}
+ .zona #app .shopping-add-form{grid-template-columns:1fr 1fr;gap:8px}
+ .zona #app .shopping-add-form label:first-child{grid-column:1/-1}
+ .zona #app .shopping-add-form button{grid-column:1/-1;width:100%}
+ .zona #app .shopping-product-card{grid-template-columns:28px minmax(0,1fr) auto;padding:11px 9px;gap:8px}
+ .zona #app .shopping-product-title>b{font-size:12px}
+ .zona #app .shopping-icon-action{width:26px;height:28px}
+ .zona #app .shopping-progress-card{padding:13px}
+ .zona #app .shopping-create-panel{padding:14px}
+ .zona #app .shopping-new-form{grid-template-columns:1fr 1fr}
+ .zona #app .shopping-new-form label:first-child{grid-column:1/-1}
+ .zona #app .shopping-new-form button{grid-column:1/-1;width:100%}
+}
