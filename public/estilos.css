@@ -1552,3 +1552,5 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .shopping-simple-empty{color:var(--mu);font-size:14px;padding:12px 0}
 .shopping-simple-edit{display:flex;gap:8px;flex-wrap:wrap;width:100%}.shopping-simple-edit input{flex:1 1 150px}
 @media(max-width:600px){.shopping-simple-toolbar{align-items:stretch}.shopping-simple-toolbar>*{width:100%}.shopping-simple-add{display:grid}.shopping-simple-add>*{width:100%}.shopping-simple-item{align-items:flex-start;flex-wrap:wrap}.shopping-simple-product{flex-basis:calc(100% - 40px)}.shopping-simple-actions{margin-left:37px}.shopping-simple-edit{display:grid}.shopping-simple-edit>*{width:100%}}
+
+.shopping-simple-delete-list:disabled{opacity:.55;cursor:not-allowed;background:var(--sf);color:var(--mu);border-color:var(--ln)}
