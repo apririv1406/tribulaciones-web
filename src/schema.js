@@ -190,6 +190,9 @@ export const MIGRATIONS = [
     `CREATE INDEX IF NOT EXISTS ix_compras_items_lista ON compras_items(lista_id,comprado,id)`,
     `INSERT INTO compras_listas(nombre,tipo) SELECT 'Lista general','general' WHERE NOT EXISTS(SELECT 1 FROM compras_listas WHERE tipo='general')`
   ]},
+  { v: 20, sql: [
+    `ALTER TABLE compras_listas ADD COLUMN duplicada_de INTEGER REFERENCES compras_listas(id) ON DELETE SET NULL`
+  ]},
 ]; 
 
 async function ensureColumn(db, table, column, definition) {
