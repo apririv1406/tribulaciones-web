@@ -404,7 +404,7 @@ async function vCompras() {
     </form>`;
     return `<article class="shopping-simple-item ${x.comprado?'is-bought':''}">
       <button type="button" class="shopping-simple-check ${x.comprado?'checked':''}" data-a="compra-toggle" data-id="${x.id}" aria-label="Cambiar estado">${x.comprado?'✓':''}</button>
-      <div class="shopping-simple-product"><b>${esc(x.producto)}</b>${x.cantidad?'<span>'+esc(x.cantidad)+'</span>':''}${x.notas?'<small>'+esc(x.notas)+'</small>':''}</div>
+      <div class="shopping-simple-product"><b>${esc(x.producto)}</b>${x.cantidad?'<span>'+esc(x.cantidad)+'</span>':''}${x.notas?'<small>'+esc(x.notas)+'</small>':''}${x.creado_por_nombre?'<small class="shopping-simple-meta">Añadido por '+esc(x.creado_por_nombre)+'</small>':''}</div>
       <div class="shopping-simple-actions"><button type="button" data-a="compra-edit-open" data-id="${x.id}">Editar</button><button type="button" data-a="compra-del" data-id="${x.id}">Eliminar</button></div>
     </article>`;
   };
@@ -412,8 +412,11 @@ async function vCompras() {
     <div class="shopping-simple-head"><div><h2>Lista de la compra</h2><p>Lista compartida. Añade lo que haga falta y marca lo que ya hayamos comprado.</p></div></div>
     <div class="shopping-simple-toolbar">
       <label><span>Lista</span><select class="t" id="compras-lista">${listas.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(lista.id)?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
-      <button class="btn" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar lista</button>
-      <button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="${lista.id}" ${lista.duplicada_de?'':'disabled title="La lista original no se puede eliminar"'}>${lista.duplicada_de?'Eliminar lista':'Lista original'}</button>
+      <div class="shopping-simple-list-actions">
+        <button class="btn" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar lista</button>
+        <button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="${lista.id}" ${lista.duplicada_de?'':'disabled title="La lista original no se puede eliminar"'}>${lista.duplicada_de?'Eliminar lista':'Lista original'}</button>
+      </div>
+      ${lista.creado_por_nombre?'<p class="shopping-simple-list-meta">Creada por '+esc(lista.creado_por_nombre)+'</p>':''}
     </div>
     <form data-f="compra-add" data-id="${lista.id}" class="shopping-simple-add">
       <input class="t" name="producto" required maxlength="140" placeholder="¿Qué tenemos que comprar?">
