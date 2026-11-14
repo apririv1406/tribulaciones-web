@@ -395,40 +395,34 @@ async function vCompras() {
   const lista=listas.find(x=>Number(x.id)===Number(COMPRAS_LISTA_ID))||listas[0];
   const productos=items.filter(x=>Number(x.lista_id)===Number(lista.id));
   const pendientes=productos.filter(x=>!x.comprado), comprados=productos.filter(x=>x.comprado);
-  const progreso=productos.length?Math.round(comprados.length/productos.length*100):0;
-  const tipoNombre={general:'Lista general',cuaresma:'Cuaresma',semana_santa:'Semana Santa',extraordinaria:'Extraordinaria'};
-  const tipoTexto={general:'Compras del día a día',cuaresma:'Preparativos de Cuaresma',semana_santa:'Preparativos de Semana Santa',extraordinaria:'Compra puntual para un evento'};
-  const listaCards=listas.map(x=>{
-    const total=Number(x.total||0), done=Number(x.comprados||0), pct=total?Math.round(done/total*100):0;
-    return `<article class="shopping-list-tile ${Number(x.id)===Number(lista.id)?'active':''}"><button type="button" class="shopping-list-tile-select" data-a="compra-choose" data-id="${x.id}">
-      <span class="shopping-list-tile-info"><b>${esc(x.nombre)}</b><small>${tipoTexto[x.tipo]||'Lista compartida'} ${x.anio?'· '+x.anio:''}</small><span class="shopping-tile-progress"><i style="width:${pct}%"></i></span></span>
-      <span class="shopping-list-tile-count">${Math.max(0,total-done)}<small>pend.</small></span>
-    </button>${x.duplicada_de?`<button type="button" class="shopping-list-delete" data-a="compra-lista-del" data-id="${x.id}">Eliminar lista</button>`:''}</article>`;
-  }).join('');
   const fila=x=>{
-    const editando=Number(COMPRAS_EDITANDO_ID)===Number(x.id);
-    if(editando) return `<article class="shopping-product-card editing"><form data-f="compra-edit" data-id="${x.id}" class="shopping-item-edit">
-      <div class="shopping-item-fields"><label><span>Producto</span><input class="t" name="producto" required maxlength="140" value="${esc(x.producto)}"></label><label><span>Cantidad</span><input class="t" name="cantidad" maxlength="80" value="${esc(x.cantidad||'')}" placeholder="Ej.: 2 paquetes"></label><label class="shopping-edit-note"><span>Nota</span><input class="t" name="notas" maxlength="300" value="${esc(x.notas||'')}" placeholder="Marca, tamaño…"></label></div>
-      <div class="shopping-edit-actions"><button class="btn" type="submit">Guardar cambios</button><button class="chip" type="button" data-a="compra-edit-cancel">Cancelar</button></div>
-    </form></article>`;
-    return `<article class="shopping-product-card ${x.comprado?'is-bought':''}">
-      <button type="button" class="shopping-check ${x.comprado?'checked':''}" data-a="compra-toggle" data-id="${x.id}" aria-label="${x.comprado?'Marcar como pendiente':'Marcar como comprado'}">${x.comprado?'Comprado':''}</button>
-      <div class="shopping-product-main"><div class="shopping-product-title"><b>${esc(x.producto)}</b>${x.cantidad?'<span class="shopping-quantity">'+esc(x.cantidad)+'</span>':''}</div>
-        ${x.notas?'<p class="shopping-product-note">'+esc(x.notas)+'</p>':''}
-        ${x.creado_por_nombre?'<small class="shopping-by">Añadido por '+esc(x.creado_por_nombre)+'</small>':''}
-      </div>
-      <div class="shopping-product-actions"><button type="button" class="shopping-icon-action" data-a="compra-edit-open" data-id="${x.id}">Editar</button><button type="button" class="shopping-icon-action delete" data-a="compra-del" data-id="${x.id}">Eliminar</button></div>
+    if(Number(COMPRAS_EDITANDO_ID)===Number(x.id)) return `<form data-f="compra-edit" data-id="${x.id}" class="shopping-simple-edit">
+      <input class="t" name="producto" required maxlength="140" value="${esc(x.producto)}" placeholder="Producto">
+      <input class="t" name="cantidad" maxlength="80" value="${esc(x.cantidad||'')}" placeholder="Cantidad (opcional)">
+      <input class="t" name="notas" maxlength="300" value="${esc(x.notas||'')}" placeholder="Detalle (opcional)">
+      <button class="btn" type="submit">Guardar</button><button class="chip" type="button" data-a="compra-edit-cancel">Cancelar</button>
+    </form>`;
+    return `<article class="shopping-simple-item ${x.comprado?'is-bought':''}">
+      <button type="button" class="shopping-simple-check ${x.comprado?'checked':''}" data-a="compra-toggle" data-id="${x.id}" aria-label="Cambiar estado">${x.comprado?'✓':''}</button>
+      <div class="shopping-simple-product"><b>${esc(x.producto)}</b>${x.cantidad?'<span>'+esc(x.cantidad)+'</span>':''}${x.notas?'<small>'+esc(x.notas)+'</small>':''}</div>
+      <div class="shopping-simple-actions"><button type="button" data-a="compra-edit-open" data-id="${x.id}">Editar</button><button type="button" data-a="compra-del" data-id="${x.id}">Eliminar</button></div>
     </article>`;
   };
-  shell(`<div class="shopping-page">
-    <header class="shopping-hero"><div class="shopping-hero-copy"><span class="shopping-eyebrow">LAS TRIBULACIONES DE SARA · GESTIÓN</span><h2>La lista de la compra</h2><p>Todo lo que necesitamos, en un mismo sitio. Añade lo que falte y todas podremos verlo.</p><div class="shopping-hero-meta"><span>Compartida por todas</span><span>Actualizada al momento</span></div></div></header>
-    <section class="shopping-list-picker"><div class="shopping-section-heading"><div><span class="shopping-kicker">NUESTRAS LISTAS</span><h3>¿Qué necesitamos preparar?</h3></div><span class="shopping-list-total">${listas.length} ${listas.length===1?'lista':'listas'}</span></div><div class="shopping-list-tiles">${listaCards}</div></section>
-    <section class="shopping-current-head"><div><div><span class="shopping-kicker">${esc(tipoNombre[lista.tipo]||'Lista')}</span><h3>${esc(lista.nombre)}</h3><p>${tipoTexto[lista.tipo]||'Lista compartida'} ${lista.anio?'· '+lista.anio:''}</p></div></div><button class="shopping-duplicate" type="button" data-a="compra-duplicar" data-id="${lista.id}" ><span>Duplicar lista</span></button></section>
-    <section class="shopping-progress-card"><div class="shopping-progress-top"><div><b>${comprados.length} de ${productos.length}</b><span> productos comprados</span></div><strong>${progreso}%</strong></div><div class="shopping-progress-track"><i style="width:${progreso}%"></i></div><div class="shopping-progress-bottom"><span>${pendientes.length?pendientes.length+' productos pendientes':'¡Todo está comprado!'}</span><span>${comprados.length} completados</span></div></section>
-    <section class="shopping-add-panel"><div class="shopping-add-heading"><div><h3>Añadir algo a la lista</h3><p>Lo que añadas aparecerá para todas.</p></div></div><form data-f="compra-add" data-id="${lista.id}" class="shopping-add-form"><label><span>¿Qué hace falta?</span><input class="t" name="producto" required maxlength="140" placeholder="Ej.: Servilletas, bolsas de basura…"></label><label><span>¿Cuánto?</span><input class="t" name="cantidad" maxlength="80" placeholder="Ej.: 2 paquetes"></label><label><span>Algún detalle (opcional)</span><input class="t" name="notas" maxlength="300" placeholder="Tamaño, marca…"></label><button class="btn">Añadir a la lista</button></form></section>
-    <div class="shopping-columns"><section class="shopping-items-section"><div class="shopping-section-title"><div><span class="shopping-kicker">PENDIENTE</span><h3>Nos falta comprar</h3></div><span class="shopping-count pending">${pendientes.length}</span></div>${pendientes.length?pendientes.map(fila).join(''):'<div class="shopping-empty-state"><b>¡Todo al día!</b><p>No hay nada pendiente en esta lista.</p></div>'}</section>
-    <section class="shopping-items-section bought-section"><div class="shopping-section-title"><div><span class="shopping-kicker">COMPLETADO</span><h3>Ya está comprado</h3></div><span class="shopping-count done">${comprados.length}</span></div>${comprados.length?comprados.map(fila).join(''):'<div class="shopping-empty-state compact"><p>Cuando compremos algo, aparecerá aquí.</p></div>'}</section></div>
-    <section class="shopping-create-panel"><div class="shopping-create-intro"><div><h3>Preparar una nueva lista</h3><p>Crea una lista para Cuaresma, Semana Santa o una compra extraordinaria como la Cruz de Mayo.</p></div></div><form data-f="compra-lista-new" class="shopping-new-form"><label><span>Nombre</span><input class="t" name="nombre" required maxlength="100" placeholder="Ej.: Cuaresma 2027"></label><label><span>Tipo de lista</span><select class="t" name="tipo"><option value="cuaresma">Cuaresma</option><option value="semana_santa">Semana Santa</option><option value="extraordinaria">Extraordinaria</option></select></label><label><span>Año</span><input class="t" type="number" name="anio" min="2020" max="2100" value="${new Date().getFullYear()}"></label><button class="chip on">Crear lista</button></form></section>
+  shell(`<div class="shopping-simple">
+    <div class="shopping-simple-head"><div><h2>Lista de la compra</h2><p>Lista compartida. Añade lo que haga falta y marca lo que ya hayamos comprado.</p></div></div>
+    <div class="shopping-simple-toolbar">
+      <label><span>Lista</span><select class="t" data-a="compra-select">${listas.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(lista.id)?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
+      <button class="btn" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar lista</button>
+      ${lista.duplicada_de?'<button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="'+lista.id+'">Eliminar esta lista</button>':''}
+    </div>
+    <form data-f="compra-add" data-id="${lista.id}" class="shopping-simple-add">
+      <input class="t" name="producto" required maxlength="140" placeholder="¿Qué tenemos que comprar?">
+      <input class="t" name="cantidad" maxlength="80" placeholder="Cantidad (opcional)">
+      <button class="btn" type="submit">Añadir producto</button>
+    </form>
+    <div class="shopping-simple-summary">${pendientes.length} pendiente${pendientes.length===1?'':'s'} · ${comprados.length} comprado${comprados.length===1?'':'s'}</div>
+    <section class="shopping-simple-section"><h3>Por comprar</h3>${pendientes.length?pendientes.map(fila).join(''):'<p class="shopping-simple-empty">No hay productos pendientes.</p>'}</section>
+    <section class="shopping-simple-section"><h3>Comprado</h3>${comprados.length?comprados.map(fila).join(''):'<p class="shopping-simple-empty">Aquí aparecerán los productos que marquemos como comprados.</p>'}</section>
   </div>`);
 }
 
@@ -1055,6 +1049,7 @@ const ACT = {
     await entregarPDF(await crearPDFSimple(lineas),'resumen-mensual-' + p + '.pdf','Resumen mensual · ' + titulo,'Informe mensual de Las Tribulaciones de Sara');
   },
   'compra-choose'(el) { COMPRAS_LISTA_ID=Number(el.dataset.id); COMPRAS_EDITANDO_ID=null; render(); },
+  'compra-select'(el) { COMPRAS_LISTA_ID=Number(el.value); COMPRAS_EDITANDO_ID=null; render(); },
   'compra-edit-open'(el) { COMPRAS_EDITANDO_ID=Number(el.dataset.id); render(); },
   'compra-edit-cancel'() { COMPRAS_EDITANDO_ID=null; render(); },
   async 'compra-toggle'(el) { const id=Number(el.dataset.id); const item=await api('GET','/modulos/compras'); const x=item.items.find(v=>Number(v.id)===id); if(!x)return; await api('PUT','/modulos/compras/items/'+id,{comprado:!x.comprado}); COMPRAS_EDITANDO_ID=null; render(); },
