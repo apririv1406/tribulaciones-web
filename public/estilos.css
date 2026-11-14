@@ -1258,3 +1258,71 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 
 
 
+
+/* Lista de la compra compartida */
+.zona #app .shopping-page{max-width:1120px;margin:22px auto 30px;display:grid;gap:15px;min-width:0}
+.zona #app .shopping-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.zona #app .shopping-heading h2{margin:5px 0 7px}
+.zona #app .shopping-heading p{max-width:720px;margin:0;line-height:1.55}
+.zona #app .shopping-total{flex:0 0 110px;text-align:center;padding:12px;border:1px solid var(--ln);border-radius:16px;background:var(--pa)}
+.zona #app .shopping-total b{display:block;font:700 32px "Cormorant Garamond",serif;line-height:1.1}
+.zona #app .shopping-total span,.zona #app .shopping-total small{display:block;color:var(--mu);font-size:11px}
+.zona #app .shopping-list-select{display:flex;align-items:end;justify-content:space-between;gap:14px;padding:14px 17px}
+.zona #app .shopping-select-main{display:grid;gap:5px;min-width:0;flex:1}
+.zona #app .shopping-select-main .fl{margin:0}
+.zona #app .shopping-list-type{font-size:11px;color:var(--mu)}
+.zona #app .shopping-list-select select{max-width:520px}
+.zona #app .shopping-add-card,.zona #app .shopping-new-list{padding:18px}
+.zona #app .shopping-section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.zona #app .shopping-section-title h3,.zona #app .shopping-new-list h3{margin:0 0 3px;font-size:21px}
+.zona #app .shopping-section-title p,.zona #app .shopping-new-list p{margin:0;font-size:12px}
+.zona #app .shopping-add-form{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(130px,.7fr) minmax(160px,1fr) auto;gap:10px;align-items:end}
+.zona #app .shopping-add-form label,.zona #app .shopping-new-form label{display:grid;gap:5px;min-width:0;font-size:11px;color:var(--mu)}
+.zona #app .shopping-add-form .t,.zona #app .shopping-new-form .t{width:100%;min-width:0}
+.zona #app .shopping-add-form .btn{white-space:nowrap;padding:10px 17px}
+.zona #app .shopping-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.zona #app .shopping-items-card{padding:17px;min-width:0}
+.zona #app .shopping-count{flex:0 0 30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--gs);font-size:12px;font-weight:700;color:var(--dk)}
+.zona #app .shopping-item{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding:12px 0;border-top:1px solid var(--ln);min-width:0}
+.zona #app .shopping-check{width:28px;height:28px;border:1.5px solid #c8b99d;border-radius:9px;background:transparent;color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+.zona #app .shopping-check.checked{background:var(--ok);border-color:var(--ok)}
+.zona #app .shopping-item-edit{min-width:0;display:grid;gap:7px}
+.zona #app .shopping-item-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(100px,.42fr);gap:8px}
+.zona #app .shopping-item-fields label{display:grid;gap:3px;min-width:0}
+.zona #app .shopping-item-fields label span{font-size:10px;color:var(--mu)}
+.zona #app .shopping-item-fields .t,.zona #app .shopping-item-bottom .t{width:100%;min-width:0;padding:8px 10px;font-size:12px}
+.zona #app .shopping-item-bottom{display:flex;align-items:center;gap:7px;min-width:0}
+.zona #app .shopping-item-bottom>.t{flex:1}
+.zona #app .shopping-by{font-size:10px;color:var(--mu);white-space:nowrap}
+.zona #app .shopping-item-bottom .chip{font-size:11px;padding:6px 10px;white-space:nowrap}
+.zona #app .shopping-remove{color:var(--ko)}
+.zona #app .shopping-item.is-bought .shopping-item-fields input{text-decoration:line-through;color:var(--mu);opacity:.75}
+.zona #app .shopping-empty{font-size:13px;color:var(--mu);padding:8px 0 2px;margin:0}
+.zona #app .shopping-new-list{display:grid;grid-template-columns:minmax(220px,.8fr) minmax(0,1.5fr);gap:18px;align-items:center}
+.zona #app .shopping-new-form{display:grid;grid-template-columns:minmax(130px,1fr) minmax(130px,.8fr) 100px auto;gap:9px;align-items:end}
+.zona #app .shopping-new-form .chip{white-space:nowrap}
+@media(max-width:850px){
+ .zona #app .shopping-add-form{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .zona #app .shopping-add-form label:first-child{grid-column:1/-1}
+ .zona #app .shopping-columns{grid-template-columns:1fr}
+ .zona #app .shopping-new-list{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+ .zona #app .shopping-page{margin:12px auto 22px;gap:11px}
+ .zona #app .shopping-heading{align-items:flex-start}
+ .zona #app .shopping-heading h2{font-size:30px}
+ .zona #app .shopping-total{flex-basis:88px;padding:9px}
+ .zona #app .shopping-list-select{align-items:stretch;flex-direction:column;padding:13px}
+ .zona #app .shopping-list-select>button{width:100%}
+ .zona #app .shopping-add-card,.zona #app .shopping-items-card,.zona #app .shopping-new-list{padding:14px}
+ .zona #app .shopping-add-form{grid-template-columns:1fr 1fr;gap:9px}
+ .zona #app .shopping-add-form label:first-child{grid-column:1/-1}
+ .zona #app .shopping-add-form button{grid-column:1/-1;width:100%}
+ .zona #app .shopping-item{gap:8px}
+ .zona #app .shopping-item-bottom{flex-wrap:wrap}
+ .zona #app .shopping-item-bottom>.t{flex:1 1 100%}
+ .zona #app .shopping-by{flex:1}
+ .zona #app .shopping-new-form{grid-template-columns:1fr 1fr}
+ .zona #app .shopping-new-form label:first-child{grid-column:1/-1}
+ .zona #app .shopping-new-form button{grid-column:1/-1;width:100%}
+}
