@@ -106,10 +106,18 @@ export async function routeModulos(req, env, me, method, path, body) {
     const anio=body.anio===''||body.anio==null?(Number(origen.anio||new Date().getFullYear())+1):num(body.anio);
     if(!Number.isInteger(anio)||anio<2020||anio>2100) return E('Indica un año válido');
     const nombre=txt(body.nombre,100)||((origen.nombre.replace(/\s*[·-]?\s*\d{4}\s*$/,'').trim()||origen.nombre)+' · '+anio);
-    const nueva=await env.DB.prepare('INSERT INTO compras_listas(nombre,tipo,anio,creado_por) VALUES(?,?,?,?)').bind(nombre,origen.tipo==='general'?'extraordinaria':origen.tipo,anio,me.id).run();
+    const nueva=await env.DB.prepare('INSERT INTO compras_listas(nombre,tipo,anio,creado_por,duplicada_de) VALUES(?,?,?,?,?)').bind(nombre,origen.tipo==='general'?'extraordinaria':origen.tipo,anio,me.id,origen.id).run();
     await env.DB.prepare(`INSERT INTO compras_items(lista_id,producto,cantidad,notas,comprado,creado_por,actualizado_por)
       SELECT ?,producto,cantidad,notas,0,?,? FROM compras_items WHERE lista_id=? ORDER BY id`).bind(nueva.meta.last_row_id,me.id,me.id,origen.id).run();
     return J({ok:true,id:nueva.meta.last_row_id});
+  }
+  if ((m=path.match(/^\/api\/modulos\/compras\/listas\/(\d+)$/)) && method==='DELETE') {
+    const id=Number(m[1]);
+    const lista=await env.DB.prepare('SELECT id,duplicada_de,tipo FROM compras_listas WHERE id=?').bind(id).first();
+    if(!lista) return E('No se ha encontrado la lista',404);
+    if(!lista.duplicada_de || lista.tipo==='general') return E('Solo se pueden eliminar listas creadas mediante una duplicación',409);
+    await env.DB.prepare('DELETE FROM compras_listas WHERE id=?').bind(id).run();
+    return J({ok:true});
   }
   if ((m=path.match(/^\/api\/modulos\/compras\/(\d+)\/items$/)) && method==='POST') {
     const lista=await env.DB.prepare('SELECT id FROM compras_listas WHERE id=?').bind(+m[1]).first();
