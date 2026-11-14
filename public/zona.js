@@ -414,7 +414,7 @@ async function vCompras() {
       <label><span>Lista</span><select class="t" id="compras-lista">${listas.map(x=>`<option value="${x.id}" ${Number(x.id)===Number(lista.id)?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
       <div class="shopping-simple-list-actions">
         <button class="btn" type="button" data-a="compra-duplicar" data-id="${lista.id}">Duplicar lista</button>
-        <button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="${lista.id}" ${lista.duplicada_de?'':'disabled title="La lista original no se puede eliminar"'}>${lista.duplicada_de?'Eliminar lista':'Lista original'}</button>
+        <button class="shopping-simple-delete-list" type="button" data-a="compra-lista-del" data-id="${lista.id}">Eliminar lista</button>
       </div>
       ${lista.creado_por_nombre?'<p class="shopping-simple-list-meta">Creada por '+esc(lista.creado_por_nombre)+'</p>':''}
     </div>
@@ -1058,7 +1058,7 @@ const ACT = {
   async 'compra-toggle'(el) { const id=Number(el.dataset.id); const item=await api('GET','/modulos/compras'); const x=item.items.find(v=>Number(v.id)===id); if(!x)return; await api('PUT','/modulos/compras/items/'+id,{comprado:!x.comprado}); COMPRAS_EDITANDO_ID=null; render(); },
   async 'compra-del'(el) { if(!await confirmarAccion('Se eliminará este producto de la lista compartida. ¿Quieres continuar?','Eliminar producto'))return; await api('DELETE','/modulos/compras/items/'+el.dataset.id); COMPRAS_EDITANDO_ID=null; toast('Producto eliminado'); render(); },
   async 'compra-duplicar'(el) { const d=await api('POST','/modulos/compras/listas/'+el.dataset.id+'/duplicar',{}); COMPRAS_LISTA_ID=d.id; toast('Lista duplicada para el nuevo año'); render(); },
-  async 'compra-lista-del'(el) { if(!await confirmarAccion('Se eliminará esta lista duplicada y todos los productos que contiene. Esta acción no se puede deshacer. ¿Quieres continuar?','Eliminar lista'))return; await api('DELETE','/modulos/compras/listas/'+el.dataset.id); COMPRAS_LISTA_ID=null; COMPRAS_EDITANDO_ID=null; toast('Lista duplicada eliminada'); render(); },
+  async 'compra-lista-del'(el) { if(!await confirmarAccion('Se eliminará esta lista y todos los productos que contiene. Esta acción no se puede deshacer. ¿Quieres continuar?','Eliminar lista'))return; await api('DELETE','/modulos/compras/listas/'+el.dataset.id); COMPRAS_LISTA_ID=null; COMPRAS_EDITANDO_ID=null; toast('Lista eliminada'); render(); },
   'module-tab'(el) { const k=el.dataset.tab; if(el.dataset.module==='cuenta') CUENTA_TAB=k; if(el.dataset.module==='cocina') COCINA_TAB=k; if(el.dataset.module==='tesoreria') TES_TAB=k; if(el.dataset.module==='tesrec') TES_REC_TAB=k; if(el.dataset.module==='tescfg') TES_CFG_TAB=k; if(el.dataset.module==='adminher') ADMIN_HERM_TAB=k; if(el.dataset.module==='actas') ACTAS_TAB=k; render(); },
   'extra-add'() { $('#tes-extras-rows').insertAdjacentHTML('beforeend',extraRow({})); },
   'extra-del'(el) { el.closest('.extra-row').remove(); },
