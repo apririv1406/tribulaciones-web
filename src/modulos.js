@@ -30,6 +30,34 @@ async function syncCargosHermanas(db) {
   const cfg = Object.fromEntries(cfgRows.map(x=>[x.clave,x.valor]));
   const cents = k => Math.max(0,Number(cfg[k]||0));
   let extras=[]; try { extras=JSON.parse(cfg.cuotas_extraordinarias_json||'[]'); } catch { extras=[]; }
+
+  // Sincroniza también las cuotas extraordinarias eliminadas de configuración.
+  // Los cargos sin pagos asociados se borran; si existe historial de pagos,
+  // se conserva el cargo con el importe ya confirmado para mantener trazabilidad
+  // sin dejar deuda pendiente por un concepto que ya no existe.
+  const extrasValidas = new Set(extras
+    .filter(x => x.tipo === 'una_vez')
+    .map(x => 'extra:' + String(x.categoria) + ':' + String(x.nombre).trim().toLowerCase()));
+  const cargosExtra = await rows(db.prepare(`SELECT id,source_key FROM cargos_hermanas
+    WHERE grupo='extraordinaria' AND source_key LIKE 'extra:%'`));
+  for (const cargo of cargosExtra) {
+    const clave = String(cargo.source_key || '').replace(/:\\d+$/, '');
+    if (extrasValidas.has(clave)) continue;
+    const existePago = await db.prepare(`SELECT
+      EXISTS(SELECT 1 FROM pagos WHERE cargo_id=?)
+      OR EXISTS(SELECT 1 FROM pagos_aplicaciones WHERE cargo_id=?) existe`).bind(cargo.id,cargo.id).first();
+    if (!existePago?.existe) {
+      await db.prepare('DELETE FROM cargos_hermanas WHERE id=?').bind(cargo.id).run();
+    } else {
+      const pagado = await db.prepare(`SELECT
+        (SELECT COALESCE(SUM(importe_centimos),0) FROM pagos WHERE cargo_id=? AND estado='confirmado') +
+        (SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa
+          JOIN pagos p ON p.id=pa.pago_id WHERE pa.cargo_id=? AND p.estado='confirmado') total`).bind(cargo.id,cargo.id).first();
+      await db.prepare('UPDATE cargos_hermanas SET importe_centimos=? WHERE id=?')
+        .bind(Number(pagado?.total || 0),cargo.id).run();
+    }
+  }
+
   const ops=[];
   // Las cuotas de pago único solo corresponden a hermanas activas.
   // Retira cargos extraordinarios aún no pagados que se hubieran generado
