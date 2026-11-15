@@ -127,13 +127,13 @@ function shell(html) {
   const cur = location.hash || '#/', groups = menuGroups();
   const active = links => links.some(([h]) => h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h));
   const dropdowns = groups.filter(g => g.title !== 'Inicio').map(g => g.links.length===1 ? `<a class="dk nav-single ${active(g.links)?'on':''}" href="${g.links[0][0]}">${g.title}</a>` : `<div class="nav-drop ${active(g.links)?'active':''}"><button class="nav-trigger" type="button">${g.title}<span>⌄</span></button><div class="nav-menu">${g.links.map(([h,t])=>`<a class="${cur===h?'on':''}" href="${h}">${t}</a>`).join('')}</div></div>`).join('');
-  $('#nav').innerHTML = `<a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a><a class="dk ${cur==='#/'?'on':''}" href="#/">Inicio</a>` + dropdowns + `<a class="dk nav-public" href="/">Web pública</a>` + (ME_REAL?.admin ? `<button class="cta dk" type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Vista administradora':'Ver como hermana'}</button>` : '') + (ME ? `<a class="cta dk" href="#/" data-a="salir">Salir</a>` : '') + `<button class="hb" data-a="menu" aria-label="Menú"><i></i><i></i><i></i></button>`;
+  $('#nav').innerHTML = `<a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a><a class="dk ${cur==='#/'?'on':''}" href="#/">Inicio</a>` + dropdowns + `<a class="dk nav-install" href="/#instalar">Instalar en móvil</a><a class="dk nav-public" href="/">Web pública</a>` + (ME_REAL?.admin ? `<button class="cta dk" type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Vista administradora':'Ver como hermana'}</button>` : '') + (ME ? `<a class="cta dk" href="#/" data-a="salir">Salir</a>` : '') + `<button class="hb" data-a="menu" aria-label="Menú"><i></i><i></i><i></i></button>`;
   const drawer = groups.map(g => `<section class="mn-group"><span>${g.title}</span>${g.links.map(([h,t])=>`<a href="${h}" class="${cur===h?'current':''}" ${cur===h?'aria-current="page"':''}>${t}<span aria-hidden="true">›</span></a>`).join('')}</section>`).join('');
   const fotoMenu = ME?.foto_id ? `<img src="/media/${Number(ME.foto_id)}" alt="">` : `<span>${esc(iniciales(ME?.nombre || 'Hermana'))}</span>`;
   $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><aside class="mn" aria-label="Menú de navegación">
     <div class="mn-head"><a href="#/perfil" class="mn-user">${fotoMenu}<span><b>${esc(ME?.nombre || 'Hermana')}</b><small>${esc(ME?.cargo || 'Zona hermana')}</small></span></a><button class="x" data-a="menu" aria-label="Cerrar menú">×</button></div>
     <div class="mn-scroll">${drawer}
-      <section class="mn-extra"><a href="/">Web pública <span>↗</span></a></section>
+      <section class="mn-extra"><a href="/#instalar">Instalar en móvil <span>↓</span></a><a href="/">Web pública <span>↗</span></a></section>
     </div>
     <div class="mn-footer">${ME_REAL?.admin?`<button type="button" class="mn-switch" data-a="cambiar-vista">${VISTA_HERMANA?'Volver a vista administradora':'Ver como hermana'}</button>`:'' }${ME?'<button type="button" class="mn-logout" data-a="salir">Cerrar sesión</button>':''}</div>
   </aside>` : '';
