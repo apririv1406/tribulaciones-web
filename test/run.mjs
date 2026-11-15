@@ -16,7 +16,7 @@ function d1() {
   return { prepare: s => stm(s), batch: async a => a.map(s => { const r=s._run(); return { meta: { last_row_id: Number(r.lastInsertRowid), changes: r.changes }, changes: r.changes }; }) };
 }
 globalThis.fetch = async url => { throw new Error('No debe realizarse ningún envío externo: ' + url); };
-const env = { DB: d1(), ASSETS: { fetch: () => new Response('asset') }, ADMIN_EMAIL: 'Alba@Ejemplo.com', ADMIN_NAME: 'Alba', SETUP_KEY: 'clave-de-prueba', SITE_URL: 'https://ejemplo.es' };
+const env = { DB: d1(), ASSETS: { fetch: req => /\/(noticias|cronicas)\/$/.test(new URL(req.url).pathname) ? new Response('<!doctype html><html lang="es"><head></head><body><section id="news-archive" class="news-archive" aria-live="polite"><p class="empty-news">Cargando…</p></section></body></html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } }) : new Response('asset') }, ADMIN_EMAIL: 'Alba@Ejemplo.com', ADMIN_NAME: 'Alba', SETUP_KEY: 'clave-de-prueba', SITE_URL: 'https://ejemplo.es' };
 const call = async (method, path, body, cookie) => {
   const r = await worker.fetch(new Request('https://ejemplo.es' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch', ...(cookie ? { cookie } : {}) }, body: body ? JSON.stringify(body) : undefined }), env);
   const sc = r.headers.get('set-cookie'); let data = null; try { data = await r.clone().json(); } catch {}
@@ -90,9 +90,22 @@ r = await call('POST', '/api/admin/cargos', { nombre: 'Camarera', permiso: 'none
 r = await call('POST', '/api/admin/cargos', { nombre: 'Camarera', permiso: 'none' }, adm); assert.equal(r.status, 409);
 r = await call('DELETE', '/api/admin/cargos/1', null, adm); assert.equal(r.status, 409); ok('cargos: crear, duplicado y borrar en uso');
 // 12 noticias
-r = await call('POST', '/api/admin/noticias', { titulo: 'Sábado de Pasión', texto: 'Un sábado precioso.', imagen: foto }, adm); assert.equal(r.status, 200); const nid = r.data.id;
+r = await call('POST', '/api/admin/noticias', { titulo: 'Sábado de Pasión <2026>', texto: 'Un sábado precioso.', imagen: foto }, adm); assert.equal(r.status, 200); const nid = r.data.id;
 r = await call('GET', '/api/public'); assert.equal(r.data.noticias.length, 1); assert.ok(r.data.noticias[0].imagen);
-r = await call('DELETE', `/api/admin/noticias/${nid}`, null, adm); r = await call('GET', '/api/public'); assert.equal(r.data.noticias.length, 0); ok('noticias con foto: publicar y borrar');
+const noticiaHtml = await worker.fetch(new Request('https://ejemplo.es/noticias/'), env);
+assert.equal(noticiaHtml.status, 200); const noticiaTexto = await noticiaHtml.text();
+assert.match(noticiaTexto, /Sábado de Pasión &lt;2026&gt;/); assert.match(noticiaTexto, new RegExp('/noticias/' + nid + '/'));
+assert.match(noticiaTexto, new RegExp('/media/' + r.data.noticias[0].imagen)); assert.doesNotMatch(noticiaTexto, /Cargando…/);
+const cronicaCreada = await call('POST', '/api/admin/noticias', { titulo: 'Crónica de prueba', texto: 'Recuerdo de un sábado de romanos.', tipo: 'cronica' }, adm); assert.equal(cronicaCreada.status, 200); const cid = cronicaCreada.data.id;
+const cronicaHtml = await worker.fetch(new Request('https://ejemplo.es/cronicas/'), env);
+assert.equal(cronicaHtml.status, 200); const cronicaTexto = await cronicaHtml.text();
+assert.match(cronicaTexto, /Crónica de prueba/); assert.match(cronicaTexto, new RegExp('/cronicas/' + cid + '/')); assert.doesNotMatch(cronicaTexto, /Cargando…/);
+const listadoHead = await worker.fetch(new Request('https://ejemplo.es/noticias/', { method: 'HEAD' }), env); assert.equal(listadoHead.status, 200); assert.equal(await listadoHead.text(), '');
+const sitemap = await worker.fetch(new Request('https://ejemplo.es/sitemap.xml'), env); const sitemapTexto = await sitemap.text();
+assert.match(sitemapTexto, new RegExp('/noticias/' + nid + '/')); assert.match(sitemapTexto, new RegExp('/cronicas/' + cid + '/'));
+r = await call('DELETE', `/api/admin/noticias/${nid}`, null, adm); assert.equal(r.status, 200);
+r = await call('DELETE', `/api/admin/noticias/${cid}`, null, adm); assert.equal(r.status, 200);
+r = await call('GET', '/api/public'); assert.equal(r.data.noticias.length, 0); ok('noticias y crónicas: HTML inicial indexable, enlaces e imágenes, escape de contenido, HEAD y sitemap');
 // 13 hitos
 r = await call('PUT', '/api/admin/hitos', { hitos: [{ anio: '2007', texto: 'Inicio' }, { anio: '', texto: 'sin año' }, { anio: '2012', texto: 'Segundo' }] }, adm); assert.equal(r.data.total, 2); ok('historia: hitos editables');
 // 14 bloqueo por intentos

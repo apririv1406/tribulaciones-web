@@ -30,4 +30,4 @@ fetch('/api/cronicas').then(r=>{if(!r.ok)throw new Error('No se han podido carga
  const root=$('#news-archive');
  if(!items.length){root.innerHTML='<p class="empty-news">Todavía no hay crónicas publicadas. Pronto compartiremos aquí nuevas crónicas y recuerdos.</p>';return;}
  root.innerHTML=items.map(n=>'<a class="card news-card" href="/cronicas/'+encodeURIComponent(n.id)+'/"><div class="cover">'+(n.imagen?'<img src="/media/'+encodeURIComponent(n.imagen)+'" alt="'+esc(n.titulo)+'" loading="lazy">':'Las Tribulaciones de Sara')+'</div><div class="body"><time datetime="'+esc(n.fecha)+'">'+esc(fecha(n.fecha))+'</time><h2>'+esc(n.titulo)+'</h2><p>'+esc(resumen(n.texto))+'</p><span class="read">Leer crónica completa →</span></div></a>').join('');
-}).catch(()=>{$('#news-archive').innerHTML='<p class="empty-news">No se han podido cargar las crónicas en este momento. Vuelve a intentarlo más tarde.</p>';});
+}).catch(()=>{if(!$('#news-archive a.news-card').length){$('#news-archive').innerHTML='<p class="empty-news">No se han podido cargar crónicas en este momento. Vuelve a intentarlo más tarde.</p>';}});
