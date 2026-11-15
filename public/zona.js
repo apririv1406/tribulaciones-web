@@ -166,7 +166,7 @@ function vSetup() {
 }
 
 /* ---------- zona ---------- */
-async function fechaJuevesLardero(anio) {
+function fechaJuevesLardero(anio) {
   // Cálculo de la Pascua gregoriana (algoritmo de Meeus/Jones/Butcher).
   const a=anio%19, b=Math.floor(anio/100), c=anio%100;
   const d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25);
@@ -207,7 +207,7 @@ function iniciarCuentaAtrasLardero() {
   LARDERO_TIMER=setInterval(actualizar,1000);
 }
 
-function vInicio() {
+async function vInicio() {
   const nombre = esc((ME.nombre || '').split(' ')[0] || 'hermana');
   const resultados = await Promise.allSettled([
     api('GET', '/modulos/sabados'),
