@@ -6,9 +6,9 @@ const fecha = f => { const p=String(f || '').split('-'); return p.length===3 ? p
 const resumen = t => { const s=String(t || '').replace(/\s+/g,' ').trim(); return s.length>185 ? s.slice(0,182).trimEnd()+'…' : s; };
 const menuItems = [
   { label:'Inicio', href:'/' },
-  { group:'Historia', items:[['Nuestra historia','/historia/'],['Hermandad','/#hermandad']] },
-  { label:'Cuaresma', href:'/#cuaresma' },
-  { group:'Publicaciones', items:[['Noticias','/noticias/'],['Crónicas','/cronicas/']] },
+  { group:'Conócenos', items:[['Nuestra historia','/historia/'],['Hermandad','/#hermandad'],['Hermanas','/#hermanas']] },
+  { group:'Cuaresma', items:[['Sábados de Romanos','/#cuaresma'],['Crónicas','/cronicas/']] },
+  { group:'Actualidad', items:[['Noticias','/noticias/']] },
   { label:'Zona hermana', href:'/zona/' }
 ];
 function menu(abrir) {
