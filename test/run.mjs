@@ -151,6 +151,21 @@ assert.ok(r.data.cargos_pendientes.some(c=>c.hermana_id===aid&&c.concepto==='Apo
 assert.ok(!r.data.cargos_pendientes.some(c=>[hermanaInvitadasId,hermanaDosId].includes(c.hermana_id)&&c.concepto==='Aportación de Cuaresma'));
 assert.equal(await env.DB.prepare("SELECT id FROM cargos_hermanas WHERE source_key=?").bind('extra:prueba-pasiva:'+hermanaInvitadasId).first(),null);
 ok('tesorería: cuotas extraordinarias de pago único solo para hermanas activas; pasivas y bajas excluidas');
+
+// Regresión: al eliminar una cuota extraordinaria de configuración,
+// desaparecen también los cargos individuales no pagados de las hermanas.
+r = await call('PUT', '/api/modulos/tesoreria/config', { cuotas_extraordinarias: [
+  { nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' },
+  { nombre: 'Extra temporal de prueba', categoria: 'Otros', importe: 60, tipo: 'una_vez' }
+] }, adm); assert.equal(r.status, 200);
+r = await call('GET', '/api/modulos/cuenta', null, adm); assert.ok(r.data.cargos.some(x => x.concepto === 'Extra temporal de prueba'));
+r = await call('PUT', '/api/modulos/tesoreria/config', { cuotas_extraordinarias: [
+  { nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' }
+] }, adm); assert.equal(r.status, 200);
+r = await call('GET', '/api/modulos/cuenta', null, adm); assert.ok(!r.data.cargos.some(x => x.concepto === 'Extra temporal de prueba'));
+assert.equal(await env.DB.prepare("SELECT id FROM cargos_hermanas WHERE source_key LIKE 'extra:Otros:extra temporal de prueba:%'").first(), null);
+ok('tesorería: al eliminar una cuota extraordinaria se retiran sus cargos individuales y su deuda');
+
 r = await call('PUT', '/api/admin/hermanas/'+hermanaInvitadasId, { estado: 'Activa' }, adm); assert.equal(r.status, 200);
 r = await call('PUT', '/api/admin/hermanas/'+hermanaDosId, { estado: 'Activa' }, adm); assert.equal(r.status, 200);
 r = await call('POST', '/api/modulos/tesoreria/gastos-fijos', { concepto: 'Alquiler de prueba', categoria: 'Local', importe: 25, periodicidad: 'mensual', dia: 1, cuenta: 'Caja fuerte', variable: true, mes: 1 }, adm); assert.equal(r.status, 200); const gastoFijoId = r.data.id;
