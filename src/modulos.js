@@ -183,7 +183,7 @@ export async function routeModulos(req, env, me, method, path, body) {
       const [movimientos, cuotas, sabados, juntas, eventos] = await Promise.all([
         rows(env.DB.prepare(`SELECT tipo,fecha,concepto,categoria,importe_centimos FROM movimientos
           WHERE fecha>=? AND fecha<=? AND tipo IN ('ingreso','gasto')
-          AND traspaso_id IS NULL AND estado='confirmado' ORDER BY fecha,id`)
+          AND traspaso_id IS NULL AND estado='confirmado' AND afecta_resultado=1 ORDER BY fecha,id`)
           .bind(p + '-01', new Date(Date.UTC(Number(p.slice(0,4)), Number(p.slice(5,7)), 0)).toISOString().slice(0,10))),
         env.DB.prepare(`SELECT COUNT(*) cantidad,COALESCE(SUM(c.importe_centimos),0) generado,
           COALESCE(SUM((SELECT COALESCE(SUM(pg.importe_centimos),0) FROM pagos pg WHERE pg.cuota_id=c.id AND pg.estado='confirmado')+
@@ -374,8 +374,10 @@ export async function routeModulos(req, env, me, method, path, body) {
       if (importe>x.restante) return E('El importe supera lo pendiente de ese concepto');
     }
     const fecha = isoDate(body.fecha_pago) ? body.fecha_pago : new Date().toISOString().slice(0, 10);
+    const metodo=txt(body.metodo,50);
+    if(!['Bizum','Transferencia','Efectivo'].includes(metodo)) return E('Selecciona Bizum, transferencia o efectivo');
     const r = await env.DB.prepare(`INSERT INTO pagos(hermana_id,cuota_id,cargo_id,importe_centimos,fecha_pago,metodo,concepto,categoria,registrado_por)
-      VALUES(?,?,?,?,?,?,?,?,?)`).bind(me.id, cuotaId, cargoId, importe, fecha, txt(body.metodo, 50) || null, txt(body.concepto, 300) || null, categoria||null, me.id).run();
+      VALUES(?,?,?,?,?,?,?,?,?)`).bind(me.id, cuotaId, cargoId, importe, fecha, metodo, txt(body.concepto, 300) || null, categoria||null, me.id).run();
     return J({ ok: true, id: r.meta.last_row_id, estado: 'pendiente' });
   }
 
@@ -411,7 +413,7 @@ export async function routeModulos(req, env, me, method, path, body) {
           WHERE mine.hermana_id=? AND ((l.persona_tipo='hermana' AND asb.asiste=1) OR (l.persona_tipo='invitada' AND l.persona_numero<=asb.acompanantes)) AND (l.alergias<>'' OR COALESCE(l.observaciones,'')<>'')
           ORDER BY tc.fecha,h.nombre,l.persona_tipo,l.persona_numero`).bind(me.id)),
       tes(me)
-        ? rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado,h.nombre subido_por_nombre FROM tickets t LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 100`))
+        ? rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado,t.reembolsado,h.nombre subido_por_nombre FROM tickets t LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 100`))
         : rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado
           FROM tickets t WHERE t.subido_por=? OR t.turno_cocina_id IN (SELECT turno_id FROM turnos_cocina_hermanas WHERE hermana_id=?) ORDER BY t.creado DESC LIMIT 50`).bind(me.id,me.id)),
     ]);
@@ -521,7 +523,7 @@ export async function routeModulos(req, env, me, method, path, body) {
     const comercio=txt(body.comercio,120), importe=money(body.importe), formaPago=['tarjeta','caja','yo'].includes(body.forma_pago)?body.forma_pago:'tarjeta';
     if(!comercio||!Number.isInteger(importe)) return E('Indica el comercio y el importe del ticket');
     const r = await env.DB.prepare('INSERT INTO tickets(sabado_id,turno_cocina_id,nombre_archivo,mime,datos,tamano,subido_por,comercio,importe_centimos,forma_pago,cuenta,estado) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
-      .bind(sabadoId, turnoId, txt(body.nombre_archivo, 120) || 'ticket', mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id, comercio, importe, formaPago, formaPago==='caja'?'Caja fuerte':'Banco', 'pendiente').run();
+      .bind(sabadoId, turnoId, txt(body.nombre_archivo, 120) || 'ticket', mdata[1], mdata[2], Math.floor(mdata[2].length * 3 / 4), me.id, comercio, importe, formaPago, formaPago==='caja'?'Caja fuerte':formaPago==='yo'?'Adelantado por hermana':'Banco', 'pendiente').run();
     return J({ ok: true, id: r.meta.last_row_id });
   }
   if ((m = path.match(/^\/api\/modulos\/cocina\/tickets\/(\d+)$/)) && method === 'GET') {
@@ -593,10 +595,10 @@ export async function routeModulos(req, env, me, method, path, body) {
         rows(env.DB.prepare(`SELECT p.*,h.nombre hermana,c.periodo FROM pagos p JOIN hermanas h ON h.id=p.hermana_id LEFT JOIN cuotas c ON c.id=p.cuota_id WHERE p.estado='pendiente' ORDER BY p.fecha_pago,p.id`)),
         rows(env.DB.prepare('SELECT * FROM gastos_fijos ORDER BY activo DESC,id')),
         rows(env.DB.prepare(`SELECT c.periodo,c.estado,COUNT(*) cantidad,SUM(c.importe_centimos) total FROM cuotas c GROUP BY c.periodo,c.estado ORDER BY c.periodo DESC LIMIT 24`)),
-        rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.movimiento_id,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado,m.concepto,h.nombre subido_por_nombre,tc.turno turno_cocina,tc.fecha fecha_turno FROM tickets t LEFT JOIN movimientos m ON m.id=t.movimiento_id LEFT JOIN turnos_cocina tc ON tc.id=t.turno_cocina_id LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 200`)),
+        rows(env.DB.prepare(`SELECT t.id,t.nombre_archivo,t.mime,t.tamano,t.creado,t.movimiento_id,t.sabado_id,t.turno_cocina_id,t.comercio,t.importe_centimos,t.forma_pago,t.categoria,t.cuenta,t.estado,t.reembolsado,m.concepto,h.nombre subido_por_nombre,tc.turno turno_cocina,tc.fecha fecha_turno FROM tickets t LEFT JOIN movimientos m ON m.id=t.movimiento_id LEFT JOIN turnos_cocina tc ON tc.id=t.turno_cocina_id LEFT JOIN hermanas h ON h.id=t.subido_por ORDER BY t.creado DESC LIMIT 200`)),
         rows(env.DB.prepare(`SELECT c.id,c.periodo,c.importe_centimos,c.estado,h.nombre,MAX(0,c.importe_centimos-((SELECT COALESCE(SUM(p.importe_centimos),0) FROM pagos p WHERE p.cuota_id=c.id AND p.estado='confirmado')+(SELECT COALESCE(SUM(pa.importe_centimos),0) FROM pagos_aplicaciones pa JOIN pagos p ON p.id=pa.pago_id WHERE pa.cuota_id=c.id AND p.estado='confirmado'))) restante_centimos FROM cuotas c JOIN hermanas h ON h.id=c.hermana_id WHERE c.estado!='pagada' ORDER BY c.periodo DESC,h.nombre`)),
-        rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos FROM movimientos WHERE traspaso_id IS NULL AND estado='confirmado' GROUP BY strftime('%Y',fecha) ORDER BY anio DESC`)),
-        env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos WHERE traspaso_id IS NULL AND estado='confirmado'`).first(),
+        rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos FROM movimientos WHERE traspaso_id IS NULL AND estado='confirmado' AND afecta_resultado=1 GROUP BY strftime('%Y',fecha) ORDER BY anio DESC`)),
+        env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END),0) ingresos,COALESCE(SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END),0) gastos FROM movimientos WHERE traspaso_id IS NULL AND estado='confirmado' AND afecta_resultado=1`).first(),
         env.DB.prepare("SELECT valor FROM config WHERE clave='cuota_mensual_centimos'").first(),
         rows(env.DB.prepare(`SELECT m.*,h.nombre hermana FROM movimientos m LEFT JOIN hermanas h ON h.id=m.hermana_id WHERE m.estado='pendiente' ORDER BY m.fecha,m.id`)),
       ]);
@@ -612,9 +614,9 @@ export async function routeModulos(req, env, me, method, path, body) {
         rows(env.DB.prepare(`SELECT strftime('%Y-%m',fecha) periodo,
           SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE 0 END) ingresos,
           SUM(CASE WHEN tipo='gasto' THEN importe_centimos ELSE 0 END) gastos
-          FROM movimientos WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL AND estado='confirmado' GROUP BY strftime('%Y-%m',fecha) ORDER BY periodo`)),
+          FROM movimientos WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL AND estado='confirmado' AND afecta_resultado=1 GROUP BY strftime('%Y-%m',fecha) ORDER BY periodo`)),
         rows(env.DB.prepare(`SELECT strftime('%Y',fecha) anio,tipo,categoria,SUM(importe_centimos) total FROM movimientos
-          WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL AND estado='confirmado' GROUP BY strftime('%Y',fecha),tipo,categoria ORDER BY anio,tipo,total DESC`))
+          WHERE tipo IN ('ingreso','gasto') AND traspaso_id IS NULL AND estado='confirmado' AND afecta_resultado=1 GROUP BY strftime('%Y',fecha),tipo,categoria ORDER BY anio,tipo,total DESC`))
       ]);
       const hermanas = await rows(env.DB.prepare('SELECT id,nombre FROM hermanas ORDER BY nombre'));
       const cargos_pendientes = await rows(env.DB.prepare(`SELECT x.id,x.hermana_id,h.nombre,x.categoria,x.concepto,x.source_key,x.grupo,x.importe_centimos,
@@ -625,19 +627,24 @@ export async function routeModulos(req, env, me, method, path, body) {
         ORDER BY h.nombre,x.categoria,x.id`));
       const saldoCfg=await rows(env.DB.prepare("SELECT clave,valor FROM config WHERE clave IN ('saldo_inicial_fecha','saldo_inicial_banco_centimos','saldo_inicial_caja_centimos')"));
       const saldosCfg=Object.fromEntries(saldoCfg.map(x=>[x.clave,x.valor]));
-      const saldoInicial={fecha:saldosCfg.saldo_inicial_fecha||'2026-01-01',banco_centimos:Number(saldosCfg.saldo_inicial_banco_centimos||0),caja_centimos:Number(saldosCfg.saldo_inicial_caja_centimos||0)};
+      const bancoInicial=Number(saldosCfg.saldo_inicial_banco_centimos),cajaInicial=Number(saldosCfg.saldo_inicial_caja_centimos);
+      const saldosConfigurados=!!(saldosCfg.saldo_inicial_fecha && Number.isInteger(bancoInicial) && bancoInicial>=0 && Number.isInteger(cajaInicial) && cajaInicial>=0);
+      const saldoInicial={configurado:saldosConfigurados,fecha:saldosConfigurados?saldosCfg.saldo_inicial_fecha:null,banco_centimos:saldosConfigurados?bancoInicial:null,caja_centimos:saldosConfigurados?cajaInicial:null};
       const cocina_informe=await rows(env.DB.prepare(`SELECT tc.id,tc.fecha,tc.turno,tc.responsable,
         (COALESCE((SELECT CAST(valor AS INTEGER) FROM config WHERE clave='cocina_precio_persona_centimos'),0)*
           ((SELECT COUNT(*) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1)+
            (SELECT COALESCE(SUM(a.acompanantes),0) FROM asistencias_sabado a JOIN sabados s ON s.id=a.sabado_id WHERE s.fecha=tc.fecha AND s.estado!='cancelado' AND a.asiste=1))) presupuesto_centimos,
         COALESCE((SELECT SUM(t.importe_centimos) FROM tickets t WHERE t.turno_cocina_id=tc.id AND t.estado='incluido'),0) gastado_centimos
         FROM turnos_cocina tc ORDER BY tc.fecha DESC,tc.id DESC`));
-      const saldos=await rows(env.DB.prepare(`SELECT cuenta,
-        SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE -importe_centimos END) neto
-        FROM movimientos WHERE fecha>=? AND estado='confirmado' GROUP BY cuenta`).bind(saldoInicial.fecha));
-      const banco=saldoInicial.banco_centimos+Number(saldos.find(x=>x.cuenta==='Banco')?.neto||0);
-      const caja=saldoInicial.caja_centimos+Number(saldos.find(x=>x.cuenta==='Caja fuerte')?.neto||0);
-      return J({ movimientos, movimientos_pendientes: movimientosPendientes, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, hermanas, cuotas_pendientes: pendientes, cargos_pendientes, informes, cocina_informe, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco+caja}, saldo_inicial:saldoInicial, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, categorias_gastos, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
+      let banco=null,caja=null;
+      if(saldoInicial.configurado) {
+        const saldos=await rows(env.DB.prepare(`SELECT cuenta,
+          SUM(CASE WHEN tipo='ingreso' THEN importe_centimos ELSE -importe_centimos END) neto
+          FROM movimientos WHERE fecha>=? AND estado='confirmado' GROUP BY cuenta`).bind(saldoInicial.fecha));
+        banco=saldoInicial.banco_centimos+Number(saldos.find(x=>x.cuenta==='Banco')?.neto||0);
+        caja=saldoInicial.caja_centimos+Number(saldos.find(x=>x.cuenta==='Caja fuerte')?.neto||0);
+      }
+      return J({ movimientos, movimientos_pendientes: movimientosPendientes, pagos_pendientes: pagos, gastos_fijos: gastosFijos, resumen_cuotas: cuotas, tickets, hermanas, cuotas_pendientes: pendientes, cargos_pendientes, informes, cocina_informe, totales:{...totales,banco_centimos:banco,caja_centimos:caja,saldo_centimos:banco===null?null:banco+caja}, saldo_inicial:saldoInicial, saldos_configurados:saldoInicial.configurado, cuota_mensual: cfg?.valor ? Number(cfg.valor) / 100 : null, parametros, cuotas_extraordinarias, categorias_gastos, estadisticas: { mensuales: estadisticasMensuales, categorias: estadisticasCategorias } });
     }
     if (path === '/api/modulos/tesoreria/config' && method === 'PUT') {
       const campos = {
@@ -687,7 +694,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         if (!saldoInicial || !isoDate(saldoInicial.fecha)) return E('La fecha del saldo inicial no es válida');
         const banco = Number(String(saldoInicial.banco ?? '').replace(',', '.'));
         const caja = Number(String(saldoInicial.caja ?? '').replace(',', '.'));
-        if (!Number.isFinite(banco) || !Number.isFinite(caja)) return E('Revisa los saldos iniciales');
+        if (!Number.isFinite(banco) || !Number.isFinite(caja) || banco<0 || caja<0) return E('Revisa los saldos iniciales');
         ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('saldo_inicial_fecha',?)").bind(saldoInicial.fecha));
         ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('saldo_inicial_banco_centimos',?)").bind(String(Math.round(banco*100))));
         ops.push(env.DB.prepare("INSERT OR REPLACE INTO config(clave,valor) VALUES('saldo_inicial_caja_centimos',?)").bind(String(Math.round(caja*100))));
@@ -710,9 +717,9 @@ export async function routeModulos(req, env, me, method, path, body) {
       const idTexto=path.slice(movimientoPrefix.length);
       if(!/^\d+$/.test(idTexto)) return E('Movimiento no encontrado',404);
       const id=Number(idTexto);
-      const movimiento=await env.DB.prepare('SELECT id,estado,traspaso_id,gasto_fijo_id FROM movimientos WHERE id=?').bind(id).first();
+      const movimiento=await env.DB.prepare('SELECT id,estado,traspaso_id,gasto_fijo_id,reembolso_ticket_id FROM movimientos WHERE id=?').bind(id).first();
       if(!movimiento) return E('Movimiento no encontrado',404);
-      if(movimiento.estado!=='confirmado'||movimiento.traspaso_id||movimiento.gasto_fijo_id) return E('Este movimiento no se puede editar desde aquí',409);
+      if(movimiento.estado!=='confirmado'||movimiento.traspaso_id||movimiento.gasto_fijo_id||movimiento.reembolso_ticket_id) return E('Este movimiento no se puede editar desde aquí',409);
       const tipo=body.tipo==='ingreso'?'ingreso':body.tipo==='gasto'?'gasto':null;
       const importe=money(body.importe),fecha=isoDate(body.fecha)?body.fecha:null,concepto=txt(body.concepto,180);
       const cuenta=['Banco','Caja fuerte'].includes(body.cuenta)?body.cuenta:'Banco';
@@ -734,17 +741,24 @@ export async function routeModulos(req, env, me, method, path, body) {
     }
     if (path === '/api/modulos/tesoreria/importar' && method === 'POST') {
       if(!Array.isArray(body.movimientos)||body.movimientos.length<1||body.movimientos.length>500) return E('El archivo debe contener entre 1 y 500 movimientos');
-      const ops=[];let omitidos=0;
+      const normalizados=[],claves=new Set();
       for(const x of body.movimientos){
         const tipo=x.tipo==='Ingreso'?'ingreso':x.tipo==='Gasto'?'gasto':null;
-        const fecha=isoDate(x.fecha)?x.fecha:null,importe=money(x.importe),concepto=txt(x.concepto,180),categoria=txt(x.categoria,80)||'Otros',cuenta=['Banco','Caja fuerte'].includes(x.cuenta)?x.cuenta:'Banco';
-        if(!tipo||!fecha||!Number.isInteger(importe)||!concepto) return E('Hay filas con fecha, tipo, concepto o importe no válidos');
-        const key=txt(x.clave,160);
-        if(!key) return E('Cada movimiento importado necesita una clave única');
-        ops.push(env.DB.prepare('INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,cuenta,import_key,creado_por) VALUES(?,?,?,?,?,?,?,?)').bind(tipo,fecha,concepto,categoria,importe,cuenta,key,me.id));
+        const fecha=isoDate(x.fecha)?x.fecha:null,importe=money(x.importe),concepto=txt(x.concepto,180),categoria=txt(x.categoria,80)||'Otros',cuenta=['Banco','Caja fuerte'].includes(x.cuenta)?x.cuenta:'Banco',clave=txt(x.clave,160);
+        if(!tipo||!fecha||!Number.isInteger(importe)||!concepto||!clave) return E('Hay filas con fecha, tipo, concepto, importe o clave no válidos');
+        if(claves.has(clave)) return E('El archivo contiene claves duplicadas. Corrígelas antes de continuar.');
+        claves.add(clave); normalizados.push({tipo,fecha,importe_centimos:importe,concepto,categoria,cuenta,clave});
       }
-      const result=await env.DB.batch(ops);
-      return J({ok:true,importados:result.reduce((n,x)=>n+(x.changes||0),0),duplicados:result.reduce((n,x)=>n+((x.changes||0)?0:1),0)});
+      const yaImportadas=new Set();
+      for(let i=0;i<normalizados.length;i+=80){
+        const lote=normalizados.slice(i,i+80);
+        const existentes=await rows(env.DB.prepare(`SELECT import_key FROM movimientos WHERE import_key IN (${lote.map(()=>'?').join(',')})`).bind(...lote.map(x=>x.clave)));
+        existentes.forEach(x=>yaImportadas.add(x.import_key));
+      }
+      if(body.confirmar!==true) return J({ok:true,previsualizacion:true,total:normalizados.length,duplicados:normalizados.filter(x=>yaImportadas.has(x.clave)).map(x=>x.clave),movimientos:normalizados.map(x=>({...x,duplicado:yaImportadas.has(x.clave)}))});
+      const ops=normalizados.filter(x=>!yaImportadas.has(x.clave)).map(x=>env.DB.prepare('INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,cuenta,import_key,creado_por) VALUES(?,?,?,?,?,?,?,?)').bind(x.tipo,x.fecha,x.concepto,x.categoria,x.importe_centimos,x.cuenta,x.clave,me.id));
+      const result=ops.length?await env.DB.batch(ops):[];
+      return J({ok:true,importados:result.reduce((n,x)=>n+(x.changes||0),0),duplicados:normalizados.length-result.reduce((n,x)=>n+(x.changes||0),0)});
     }
     if (path === '/api/modulos/tesoreria/gastos-fijos' && method === 'POST') {
       const importe=money(body.importe),concepto=txt(body.concepto,180);
@@ -834,11 +848,11 @@ export async function routeModulos(req, env, me, method, path, body) {
           restante-=aplicar;
         }
       }
-      ops.push(env.DB.prepare(`INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,hermana_id,cuota_id,pago_id,creado_por)
+      ops.push(env.DB.prepare(`INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,cuenta,hermana_id,cuota_id,pago_id,creado_por)
         SELECT 'ingreso',p.fecha_pago,
           COALESCE(NULLIF(p.concepto,''),CASE WHEN p.categoria IS NOT NULL THEN p.categoria WHEN p.cuota_id IS NOT NULL THEN 'Pago de cuota' ELSE COALESCE(x.concepto,'Pago registrado') END),
           COALESCE(p.categoria,CASE WHEN p.cuota_id IS NOT NULL THEN 'Cuotas mensuales' WHEN p.cargo_id IS NOT NULL THEN x.categoria ELSE 'Otros' END),
-          p.importe_centimos,p.hermana_id,p.cuota_id,p.id,?
+          p.importe_centimos,CASE WHEN p.metodo='Efectivo' THEN 'Caja fuerte' ELSE 'Banco' END,p.hermana_id,p.cuota_id,p.id,?
         FROM pagos p LEFT JOIN cargos_hermanas x ON x.id=p.cargo_id WHERE p.id=? AND p.estado='confirmado'`).bind(me.id, pagoId));
       const resultado=await env.DB.batch(ops);
       if (!resultado[0]?.meta?.changes) return E('Este pago ya está revisado', 409);
@@ -869,6 +883,20 @@ export async function routeModulos(req, env, me, method, path, body) {
       const nombre = txt(t.nombre_archivo, 120).replace(/[\r\n"\\]/g, '_');
       return new Response(bytes, { headers: { 'Content-Type': t.mime, 'Content-Disposition': `inline; filename="${nombre}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
     }
+    if ((m = path.match(/^\/api\/modulos\/tesoreria\/tickets\/(\d+)\/reembolsar$/)) && method === 'POST') {
+      const id=+m[1],fecha=isoDate(body.fecha)?body.fecha:null,cuenta=['Banco','Caja fuerte'].includes(body.cuenta)?body.cuenta:null;
+      if(!fecha||!cuenta) return E('Indica una fecha y una cuenta válidas');
+      const ticket=await env.DB.prepare("SELECT id,estado,cuenta,reembolsado,importe_centimos,comercio,nombre_archivo FROM tickets WHERE id=?").bind(id).first();
+      if(!ticket) return E('Ticket no encontrado',404);
+      if(ticket.estado!=='incluido'||ticket.cuenta!=='Adelantado por hermana') return E('Este ticket no corresponde a un adelanto personal',409);
+      if(ticket.reembolsado) return E('Este ticket ya está reembolsado',409);
+      const r=await env.DB.prepare(`INSERT OR IGNORE INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,cuenta,afecta_resultado,creado_por,reembolso_ticket_id)
+        SELECT 'gasto',?,?, 'Reembolso a hermana',?,?,0,?,id FROM tickets WHERE id=? AND estado='incluido' AND cuenta='Adelantado por hermana' AND reembolsado=0`)
+        .bind(fecha,'Reembolso · '+(ticket.comercio||ticket.nombre_archivo),ticket.importe_centimos,cuenta,me.id,id).run();
+      if(!r.meta?.changes) return E('Este ticket ya está reembolsado',409);
+      await env.DB.prepare("UPDATE tickets SET reembolsado=1 WHERE id=? AND reembolsado=0").bind(id).run();
+      return J({ok:true});
+    }
     if ((m = path.match(/^\/api\/modulos\/tesoreria\/tickets\/(\d+)$/)) && method === 'PUT') {
       const id = +m[1], ticket = await env.DB.prepare('SELECT id FROM tickets WHERE id=?').bind(id).first();
       if (!ticket) return E('Ticket no encontrado', 404);
@@ -883,7 +911,7 @@ export async function routeModulos(req, env, me, method, path, body) {
         if(!t) return E('Ticket no encontrado',404);
         if(t.estado!=='pendiente') return E('Este ticket ya está revisado',409);
         const importe=body.importe!==undefined?money(body.importe):Number(t.importe_centimos);
-        const categoria=txt(body.categoria,80),cuenta=['Banco','Caja fuerte'].includes(body.cuenta)?body.cuenta:(t.forma_pago==='caja'?'Caja fuerte':'Banco');
+        const categoria=txt(body.categoria,80),cuenta=t.forma_pago==='yo'?'Adelantado por hermana':(['Banco','Caja fuerte'].includes(body.cuenta)?body.cuenta:(t.forma_pago==='caja'?'Caja fuerte':'Banco'));
         if(!Number.isInteger(importe)||!categoria) return E('Indica un importe y una categoría válidos');
         const movimiento=await env.DB.prepare("INSERT INTO movimientos(tipo,fecha,concepto,categoria,importe_centimos,cuenta,creado_por) VALUES('gasto',?,?,?,?,?,?)")
           .bind((t.creado||new Date().toISOString()).slice(0,10),t.comercio||t.nombre_archivo,categoria,importe,cuenta,me.id).run();

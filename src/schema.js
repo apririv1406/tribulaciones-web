@@ -193,6 +193,12 @@ export const MIGRATIONS = [
   { v: 20, sql: [
     `ALTER TABLE compras_listas ADD COLUMN duplicada_de INTEGER REFERENCES compras_listas(id) ON DELETE SET NULL`
   ]},
+  { v: 21, sql: [
+    `ALTER TABLE movimientos ADD COLUMN afecta_resultado INTEGER NOT NULL DEFAULT 1 CHECK(afecta_resultado IN(0,1))`,
+    `ALTER TABLE tickets ADD COLUMN reembolsado INTEGER NOT NULL DEFAULT 0 CHECK(reembolsado IN(0,1))`,
+    `ALTER TABLE movimientos ADD COLUMN reembolso_ticket_id INTEGER REFERENCES tickets(id)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ux_movimientos_reembolso_ticket ON movimientos(reembolso_ticket_id) WHERE reembolso_ticket_id IS NOT NULL`
+  ]},
 ]; 
 
 async function ensureColumn(db, table, column, definition) {
