@@ -839,6 +839,16 @@ async function vTesoreria() {
       <div class="row" style="grid-column:1/-1;justify-content:flex-end"><button class="btn">Guardar configuración</button></div>
     </form>`;
   }
+  if(TES_TAB==='cfg') contenido+=`<section class="card tes-extras-section" style="margin-top:14px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div><div class="tag">Cuotas extraordinarias</div><h3 style="margin:4px 0">Conceptos adicionales</h3><p class="mu" style="margin:0">Añade, modifica o elimina cuotas especiales para Cuaresma, Semana Santa u otros conceptos.</p></div>
+      <button type="button" class="btn secondary" data-a="extra-add">Añadir cuota</button>
+    </div>
+    <form data-f="tes-extras" style="margin-top:14px">
+      <div id="tes-extras-rows">${(Array.isArray(d.cuotas_extraordinarias)?d.cuotas_extraordinarias:[]).map(x=>extraRow(x)).join('') || '<p class="mu" id="tes-extras-empty">Todavía no hay cuotas extraordinarias configuradas.</p>'}</div>
+      <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn">Guardar cuotas extraordinarias</button></div>
+    </form>
+  </section>`;
   if(TES_TAB==='cfg') contenido+=`<section class="card" style="margin-top:14px"><div class="tag">Punto de partida</div><h3>Saldos iniciales de Tesorería</h3><p class="mu">Indica cuánto dinero había realmente en Banco y en Caja en una fecha de corte. No se utilizará un saldo de cero por defecto.</p><form data-f="tes-saldos" class="two formgrid"><div><label class="fl">Fecha de referencia</label><input class="t" type="date" name="fecha" required value="${esc(d.saldo_inicial?.fecha||'')}"></div><div><label class="fl">Saldo en Banco (€)</label><input class="t" type="number" name="banco" min="0" step="0.01" required value="${d.saldos_configurados?(Number(d.saldo_inicial.banco_centimos)/100).toFixed(2):''}"></div><div><label class="fl">Saldo en Caja (€)</label><input class="t" type="number" name="caja" min="0" step="0.01" required value="${d.saldos_configurados?(Number(d.saldo_inicial.caja_centimos)/100).toFixed(2):''}"></div><div class="row" style="align-items:flex-end"><button class="btn">Guardar saldos iniciales</button></div></form></section>`;
   const pendientesTotal=pendientesRevision;
   const grupoActual=['res','inf'].includes(TES_TAB)?'res':['mov','rec'].includes(TES_TAB)?'ops':['pun','gp','pen'].includes(TES_TAB)?'pend':'cfg';
@@ -1125,7 +1135,7 @@ const ACT = {
   async 'compra-duplicar'(el) { const d=await api('POST','/modulos/compras/listas/'+el.dataset.id+'/duplicar',{}); COMPRAS_LISTA_ID=d.id; toast('Lista duplicada para el nuevo año'); render(); },
   async 'compra-lista-del'(el) { if(!await confirmarAccion('Se eliminará esta lista y todos los productos que contiene. Esta acción no se puede deshacer. ¿Quieres continuar?','Eliminar lista'))return; await api('DELETE','/modulos/compras/listas/'+el.dataset.id); COMPRAS_LISTA_ID=null; COMPRAS_EDITANDO_ID=null; toast('Lista eliminada'); render(); },
   'module-tab'(el) { const k=el.dataset.tab; if(el.dataset.module==='cuenta') CUENTA_TAB=k; if(el.dataset.module==='cocina') COCINA_TAB=k; if(el.dataset.module==='tesoreria') TES_TAB=k; if(el.dataset.module==='tesrec') TES_REC_TAB=k; if(el.dataset.module==='tescfg') TES_CFG_TAB=k; if(el.dataset.module==='adminher') ADMIN_HERM_TAB=k; if(el.dataset.module==='actas') ACTAS_TAB=k; render(); },
-  'extra-add'() { $('#tes-extras-rows').insertAdjacentHTML('beforeend',extraRow({})); },
+  'extra-add'() { const empty=$('#tes-extras-empty'); if(empty) empty.remove(); $('#tes-extras-rows').insertAdjacentHTML('beforeend',extraRow({})); },
   'extra-del'(el) { el.closest('.extra-row').remove(); },
 
   'cuenta-pago-open'() { PAGO_MODAL=true; render(); },
