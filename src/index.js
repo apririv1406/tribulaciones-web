@@ -30,10 +30,16 @@ function normalizarTelefono(valor) {
 
 /* ---------- arranque ---------- */
 let ready;
-async function init(env) {
+function detalleError(e) {
+  return { name: e?.name || 'Error', message: e?.message || String(e), stack: e?.stack || null,
+    cause: e?.cause ? { name: e.cause.name || 'Error', message: e.cause.message || String(e.cause) } : null };
+}
+async function init(env, contexto = {}) {
   ready ??= (async () => {
-    let etapa = 'ensureSchema';
+    let etapa = 'comprobar_binding_DB';
     try {
+      if (!env.DB) throw new Error('No existe el binding D1 env.DB en este entorno');
+      etapa = 'ensureSchema';
       console.log('[INIT] Iniciando comprobación del esquema');
       await ensureSchema(env.DB);
       etapa = 'bootstrap';
@@ -41,11 +47,7 @@ async function init(env) {
       await bootstrap(env);
       console.log('[INIT] Inicialización completada');
     } catch (e) {
-      console.error('[INIT] Fallo durante ' + etapa, {
-        name: e?.name || 'Error',
-        message: e?.message || String(e),
-        stack: e?.stack || null
-      });
+      console.error('[INIT_DIAGNOSTICO] ' + JSON.stringify({ etapa, contexto, error: detalleError(e), timestamp: new Date().toISOString() }));
       throw e;
     }
   })().catch(e => { ready = null; throw e; });
@@ -62,7 +64,7 @@ async function bootstrap(env) {
 export default {
   async scheduled(controller, env, ctx) {
     ctx.waitUntil((async () => {
-      await init(env);
+      await init(env, { method: 'SCHEDULED' });
       const fecha = new Date(controller.scheduledTime);
       const cuotas = await generarCuotasMensuales(env.DB, fecha);
       console.log('Cuotas programadas:', cuotas);
@@ -72,15 +74,18 @@ export default {
     const url = new URL(req.url), p = url.pathname;
     try {
       if (p === '/sitemap.xml' && (req.method === 'GET' || req.method === 'HEAD')) {
-        await init(env); return await sitemapNoticias(env, url.origin);
+        await init(env, { method: req.method, path: p, ray: req.headers.get('cf-ray') }); return await sitemapNoticias(env, url.origin);
       }
       const article = p.match(/^\/(noticias|cronicas)\/(\d+)\/?$/);
       if (article && (req.method === 'GET' || req.method === 'HEAD')) {
-        await init(env); return await paginaContenido(env, +article[2], url.origin, article[1] === 'cronicas' ? 'cronica' : 'noticia');
+        await init(env, { method: req.method, path: p, ray: req.headers.get('cf-ray') }); return await paginaContenido(env, +article[2], url.origin, article[1] === 'cronicas' ? 'cronica' : 'noticia');
       }
       if (!p.startsWith('/api/') && !p.startsWith('/media/')) return env.ASSETS.fetch(req);
-      await init(env); return await route(req, env, url, p);
-    } catch (e) { console.error(e); return E('Error interno', 500); }
+      await init(env, { method: req.method, path: p, ray: req.headers.get('cf-ray') }); return await route(req, env, url, p);
+    } catch (e) {
+      console.error('[FETCH_DIAGNOSTICO] ' + JSON.stringify({ method: req.method, path: p, ray: req.headers.get('cf-ray'), error: detalleError(e), timestamp: new Date().toISOString() }));
+      return E('Error interno', 500);
+    }
   },
 };
 

@@ -196,19 +196,32 @@ export const MIGRATIONS = [
 ]; 
 
 async function ensureColumn(db, table, column, definition) {
-  const info = await db.prepare(`PRAGMA table_info(${table})`).all();
-  if (!(info.results || []).some(x => x.name === column)) {
-    await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
+  let etapa = 'consultar_columna';
+  try {
+    const info = await db.prepare(`PRAGMA table_info(${table})`).all();
+    if (!(info.results || []).some(x => x.name === column)) {
+      etapa = 'añadir_columna';
+      await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
+    }
+  } catch (e) {
+    console.error('[SCHEMA_DIAGNOSTICO] ' + JSON.stringify({ etapa, tabla: table, columna: column, definicion: definition,
+      name: e?.name || 'Error', message: e?.message || String(e), stack: e?.stack || null }));
+    throw e;
   }
 }
 
 export async function ensureSchema(db) {
+  let etapa = 'crear_meta', migracion = null, sentenciasLote = null;
+  try {
   await db.prepare('CREATE TABLE IF NOT EXISTS meta(clave TEXT PRIMARY KEY,valor TEXT)').run();
+  etapa = 'leer_version_esquema';
   const r = await db.prepare("SELECT valor FROM meta WHERE clave='schema'").first();
   let cur = r ? +r.valor : 0;
   for (const m of MIGRATIONS) {
     if (m.v > cur) {
+      migracion = m.v; etapa = 'aplicar_migracion'; sentenciasLote = m.sql.length;
       await db.batch(m.sql.map(s => db.prepare(s)));
+      etapa = 'guardar_version_esquema'; sentenciasLote = null;
       await db.prepare("INSERT OR REPLACE INTO meta(clave,valor) VALUES('schema',?)").bind(String(m.v)).run();
       cur = m.v;
     }
@@ -239,6 +252,7 @@ export async function ensureSchema(db) {
       actualizado: "TEXT NOT NULL DEFAULT ''",
     },
   };
+  etapa = 'comprobar_columnas_compatibilidad'; migracion = null;
   for (const [tabla, campos] of Object.entries(columnas)) {
     for (const [columna, definicion] of Object.entries(campos)) {
       await ensureColumn(db, tabla, columna, definicion);
@@ -246,14 +260,23 @@ export async function ensureSchema(db) {
   }
 
   // Copia histórica de alergias a las tablas nuevas una sola vez.
+  etapa = 'comprobar_migracion_alergias';
   const migradas = await db.prepare("SELECT valor FROM meta WHERE clave='lts_alergias_migradas'").first();
   if (!migradas) {
+    etapa = 'migrar_alergias_perfil';
     await db.prepare(`INSERT OR IGNORE INTO lts_perfil_alergias(hermana_id,alergias,observaciones)
       SELECT hermana_id,COALESCE(alergias,''),observaciones FROM alergias_hermanas`).run();
+    etapa = 'migrar_alergias_evento';
     await db.prepare(`INSERT OR IGNORE INTO lts_alergias_evento(sabado_id,hermana_id,persona_tipo,persona_numero,alergias,observaciones)
       SELECT sabado_id,hermana_id,'hermana',0,COALESCE(alergias,''),observaciones
       FROM asistencias_sabado
       WHERE COALESCE(alergias,'')<>'' OR COALESCE(observaciones,'')<>''`).run();
+    etapa = 'marcar_migracion_alergias_completada';
     await db.prepare("INSERT OR REPLACE INTO meta(clave,valor) VALUES('lts_alergias_migradas','1')").run();
+  }
+  } catch (e) {
+    console.error('[SCHEMA_DIAGNOSTICO] ' + JSON.stringify({ etapa, migracion, sentenciasLote,
+      name: e?.name || 'Error', message: e?.message || String(e), stack: e?.stack || null }));
+    throw e;
   }
 }
