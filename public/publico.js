@@ -36,7 +36,7 @@ fetch('/api/public').then(r => r.json()).then(d => {
   const hitos = $('#hitos');
   if (hitos) hitos.innerHTML = (d.hitos || []).map(h => `<div><b>${esc(h.anio)}</b><br>${esc(h.texto)}</div>`).join('');
   if (d.hermanas.length) {
-    $('#hermanas-l').innerHTML = d.hermanas.map(h => `<div class="card" style="text-align:center;padding:22px 14px"><div class="av">${h.foto ? `<img src="/media/${h.foto}" alt="${esc(h.nombre)}" loading="lazy">` : iniciales(h.nombre)}</div><b>${esc(h.nombre)}</b><br><span class="mu">${esc(h.cargo || 'Hermana')}</span>${h.anio ? `<br><small class="mu">En el cuartel desde ${h.anio}</small>` : ''}</div>`).join('');
+    $('#hermanas-l').innerHTML = d.hermanas.map(h => `<div class="card" style="text-align:center;padding:22px 14px"><div class="av">${h.foto ? `<img src="/media/${h.foto}" alt="${esc(h.nombre)}" loading="lazy">` : iniciales(h.nombre)}</div><b>${esc(h.nombre)}</b><br><span class="mu">${esc(h.cargo || 'Hermana')}</span>${h.anio ? `<br><small class="mu">${Number(h.anio) === 2007 ? 'FUNDADORA' : `En el cuartel desde ${h.anio}`}</small>` : ''}</div>`).join('');
   } else $('#hermanas-l').innerHTML = '<p class="mu">Estamos preparando este espacio. Las hermanas que tengan activada la opción «Aparece en la web» se mostrarán aquí.</p>';
   const publicaciones = (d.noticias || []).slice(0, 3);
   $('#noticias-l').innerHTML = publicaciones.length
