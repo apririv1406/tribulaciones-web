@@ -137,6 +137,11 @@ ok('actas: subir y consultar PDF, registrar reuniones históricas y proteger per
 r = await call('PUT', '/api/modulos/actas/estatutos', { nombre: 'Estatutos.pdf', datos: 'data:application/pdf;base64,JVBERi0xLjQK' }, adm); assert.equal(r.status, 200);
 r = await call('GET', '/api/modulos/actas/estatutos', null, adm); assert.equal(r.status, 200); assert.equal(r.data.documento.nombre, 'Estatutos.pdf');
 const pdf = await worker.fetch(new Request('https://ejemplo.es/api/modulos/actas/estatutos/archivo', { headers: { 'X-Requested-With': 'fetch', cookie: adm } }), env); assert.equal(pdf.status, 200); assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+// Las cuotas extraordinarias de pago único solo se generan para hermanas activas.
+r = await call('PUT', '/api/admin/hermanas/'+hermanaInvitadasId, { estado: 'Pasiva' }, adm); assert.equal(r.status, 200);
+r = await call('PUT', '/api/admin/hermanas/'+hermanaDosId, { estado: 'Baja' }, adm); assert.equal(r.status, 200);
+await env.DB.prepare("INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo) VALUES(?,?,?,?,?,'extraordinaria')")
+  .bind(hermanaInvitadasId,'Cuaresma','Cargo pasiva anterior',625,'extra:prueba-pasiva:'+hermanaInvitadasId).run();
 r = await call('PUT', '/api/modulos/tesoreria/config', { cuota_mensual: 35, sabado_precio: 10, invitada_precio: 10, copa_precio: 2, refresco_precio: 1, cocina_precio_persona: 12.5, personas_por_turno: 2, cuotas_extraordinarias: [{ nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' }] }, adm); assert.equal(r.status, 200);
 r = await call('PUT', '/api/modulos/tesoreria/config', { cuotas_extraordinarias: [{ nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' }] }, adm); assert.equal(r.status, 200);
 r = await call('PUT', '/api/modulos/tesoreria/config', { saldo_inicial: { fecha: '2098-12-31', banco: 850, caja: 120 } }, adm); assert.equal(r.status, 200);
