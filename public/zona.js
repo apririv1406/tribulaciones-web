@@ -4,6 +4,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(''));
 const fechaHoyLocal = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.600 2.400 30.200 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.800 6.100C12.300 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.500 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.700c-.6 3-2.300 5.500-4.800 7.200l7.500 5.800c4.400-4.100 7.100-10.100 7.100-17.500z"/><path fill="#FBBC05" d="M10.400 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.9-4.700l-7.800-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.800-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.700-4.100-13.600-9.800l-7.800 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
+let LARDERO_TIMER = null;
 let CAL_MES = new Date(new Date().getFullYear(), new Date().getMonth(), 1), ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_FROM = fechaHoyLocal().slice(0,7) + '-01', TES_REPORT_TO = fechaHoyLocal(), TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_EDIT_MOV_ID = null, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', COCINA_SORTEO_RESULTADO = [], COMPRAS_LISTA_ID = null, COMPRAS_EDITANDO_ID = null, TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
 
 async function api(method, path, body) {
@@ -121,6 +122,7 @@ function aplicarVista() {
   ME = VISTA_HERMANA ? { ...ME_REAL, admin: false, tes: ME_REAL.cargo_permiso === 'tes', actas: ME_REAL.cargo_permiso === 'actas' } : { ...ME_REAL };
 }
 function shell(html) {
+  if (LARDERO_TIMER) { clearInterval(LARDERO_TIMER); LARDERO_TIMER = null; }
   LAST = html;
   const cur = location.hash || '#/', groups = menuGroups();
   const active = links => links.some(([h]) => h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h));
@@ -164,7 +166,48 @@ function vSetup() {
 }
 
 /* ---------- zona ---------- */
-async function vInicio() {
+async function fechaJuevesLardero(anio) {
+  // Cálculo de la Pascua gregoriana (algoritmo de Meeus/Jones/Butcher).
+  const a=anio%19, b=Math.floor(anio/100), c=anio%100;
+  const d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30;
+  const i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7;
+  const m=Math.floor((a+11*h+22*l)/451);
+  const mes=Math.floor((h+l-7*m+114)/31);
+  const dia=((h+l-7*m+114)%31)+1;
+  const pascua=new Date(Date.UTC(anio,mes-1,dia));
+  pascua.setUTCDate(pascua.getUTCDate()-52);
+  return new Date(pascua.getUTCFullYear(),pascua.getUTCMonth(),pascua.getUTCDate());
+}
+function iniciarCuentaAtrasLardero() {
+  const panel=$('#lardero-countdown');
+  if (!panel) return;
+  const fechaTexto=panel.querySelector('[data-lardero-fecha]');
+  const actualizar=()=>{
+    const ahora=new Date();
+    const hoy=new Date(ahora.getFullYear(),ahora.getMonth(),ahora.getDate());
+    let destino=fechaJuevesLardero(ahora.getFullYear());
+    if (destino<hoy) destino=fechaJuevesLardero(ahora.getFullYear()+1);
+    fechaTexto.textContent=destino.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    if (destino.getTime()===hoy.getTime()) {
+      panel.querySelector('[data-lardero-contador]').innerHTML='<div class="lardero-today">¡Hoy es Jueves Lardero!</div>';
+      if (LARDERO_TIMER) { clearInterval(LARDERO_TIMER); LARDERO_TIMER=null; }
+      return;
+    }
+    const restante=Math.max(0,destino.getTime()-ahora.getTime());
+    const dias=Math.floor(restante/86400000);
+    const horas=Math.floor(restante%86400000/3600000);
+    const minutos=Math.floor(restante%3600000/60000);
+    const segundos=Math.floor(restante%60000/1000);
+    panel.querySelector('[data-lardero-contador]').innerHTML=
+      [['Días',dias],['Horas',horas],['Minutos',minutos],['Segundos',segundos]]
+        .map(([label,valor])=>'<div class="lardero-unit"><b>'+String(valor).padStart(2,'0')+'</b><small>'+label+'</small></div>').join('');
+  };
+  actualizar();
+  LARDERO_TIMER=setInterval(actualizar,1000);
+}
+
+function vInicio() {
   const nombre = esc((ME.nombre || '').split(' ')[0] || 'hermana');
   const resultados = await Promise.allSettled([
     api('GET', '/modulos/sabados'),
@@ -190,6 +233,10 @@ async function vInicio() {
       <h2 style="color:#fff;margin:7px 0 4px">¡Hola, ${nombre}!</h2>
       <p class="sister-welcome-sub">${esc(ME.cargo || 'Hermana')}</p>
       <p class="sister-welcome-note">Tu espacio para estar al día con el cuartel.</p>
+    </section>
+    <section class="lardero-countdown" id="lardero-countdown" aria-label="Cuenta atrás para el Jueves Lardero">
+      <div class="lardero-copy"><div class="tag">CAMINO A LA CUARESMA</div><h2>Jueves Lardero</h2><p>Comienza la cuenta atrás para volver a vivir la Cuaresma en Puente Genil.</p><small data-lardero-fecha></small></div>
+      <div class="lardero-timer" data-lardero-contador aria-live="off"></div>
     </section>
     ${proximosEventos.length?`<section class="home-events"><div class="home-events-head"><div><div class="tag">AGENDA DE LA HERMANDAD</div><h2>Próximos eventos</h2></div><a href="#/calendario">Ver calendario →</a></div>${proximosEventos.map(ev=>`<a class="home-event-row" href="#/calendario"><span class="home-event-date"><b>${new Date(ev.fecha+'T12:00:00').getDate()}</b><small>${new Date(ev.fecha+'T12:00:00').toLocaleDateString('es-ES',{month:'short'}).replace('.','')}</small></span><span class="home-event-copy"><b>${esc(ev.titulo)}</b><small>${esc([({cofradia:'Acto de cofradía',cruz_mayo:'Cruz de Mayo',cultos:'Cultos',convivencia:'Convivencia',otros:'Evento'})[ev.tipo]||'Evento',fechaBonita(ev.fecha),ev.hora,ev.lugar].filter(Boolean).join(' · '))}</small></span><span class="home-event-arrow">→</span></a>`).join('')}</section>`:''}
     <section class="sister-home-status" aria-label="Tu información">
@@ -218,6 +265,7 @@ async function vInicio() {
     </section>
     <div class="sister-home-footer"><a href="#/perfil">Mi perfil</a><span>·</span><a href="#/actas">Documentación del cuartel</a></div>
   </div>`);
+  iniciarCuentaAtrasLardero();
 }
 
 const ALERGIAS_TAGS = ['Sin gluten (celiaquía)','Sin lactosa','Frutos secos','Marisco y pescado','Huevo','Vegetariana'];
