@@ -10,8 +10,8 @@ document.querySelectorAll('.phi img').forEach(i => i.addEventListener('error', (
 
 const menuItems = [
   { label:'Inicio', href:'/' },
-  { group:'Quiénes somos', items:[['Nuestra historia','/historia/'],['Hermandad','/#hermandad'],['Hermanas','/#hermanas']] },
-  { group:'Nuestra Cuaresma', items:[['Sábados de Romanos','/#cuaresma'],['Crónicas','/cronicas/']] },
+  { group:'Conócenos', items:[['Nuestra historia','/historia/'],['Hermandad','/#hermandad'],['Hermanas','/#hermanas']] },
+  { group:'Cuaresma', items:[['Sábados de Romanos','/#cuaresma'],['Crónicas','/cronicas/']] },
   { group:'Actualidad', items:[['Noticias','/noticias/']] },
   { label:'Zona hermana', href:'/zona/' }
 ];
