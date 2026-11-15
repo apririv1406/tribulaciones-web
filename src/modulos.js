@@ -41,7 +41,7 @@ async function syncCargosHermanas(db) {
   const cargosExtra = await rows(db.prepare(`SELECT id,source_key FROM cargos_hermanas
     WHERE grupo='extraordinaria' AND source_key LIKE 'extra:%'`));
   for (const cargo of cargosExtra) {
-    const clave = String(cargo.source_key || '').replace(/:\\d+$/, '');
+    const clave = String(cargo.source_key || '').replace(/:\d+$/, '');
     if (extrasValidas.has(clave)) continue;
     const existePago = await db.prepare(`SELECT
       EXISTS(SELECT 1 FROM pagos WHERE cargo_id=?)
