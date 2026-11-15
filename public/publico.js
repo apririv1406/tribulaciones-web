@@ -56,3 +56,32 @@ fetch('/api/public').then(r => r.json()).then(d => {
       </article>`).join('')
     : '<p class="mu">Pronto publicaremos aquí las crónicas de nuestros sábados.</p>';
 }).catch(() => { $('#noticias-l').innerHTML = '<p class="mu">No se han podido cargar las noticias ahora mismo.</p>'; });
+
+ 
+// Selección de crónicas de la Cuaresma de 2026 en la portada
+fetch('/api/cronicas').then(r => {
+  if (!r.ok) throw new Error('No se han podido cargar las crónicas');
+  return r.json();
+}).then(items => {
+  const root = $('#cronicas-home');
+  if (!root) return;
+  const cronicas = items.filter(n => String(n.fecha || '').startsWith('2026-')).slice(0, 3);
+  if (!cronicas.length) {
+    root.innerHTML = '<p class="mu">Pronto compartiremos aquí las crónicas de nuestra Cuaresma.</p>';
+    return;
+  }
+  root.innerHTML = cronicas.map(n => `<article class="home-news-card">
+    <a class="home-news-photo" href="/cronicas/${encodeURIComponent(n.id)}/" aria-label="Leer ${esc(n.titulo)}">
+      ${n.imagen ? `<img src="/media/${encodeURIComponent(n.imagen)}" alt="" loading="lazy">` : '<span class="home-news-placeholder">Crónica de Cuaresma</span>'}
+    </a>
+    <div class="home-news-body">
+      <small class="home-news-meta">CRÓNICA · ${esc(fecha(n.fecha))}</small>
+      <h3>${esc(n.titulo)}</h3>
+      <p>${esc(String(n.texto || '').replace(/\\s+/g, ' ').trim().slice(0, 165))}${String(n.texto || '').trim().length > 165 ? '…' : ''}</p>
+      <div class="home-news-actions"><a class="home-news-read" href="/cronicas/${encodeURIComponent(n.id)}/">Leer crónica</a></div>
+    </div>
+  </article>`).join('');
+}).catch(() => {
+  const root = $('#cronicas-home');
+  if (root) root.innerHTML = '<p class="mu">No se han podido cargar las crónicas ahora mismo.</p>';
+});
