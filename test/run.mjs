@@ -137,10 +137,21 @@ ok('actas: subir y consultar PDF, registrar reuniones históricas y proteger per
 r = await call('PUT', '/api/modulos/actas/estatutos', { nombre: 'Estatutos.pdf', datos: 'data:application/pdf;base64,JVBERi0xLjQK' }, adm); assert.equal(r.status, 200);
 r = await call('GET', '/api/modulos/actas/estatutos', null, adm); assert.equal(r.status, 200); assert.equal(r.data.documento.nombre, 'Estatutos.pdf');
 const pdf = await worker.fetch(new Request('https://ejemplo.es/api/modulos/actas/estatutos/archivo', { headers: { 'X-Requested-With': 'fetch', cookie: adm } }), env); assert.equal(pdf.status, 200); assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+// Las cuotas extraordinarias de pago único solo se generan para hermanas activas.
+r = await call('PUT', '/api/admin/hermanas/'+hermanaInvitadasId, { estado: 'Pasiva' }, adm); assert.equal(r.status, 200);
+r = await call('PUT', '/api/admin/hermanas/'+hermanaDosId, { estado: 'Baja' }, adm); assert.equal(r.status, 200);
+await env.DB.prepare("INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo) VALUES(?,?,?,?,?,'extraordinaria')")
+  .bind(hermanaInvitadasId,'Cuaresma','Cargo pasiva anterior',625,'extra:prueba-pasiva:'+hermanaInvitadasId).run();
 r = await call('PUT', '/api/modulos/tesoreria/config', { cuota_mensual: 35, sabado_precio: 10, invitada_precio: 10, copa_precio: 2, refresco_precio: 1, cocina_precio_persona: 12.5, personas_por_turno: 2, cuotas_extraordinarias: [{ nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' }] }, adm); assert.equal(r.status, 200);
 r = await call('PUT', '/api/modulos/tesoreria/config', { cuotas_extraordinarias: [{ nombre: 'Aportación de Cuaresma', categoria: 'Cuaresma', importe: 6.25, tipo: 'una_vez' }] }, adm); assert.equal(r.status, 200);
 r = await call('PUT', '/api/modulos/tesoreria/config', { saldo_inicial: { fecha: '2098-12-31', banco: 850, caja: 120 } }, adm); assert.equal(r.status, 200);
 r = await call('GET', '/api/modulos/tesoreria', null, adm); assert.equal(r.status, 200); assert.equal(r.data.saldo_inicial.banco_centimos, 85000); assert.equal(r.data.saldo_inicial.caja_centimos, 12000);
+assert.ok(r.data.cargos_pendientes.some(c=>c.hermana_id===aid&&c.concepto==='Aportación de Cuaresma'&&c.restante_centimos===625));
+assert.ok(!r.data.cargos_pendientes.some(c=>[hermanaInvitadasId,hermanaDosId].includes(c.hermana_id)&&c.concepto==='Aportación de Cuaresma'));
+assert.equal(await env.DB.prepare("SELECT id FROM cargos_hermanas WHERE source_key=?").bind('extra:prueba-pasiva:'+hermanaInvitadasId).first(),null);
+ok('tesorería: cuotas extraordinarias de pago único solo para hermanas activas; pasivas y bajas excluidas');
+r = await call('PUT', '/api/admin/hermanas/'+hermanaInvitadasId, { estado: 'Activa' }, adm); assert.equal(r.status, 200);
+r = await call('PUT', '/api/admin/hermanas/'+hermanaDosId, { estado: 'Activa' }, adm); assert.equal(r.status, 200);
 r = await call('POST', '/api/modulos/tesoreria/gastos-fijos', { concepto: 'Alquiler de prueba', categoria: 'Local', importe: 25, periodicidad: 'mensual', dia: 1, cuenta: 'Caja fuerte', variable: true, mes: 1 }, adm); assert.equal(r.status, 200); const gastoFijoId = r.data.id;
 let tareaProgramada;
 await worker.scheduled({ scheduledTime: Date.UTC(2099, 0, 1, 1, 0, 0) }, env, { waitUntil: p => { tareaProgramada=p; } });
