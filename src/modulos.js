@@ -31,7 +31,15 @@ async function syncCargosHermanas(db) {
   const cents = k => Math.max(0,Number(cfg[k]||0));
   let extras=[]; try { extras=JSON.parse(cfg.cuotas_extraordinarias_json||'[]'); } catch { extras=[]; }
   const ops=[];
-  const hermanas=await rows(db.prepare("SELECT id FROM hermanas WHERE estado!='Baja'"));
+  // Las cuotas de pago único solo corresponden a hermanas activas.
+  // Retira cargos extraordinarios aún no pagados que se hubieran generado
+  // cuando una hermana estaba en situación pasiva o de baja.
+  await db.prepare(`DELETE FROM cargos_hermanas
+    WHERE grupo='extraordinaria'
+      AND EXISTS(SELECT 1 FROM hermanas h WHERE h.id=cargos_hermanas.hermana_id AND h.estado!='Activa')
+      AND NOT EXISTS(SELECT 1 FROM pagos p WHERE p.cargo_id=cargos_hermanas.id)
+      AND NOT EXISTS(SELECT 1 FROM pagos_aplicaciones pa WHERE pa.cargo_id=cargos_hermanas.id)`).run();
+  const hermanas=await rows(db.prepare("SELECT id FROM hermanas WHERE estado='Activa'"));
   for(const x of extras.filter(x=>x.tipo==='una_vez' && Number(x.importe_centimos)>=0)) {
     const key='extra:'+String(x.categoria)+':'+String(x.nombre).trim().toLowerCase();
     for(const h of hermanas) ops.push(db.prepare(`INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)
