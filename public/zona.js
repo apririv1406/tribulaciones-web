@@ -127,7 +127,7 @@ function shell(html) {
   const cur = location.hash || '#/', groups = menuGroups();
   const active = links => links.some(([h]) => h === '#/' ? cur === '#/' || cur === '' : cur.startsWith(h));
   const dropdowns = groups.filter(g => g.title !== 'Inicio').map(g => g.links.length===1 ? `<a class="dk nav-single ${active(g.links)?'on':''}" href="${g.links[0][0]}">${g.title}</a>` : `<div class="nav-drop ${active(g.links)?'active':''}"><button class="nav-trigger" type="button">${g.title}<span>⌄</span></button><div class="nav-menu">${g.links.map(([h,t])=>`<a class="${cur===h?'on':''}" href="${h}">${t}</a>`).join('')}</div></div>`).join('');
-  $('#nav').innerHTML = `<a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a><a class="dk ${cur==='#/'?'on':''}" href="#/">Inicio</a>` + dropdowns + `<a class="dk nav-install" href="/#instalar">Instalar en móvil</a><a class="dk nav-public" href="/">Web pública</a>` + (ME_REAL?.admin ? `<button class="cta dk" type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Vista administradora':'Ver como hermana'}</button>` : '') + (ME ? `<a class="cta dk" href="#/" data-a="salir">Salir</a>` : '') + `<button class="hb" data-a="menu" aria-label="Menú"><i></i><i></i><i></i></button>`;
+  $('#nav').innerHTML = `<a class="logo" href="/"><img src="/logo.png" alt="Las Tribulaciones de Sara"></a><a class="dk ${cur==='#/'?'on':''}" href="#/">Inicio</a>` + dropdowns + `<a class="dk nav-install" href="#/instalar">Instalar en móvil</a><a class="dk nav-public" href="/">Web pública</a>` + (ME_REAL?.admin ? `<button class="cta dk" type="button" data-a="cambiar-vista">${VISTA_HERMANA?'Vista administradora':'Ver como hermana'}</button>` : '') + (ME ? `<a class="cta dk" href="#/" data-a="salir">Salir</a>` : '') + `<button class="hb" data-a="menu" aria-label="Menú"><i></i><i></i><i></i></button>`;
   const drawer = groups.map(g => `<section class="mn-group"><span>${g.title}</span>${g.links.map(([h,t])=>`<a href="${h}" class="${cur===h?'current':''}" ${cur===h?'aria-current="page"':''}>${t}<span aria-hidden="true">›</span></a>`).join('')}</section>`).join('');
   const fotoMenu = ME?.foto_id ? `<img src="/media/${Number(ME.foto_id)}" alt="">` : `<span>${esc(iniciales(ME?.nombre || 'Hermana'))}</span>`;
   $('#mn').innerHTML = MENU ? `<div class="sc" data-a="menu"></div><aside class="mn" aria-label="Menú de navegación">
@@ -155,6 +155,38 @@ function vLogin(err) {
 <p style="margin:12px 0 0"><a href="#/olvido" style="color:var(--br);font-size:14px">He olvidado mi contraseña</a></p><div class="or">o</div><a class="g" href="/api/auth/google">${GSVG}Continuar con Google</a>
 <p class="mu" style="font-size:13px;margin:16px 0 0">¿Primer acceso? La administradora te enviará el enlace personal por WhatsApp.</p></div></div>`);
 }
+function vInstalar() {
+  shell(`<div class="in" style="max-width:900px;padding-top:28px;padding-bottom:40px">
+    <div class="tag">Acceso desde el móvil</div>
+    <h2>Instalar Las Tribulaciones de Sara</h2>
+    <p class="mu" style="max-width:680px;margin:0 0 22px">Añade la zona hermana a la pantalla de inicio para entrar al cuartel como si fuera una aplicación.</p>
+    <div class="install-grid">
+      <article class="install-card">
+        <h3>Android</h3>
+        <p class="install-browser">Desde Google Chrome</p>
+        <ol>
+          <li>Abre esta zona hermana en Google Chrome.</li>
+          <li>Pulsa el menú de los tres puntos, situado arriba a la derecha.</li>
+          <li>Selecciona «Instalar aplicación» o «Añadir a pantalla de inicio».</li>
+          <li>Confirma la instalación.</li>
+        </ol>
+      </article>
+      <article class="install-card">
+        <h3>iPhone</h3>
+        <p class="install-browser">Desde Safari</p>
+        <ol>
+          <li>Abre esta zona hermana en Safari.</li>
+          <li>Pulsa el botón Compartir (el cuadrado con una flecha hacia arriba).</li>
+          <li>Selecciona «Añadir a pantalla de inicio».</li>
+          <li>Comprueba el nombre y pulsa «Añadir».</li>
+        </ol>
+      </article>
+    </div>
+    <p class="install-note">Una vez instalada, podrás abrir directamente la zona hermana desde el icono del móvil. No necesitas descargar nada desde Play Store ni App Store.</p>
+    <p style="margin-top:22px"><a class="btn o" href="#/">Volver al inicio</a></p>
+  </div>`);
+}
+
 function vOlvido() {
   shell(`<div class="login"><div class="card"><img src="/logo.png" alt="" style="height:90px"><h2 style="margin-top:6px">¿Olvidaste tu contraseña?</h2><p class="mu">Para crear una contraseña nueva, ponte en contacto con la administradora del cuartel por WhatsApp. Te enviará un enlace personal.</p><p style="margin:18px 0 0"><a class="btn" href="#/">Volver a entrar</a></p></div></div>`);
 }
@@ -1317,6 +1349,7 @@ async function render() {
     if (h === '#/setup') return vSetup();
     if ((m = h.match(/^#\/error\/([\w-]+)$/))) return vLogin(m[1]);
     if (!ME) return vLogin();
+    if (h === '#/instalar') return vInstalar();
     if (h === '#/perfil') return vPerfil();
     if (h === '#/calendario') return await vCalendario();
     if (h === '#/resumen-mensual') return await vInicio();
