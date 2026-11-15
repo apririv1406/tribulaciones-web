@@ -398,12 +398,21 @@ async function vCuenta() {
   let contenido='';
   if(CUENTA_TAB==='deb') {
     const filasCuotas=pendientes.map(c=>`<div class="mv"><div class="x"><b>${esc(mes(c.periodo))}</b><br><small>${Number(c.importe_centimos/100).toFixed(0)} € de cuota mensual</small></div><div class="amt">${euros(c.restante_centimos)}</div></div>`).join('');
+    const gruposCargos=[
+      {titulo:'Cuotas extraordinarias',grupo:'importacion_extraordinaria'},
+      {titulo:'Invitadas',grupo:'importacion_invitadas'}
+    ];
+    const filasImportadas=gruposCargos.map(g=>{
+      const arr=cargos.filter(x=>x.grupo===g.grupo&&x.restante_centimos>0);
+      const total=arr.reduce((a,x)=>a+Number(x.restante_centimos),0);
+      return arr.length?`<div class="mv"><div class="x"><b>${g.titulo}</b><br><small>${arr.map(x=>esc(x.concepto)+' · '+euros(x.restante_centimos)).join('<br>')}</small></div><div class="amt">${euros(total)}</div></div>`:'';
+    }).join('');
     const filasCargos=['Cuaresma','Semana Santa','Otros'].map(cat=>{
-      const arr=cargos.filter(x=>x.categoria===cat&&x.restante_centimos>0);
+      const arr=cargos.filter(x=>x.categoria===cat&&!['importacion_extraordinaria','importacion_invitadas'].includes(x.grupo)&&x.restante_centimos>0);
       const total=arr.reduce((a,x)=>a+Number(x.restante_centimos),0);
       return `<div class="mv"><div class="x"><b>${cat}</b><br><small>${arr.length?arr.map(x=>esc(x.concepto)+' · '+euros(x.restante_centimos)).join('<br>'):'—'}</small></div><div class="amt">${total?euros(total):'—'}</div></div>`;
     }).join('');
-    contenido=`<section class="sec" style="padding-top:0"><div class="tag">Desglose de deuda</div><h3>Lo que debo</h3><div class="card"><div class="mv"><div class="x"><b>Cuotas mensuales</b><br><small>${filasCuotas?pendientes.length+' cuota(s) pendiente(s)':'Al día'}</small></div><div class="amt">${deudaCuotas?euros(deudaCuotas):'—'}</div></div>${filasCargos}</div><p class="mu">Los importes se calculan automáticamente con los precios configurados por Tesorería, las asistencias y las invitadas confirmadas.</p></section>`;
+    contenido=`<section class="sec" style="padding-top:0"><div class="tag">Desglose de deuda</div><h3>Lo que debo</h3><div class="card"><div class="mv"><div class="x"><b>Cuotas mensuales</b><br><small>${filasCuotas?pendientes.length+' cuota(s) pendiente(s)':'Al día'}</small></div><div class="amt">${deudaCuotas?euros(deudaCuotas):'—'}</div></div>${filasImportadas}${filasCargos}</div><p class="mu">Las cuotas mensuales, los conceptos extraordinarios y las invitadas se muestran por separado según el desglose de Tesorería.</p></section>`;
   }
   if(CUENTA_TAB==='pag') contenido=`<section class="sec" style="padding-top:0"><div class="row" style="justify-content:space-between;align-items:center"><div><div class="tag">Historial</div><h3>Mis pagos</h3></div><button class="btn" data-a="cuenta-pago-open">Registrar un pago</button></div><div class="card">${d.pagos.length?d.pagos.map(p=>`<div class="mv"><div class="x"><b>${esc(p.categoria||p.concepto||p.cargo_concepto||p.periodo||'Pago')}</b><br><small>${esc(p.metodo||'Método no indicado')} · ${fechaBonita(p.fecha_pago)}</small></div><div style="text-align:right"><b class="amt">${euros(p.importe_centimos)}</b><br>${estado(p)}</div></div>`).join(''):'<p class="mu">Todavía no has registrado ningún pago.</p>'}</div><p class="mu">Los pagos pendientes se descuentan de tu deuda cuando Tesorería los confirma.</p></section>`;
   if(CUENTA_TAB==='al') contenido=`<section class="sec" style="padding-top:0"><div class="tag">Información alimentaria</div><h3>Mis alergias o dietas</h3><div class="card"><p class="mu" style="margin-top:0">Son el punto de partida cada vez que confirmas un sábado. Puedes cambiarlas en cada uno.</p><form data-f="alergias"><div class="wr">${TAGS.map(t=>`<label class="chip ${alergiasActuales.includes(t)?'on':''}" style="display:inline-flex;align-items:center;gap:7px"><input type="checkbox" name="alergia" value="${esc(t)}" ${alergiasActuales.includes(t)?'checked':''}> ${esc(t)}</label>`).join('')}</div><label class="fl">Otras alergias o aclaraciones</label><textarea class="t" name="observaciones" rows="3">${esc(d.alergias?.observaciones||'')}</textarea><button class="btn" style="margin-top:14px">Guardar mis alergias</button></form><p class="mu" style="margin:14px 0 0">Son datos de salud: solo los ve el turno de cocina de cada sábado y la junta.</p></div></section>`;
