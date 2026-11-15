@@ -660,6 +660,20 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 }
 
 
+/* Cuenta atrás del Jueves Lardero en el inicio */
+.zona #app .lardero-countdown{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 0 24px;padding:22px 25px;border:1px solid rgba(117,35,48,.16);border-radius:18px;background:linear-gradient(115deg,#f8eee9 0%,#fffaf1 100%);box-shadow:0 5px 18px rgba(59,44,28,.045)}
+.zona #app .lardero-copy{min-width:0}
+.zona #app .lardero-copy .tag{color:#79313d;font-size:10px;font-weight:700;letter-spacing:.13em}
+.zona #app .lardero-copy h2{margin:4px 0 2px;color:#54232d;font:700 29px "Cormorant Garamond",Georgia,serif}
+.zona #app .lardero-copy p{margin:0;color:#725d59;font-size:12px;line-height:1.45}
+.zona #app .lardero-copy>small{display:block;margin-top:7px;color:#79313d;font-size:12px;font-weight:700;text-transform:capitalize}
+.zona #app .lardero-timer{display:grid;grid-template-columns:repeat(4,minmax(58px,1fr));gap:8px;flex:none}
+.zona #app .lardero-unit{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:58px;padding:9px 8px;border:1px solid rgba(117,35,48,.13);border-radius:12px;background:rgba(255,255,255,.72)}
+.zona #app .lardero-unit b{color:#54232d;font:700 25px "Cormorant Garamond",Georgia,serif;line-height:1.1;font-variant-numeric:tabular-nums}
+.zona #app .lardero-unit small{margin-top:3px;color:#806b66;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.zona #app .lardero-today{grid-column:1/-1;padding:14px 18px;border-radius:12px;background:#54232d;color:#fff;font:700 20px "Cormorant Garamond",Georgia,serif;text-align:center}
+@media(max-width:650px){.zona #app .lardero-countdown{align-items:stretch;flex-direction:column;gap:15px;padding:18px 15px}.zona #app .lardero-copy h2{font-size:26px}.zona #app .lardero-timer{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.zona #app .lardero-unit{min-width:0;padding:8px 4px}.zona #app .lardero-unit b{font-size:23px}.zona #app .lardero-unit small{font-size:8px}}
+
 /* Menú lateral de zona hermana: identidad, orientación y accesos */
 .mn{width:min(360px,90vw);padding:0;gap:0;overflow:hidden}
 .mn-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(18px + env(safe-area-inset-top,0px)) 18px 16px;border-bottom:1px solid var(--ln);background:linear-gradient(135deg,var(--gs),var(--pa))}
