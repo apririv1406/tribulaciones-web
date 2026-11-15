@@ -31,7 +31,24 @@ function normalizarTelefono(valor) {
 /* ---------- arranque ---------- */
 let ready;
 async function init(env) {
-  ready ??= (async () => { await ensureSchema(env.DB); await bootstrap(env); })().catch(e => { ready = null; throw e; });
+  ready ??= (async () => {
+    let etapa = 'ensureSchema';
+    try {
+      console.log('[INIT] Iniciando comprobación del esquema');
+      await ensureSchema(env.DB);
+      etapa = 'bootstrap';
+      console.log('[INIT] Esquema comprobado; iniciando bootstrap');
+      await bootstrap(env);
+      console.log('[INIT] Inicialización completada');
+    } catch (e) {
+      console.error('[INIT] Fallo durante ' + etapa, {
+        name: e?.name || 'Error',
+        message: e?.message || String(e),
+        stack: e?.stack || null
+      });
+      throw e;
+    }
+  })().catch(e => { ready = null; throw e; });
   await ready;
 }
 async function bootstrap(env) {
