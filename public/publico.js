@@ -10,9 +10,9 @@ document.querySelectorAll('.phi img').forEach(i => i.addEventListener('error', (
 
 const menuItems = [
   { label:'Inicio', href:'/' },
-  { group:'Historia', items:[['Nuestra historia','/historia/'],['Hermandad','/#hermandad']] },
-  { label:'Cuaresma', href:'/#cuaresma' },
-  { group:'Publicaciones', items:[['Noticias','/noticias/'],['Crónicas','/cronicas/']] },
+  { group:'Quiénes somos', items:[['Nuestra historia','/historia/'],['Hermandad','/#hermandad'],['Hermanas','/#hermanas']] },
+  { group:'Nuestra Cuaresma', items:[['Sábados de Romanos','/#cuaresma'],['Crónicas','/cronicas/']] },
+  { group:'Actualidad', items:[['Noticias','/noticias/']] },
   { label:'Zona hermana', href:'/zona/' }
 ];
 function menu(abrir) {
@@ -38,7 +38,7 @@ fetch('/api/public').then(r => r.json()).then(d => {
   if (d.hermanas.length) {
     $('#hermanas-l').innerHTML = d.hermanas.map(h => `<div class="card" style="text-align:center;padding:22px 14px"><div class="av">${h.foto ? `<img src="/media/${h.foto}" alt="${esc(h.nombre)}" loading="lazy">` : iniciales(h.nombre)}</div><b>${esc(h.nombre)}</b><br><span class="mu">${esc(h.cargo || 'Hermana')}</span>${h.anio ? `<br><small class="mu">${Number(h.anio) === 2007 ? 'Fundadora' : `En el cuartel desde ${h.anio}`}</small>` : ''}</div>`).join('');
   } else $('#hermanas-l').innerHTML = '<p class="mu">Estamos preparando este espacio. Las hermanas que tengan activada la opción «Aparece en la web» se mostrarán aquí.</p>';
-  const publicaciones = (d.noticias || []).slice(0, 3);
+  const publicaciones = (d.noticias || []).filter(n => n.tipo !== 'cronica').slice(0, 3);
   $('#noticias-l').innerHTML = publicaciones.length
     ? publicaciones.map(n => `<article class="home-news-card">
         <a class="home-news-photo" href="/${n.tipo==='cronica'?'cronicas':'noticias'}/${n.id}/" aria-label="Leer ${esc(n.titulo)}">
