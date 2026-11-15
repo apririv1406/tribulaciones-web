@@ -101,7 +101,7 @@ r = await call('POST', '/api/auth/login', { email: 'bloqueo@ejemplo.com', passwo
 // 15 invitación por WhatsApp sin servicios de correo
 const e2 = { ...env };
 const w = await worker.fetch(new Request('https://ejemplo.es/api/admin/hermanas/' + aid + '/invitar', { method: 'POST', headers: { 'X-Requested-With': 'fetch', cookie: adm, 'Content-Type': 'application/json' } }), e2);
-assert.equal(w.status, 200); assert.match((await w.json()).whatsapp, /^https:\/\/wa\.me\//);
+assert.equal(w.status, 400); assert.match((await w.json()).error, /teléfono de WhatsApp/i);
 // 16 parámetros configurables, sorteo equilibrado y presupuesto automático de cocina
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com', telefono: '+34600111223' }, adm); assert.equal(r.status, 200); const hermanaInvitadasId = r.data.id;
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 2', email: 'prueba2@ejemplo.com' }, adm); assert.equal(r.status, 200); const hermanaDosId = r.data.id;
