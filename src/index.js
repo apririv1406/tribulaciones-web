@@ -111,9 +111,15 @@ async function userOf(req, env) {
 }
 async function session(req, env, hid, body = { ok: true }, redirect) {
   const raw = rand(32);
-  await env.DB.prepare('DELETE FROM sesiones WHERE expira<?').bind(Date.now()).run();
-  await env.DB.prepare('INSERT INTO sesiones VALUES(?,?,?)').bind(await sha(raw), hid, Date.now() + 30 * 864e5).run();
-  await env.DB.prepare("UPDATE hermanas SET ultimo_acceso=datetime('now') WHERE id=?").bind(hid).run();
+  const ahora = Date.now();
+  // La creación de la sesión y la actualización del último acceso deben ser
+  // una única operación: si una escritura falla, no dejamos el inicio de
+  // sesión a medias. D1 ejecuta batch dentro de una transacción.
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM sesiones WHERE expira<?').bind(ahora),
+    env.DB.prepare('INSERT INTO sesiones(id,hermana_id,expira) VALUES(?,?,?)').bind(await sha(raw), hid, ahora + 30 * 864e5),
+    env.DB.prepare("UPDATE hermanas SET ultimo_acceso=datetime('now') WHERE id=?").bind(hid)
+  ]);
   const c = setCookie(req, 'sid', raw, 30 * 86400);
   if (redirect) return new Response(null, { status: 302, headers: { Location: redirect, 'Set-Cookie': c, 'Cache-Control': 'no-store' } });
   return J(body, 200, { 'Set-Cookie': c });
