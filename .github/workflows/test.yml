@@ -16,6 +16,8 @@ jobs:
           node-version: 22
       - run: node --version
       - run: node --check public/zona.js
+      - run: node --check public/noticias.js
+      - run: node --check public/cronicas.js
       - run: node --check src/index.js
       - run: node --check src/modulos.js
       - run: node --check src/schema.js
