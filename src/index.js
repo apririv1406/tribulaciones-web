@@ -312,7 +312,7 @@ function tarjetaPublicacion(n, raiz) {
 }
 async function paginaListado(env, req, tipo) {
   const raiz = tipo === 'cronica' ? 'cronicas' : 'noticias';
-  const assetReq = new Request(req.url, { method: 'GET', headers: req.headers });
+  const assetReq = new Request(req.url, { method: 'GET' });
   const asset = await env.ASSETS.fetch(assetReq);
   if (!asset.ok) return req.method === 'HEAD' ? new Response(null, { status: asset.status, headers: asset.headers }) : asset;
   const plantilla = await asset.text();
@@ -324,6 +324,11 @@ async function paginaListado(env, req, tipo) {
   const contenido = tarjetas || '<p class="empty-news">' + vacio + '</p>';
   const html = plantilla.replace(marcador, '<section id="news-archive" class="news-archive" aria-live="polite">' + contenido + '</section>');
   const headers = new Headers(asset.headers);
+  headers.delete('Content-Length');
+  headers.delete('Content-Encoding');
+  headers.delete('Content-MD5');
+  headers.delete('ETag');
+  headers.delete('Accept-Ranges');
   headers.set('Content-Type', 'text/html; charset=utf-8');
   headers.set('Cache-Control', 'public, max-age=120');
   headers.set('X-Content-Type-Options', 'nosniff');
