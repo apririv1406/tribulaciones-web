@@ -29,29 +29,28 @@ function normalizarTelefono(valor) {
 }
 
 /* ---------- arranque ---------- */
-let ready;
 function detalleError(e) {
   return { name: e?.name || 'Error', message: e?.message || String(e), stack: e?.stack || null,
     cause: e?.cause ? { name: e.cause.name || 'Error', message: e.cause.message || String(e.cause) } : null };
 }
 async function init(env, contexto = {}) {
-  ready ??= (async () => {
-    let etapa = 'comprobar_binding_DB';
-    try {
-      if (!env.DB) throw new Error('No existe el binding D1 env.DB en este entorno');
-      etapa = 'ensureSchema';
-      console.log('[INIT] Iniciando comprobación del esquema');
-      await ensureSchema(env.DB);
-      etapa = 'bootstrap';
-      console.log('[INIT] Esquema comprobado; iniciando bootstrap');
-      await bootstrap(env);
-      console.log('[INIT] Inicialización completada');
-    } catch (e) {
-      console.error('[INIT_DIAGNOSTICO] ' + JSON.stringify({ etapa, contexto, error: detalleError(e), timestamp: new Date().toISOString() }));
-      throw e;
-    }
-  })().catch(e => { ready = null; throw e; });
-  await ready;
+  // No guardar esta promesa en una variable global del módulo: Cloudflare puede
+  // reutilizar el isolate entre peticiones, pero cada petición tiene su propio
+  // ciclo de vida. Una promesa creada en una petición no puede resolverse en otra.
+  let etapa = 'comprobar_binding_DB';
+  try {
+    if (!env.DB) throw new Error('No existe el binding D1 env.DB en este entorno');
+    etapa = 'ensureSchema';
+    console.log('[INIT] Iniciando comprobación del esquema');
+    await ensureSchema(env.DB);
+    etapa = 'bootstrap';
+    console.log('[INIT] Esquema comprobado; iniciando bootstrap');
+    await bootstrap(env);
+    console.log('[INIT] Inicialización completada');
+  } catch (e) {
+    console.error('[INIT_DIAGNOSTICO] ' + JSON.stringify({ etapa, contexto, error: detalleError(e), timestamp: new Date().toISOString() }));
+    throw e;
+  }
 }
 async function bootstrap(env) {
   const n = await env.DB.prepare('SELECT COUNT(*) n FROM hermanas').first();
