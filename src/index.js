@@ -76,6 +76,13 @@ export default {
       if (p === '/sitemap.xml' && (req.method === 'GET' || req.method === 'HEAD')) {
         await init(env, { method: req.method, path: p, ray: req.headers.get('cf-ray') }); return await sitemapNoticias(env, url.origin);
       }
+      if ((p === '/noticias' || p === '/cronicas') && (req.method === 'GET' || req.method === 'HEAD')) {
+        return new Response(null, { status: 308, headers: { Location: url.origin + p + '/' } });
+      }
+      if ((p === '/noticias/' || p === '/cronicas/') && (req.method === 'GET' || req.method === 'HEAD')) {
+        await init(env, { method: req.method, path: p, ray: req.headers.get('cf-ray') });
+        return await paginaListado(env, req, p === '/cronicas/' ? 'cronica' : 'noticia');
+      }
       const article = p.match(/^\/(noticias|cronicas)\/(\d+)\/?$/);
       if (article && (req.method === 'GET' || req.method === 'HEAD')) {
         await init(env, { method: req.method, path: p, ray: req.headers.get('cf-ray') }); return await paginaContenido(env, +article[2], url.origin, article[1] === 'cronicas' ? 'cronica' : 'noticia');
@@ -285,6 +292,43 @@ async function noticiasPublicas(env, tipo) {
   return J(r.results, 200, { 'Cache-Control': 'no-store' });
 }
 const htmlEsc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+function fechaPublicacion(valor) {
+  const partes = String(valor || '').split('-');
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  if (partes.length !== 3 || !/^\d{4}$/.test(partes[0]) || !/^\d{2}$/.test(partes[1]) || !/^\d{2}$/.test(partes[2])) return String(valor || '');
+  const mes = Number(partes[1]);
+  return mes >= 1 && mes <= 12 ? Number(partes[2]) + ' de ' + meses[mes - 1] + ' de ' + partes[0] : String(valor || '');
+}
+function tarjetaPublicacion(n, raiz) {
+  const id = Number(n.id);
+  if (!Number.isSafeInteger(id) || id < 1) return '';
+  const titulo = htmlEsc(n.titulo);
+  const texto = String(n.texto || '').replace(/\s+/g, ' ').trim();
+  const resumen = htmlEsc(texto.length > 185 ? texto.slice(0, 182).trimEnd() + '…' : texto);
+  const fecha = htmlEsc(fechaPublicacion(n.fecha));
+  const imagen = n.imagen ? '<img src="/media/' + Number(n.imagen) + '" alt="' + titulo + '" loading="lazy">' : 'Las Tribulaciones de Sara';
+  const etiqueta = raiz === 'cronicas' ? 'Leer crónica completa' : 'Leer noticia completa';
+  return '<a class="card news-card" href="/' + raiz + '/' + id + '/"><div class="cover">' + imagen + '</div><div class="body"><time datetime="' + htmlEsc(n.fecha) + '">' + fecha + '</time><h2>' + titulo + '</h2><p>' + resumen + '</p><span class="read">' + etiqueta + ' →</span></div></a>';
+}
+async function paginaListado(env, req, tipo) {
+  const raiz = tipo === 'cronica' ? 'cronicas' : 'noticias';
+  const assetReq = new Request(req.url, { method: 'GET', headers: req.headers });
+  const asset = await env.ASSETS.fetch(assetReq);
+  if (!asset.ok) return req.method === 'HEAD' ? new Response(null, { status: asset.status, headers: asset.headers }) : asset;
+  const plantilla = await asset.text();
+  const marcador = /<section id="news-archive" class="news-archive" aria-live="polite">[\s\S]*?<\/section>/;
+  if (!marcador.test(plantilla)) return new Response('No se ha encontrado la plantilla de publicaciones', { status: 500, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  const r = await env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen FROM noticias WHERE tipo=? ORDER BY fecha DESC,id DESC').bind(tipo).all();
+  const tarjetas = r.results.map(n => tarjetaPublicacion(n, raiz)).filter(Boolean).join('');
+  const vacio = tipo === 'cronica' ? 'Todavía no hay crónicas publicadas. Pronto compartiremos aquí nuevas crónicas y recuerdos.' : 'Todavía no hay noticias publicadas. Pronto compartiremos aquí nuevas noticias y recuerdos.';
+  const contenido = tarjetas || '<p class="empty-news">' + vacio + '</p>';
+  const html = plantilla.replace(marcador, '<section id="news-archive" class="news-archive" aria-live="polite">' + contenido + '</section>');
+  const headers = new Headers(asset.headers);
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  headers.set('Cache-Control', 'public, max-age=120');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  return new Response(req.method === 'HEAD' ? null : html, { status: asset.status, statusText: asset.statusText, headers });
+}
 async function paginaContenido(env, id, base, tipo) {
   const n = await env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen,url,tipo FROM noticias WHERE id=? AND tipo=?').bind(id,tipo).first();
   const raiz = tipo === 'cronica' ? 'cronicas' : 'noticias', etiqueta = tipo === 'cronica' ? 'Crónica de Cuaresma' : 'Noticias del cuartel';
