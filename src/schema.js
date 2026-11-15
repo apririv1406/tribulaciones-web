@@ -211,7 +211,7 @@ async function ensureColumn(db, table, column, definition) {
 }
 
 export async function ensureSchema(db) {
-  let etapa = 'crear_meta', migracion = null, sentencia = null;
+  let etapa = 'crear_meta', migracion = null, sentenciasLote = null;
   try {
   await db.prepare('CREATE TABLE IF NOT EXISTS meta(clave TEXT PRIMARY KEY,valor TEXT)').run();
   etapa = 'leer_version_esquema';
@@ -219,9 +219,9 @@ export async function ensureSchema(db) {
   let cur = r ? +r.valor : 0;
   for (const m of MIGRATIONS) {
     if (m.v > cur) {
-      migracion = m.v; etapa = 'aplicar_migracion'; sentencia = null;
-      await db.batch(m.sql.map((s, i) => { sentencia = i + 1; return db.prepare(s); }));
-      etapa = 'guardar_version_esquema'; sentencia = null;
+      migracion = m.v; etapa = 'aplicar_migracion'; sentenciasLote = m.sql.length;
+      await db.batch(m.sql.map(s => db.prepare(s)));
+      etapa = 'guardar_version_esquema'; sentenciasLote = null;
       await db.prepare("INSERT OR REPLACE INTO meta(clave,valor) VALUES('schema',?)").bind(String(m.v)).run();
       cur = m.v;
     }
@@ -275,7 +275,7 @@ export async function ensureSchema(db) {
     await db.prepare("INSERT OR REPLACE INTO meta(clave,valor) VALUES('lts_alergias_migradas','1')").run();
   }
   } catch (e) {
-    console.error('[SCHEMA_DIAGNOSTICO] ' + JSON.stringify({ etapa, migracion, sentencia,
+    console.error('[SCHEMA_DIAGNOSTICO] ' + JSON.stringify({ etapa, migracion, sentenciasLote,
       name: e?.name || 'Error', message: e?.message || String(e), stack: e?.stack || null }));
     throw e;
   }
