@@ -259,6 +259,7 @@ export const MIGRATIONS = [
     INSERT INTO cuotas(hermana_id,periodo,importe_centimos)
     SELECT h.id,x.periodo,3500
     FROM hermanas h JOIN x ON lower(trim(h.nombre))=lower(x.nombre)
+    WHERE 1
     ON CONFLICT(hermana_id,periodo) DO UPDATE SET importe_centimos=excluded.importe_centimos`,
     // Conceptos independientes de las cuotas mensuales.
     "INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)\n    SELECT id,'Semana Santa','PAPELETAS + CUARESMA + SEMANA SANTA',15000,'importacion:cuotas-2026:cristina-leyva:extraordinaria','importacion_extraordinaria'\n    FROM hermanas WHERE lower(trim(nombre))=lower('Cristina Leyva Celemín')\n    ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo=excluded.grupo",
