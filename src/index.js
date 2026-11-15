@@ -102,7 +102,7 @@ async function route(req, env, url, p) {
   if (m === 'GET' && p === '/api/auth/google/callback') return gCallback(req, env, url);
   const b = m === 'POST' || m === 'PUT' ? await req.json().catch(() => ({})) : {};
   if (m === 'POST' && p === '/api/auth/login') return login(req, env, b);
-  if (m === 'POST' && p === '/api/auth/forgot') return forgot(req, env, b);
+  if (m === 'POST' && p === '/api/auth/forgot') return E('Ponte en contacto con la administradora por WhatsApp para restablecer tu contraseña.', 410);
   if (m === 'POST' && p === '/api/auth/password/set') return passSet(req, env, b);
   if (m === 'POST' && p === '/api/setup') return setup(req, env, b);
   const me = await userOf(req, env);
@@ -165,16 +165,6 @@ async function login(req, env, b) {
   const ok = h ? await checkPw(pw, h.pass_hash) : (await derive(pw, new Uint8Array(16)), false);
   if (!ok || h.estado === 'Baja') { await fail(env, 'l:' + email); await fail(env, 'i:' + ip); return E('Correo o contraseña incorrectos', 401); }
   return session(req, env, h.id);
-}
-async function forgot(req, env, b) {
-  const email = String(b.email || '').trim().toLowerCase(), ip = ipOf(req);
-  if (await limited(env, 'f:' + ip, 10, 36e5)) return E('Demasiadas solicitudes. Inténtalo más tarde.', 429);
-  await fail(env, 'f:' + ip);
-  const h = await env.DB.prepare("SELECT id,nombre,email,pass_hash FROM hermanas WHERE email=? AND estado!='Baja'").bind(email).first();
-  // Se conserva el mecanismo anterior como compatibilidad, aunque la interfaz
-  // nueva indica pedir el restablecimiento a la administradora por correo electrónico.
-  if (h) await enviarEnlace(env, req, h, h.pass_hash ? 'reset' : 'invitacion');
-  return J({ ok: true });
 }
 async function passSet(req, env, b) {
   const pw = String(b.password || '');
@@ -265,40 +255,6 @@ async function gCallback(req, env, url) {
   return session(req, env, h.id, null, o + '/zona/#/');
 }
 
-/* ---------- correo (se conserva para compatibilidad) ---------- */
-async function getCfg(env) {
-  const c = { mail_asunto: 'Bienvenida a la web de Las Tribulaciones de Sara', mail_mensaje: '' };
-  (await env.DB.prepare('SELECT clave,valor FROM config').all()).results.forEach(r => (c[r.clave] = r.valor));
-  return c;
-}
-async function sendMail(env, to, subject, html) {
-  if (!env.RESEND_API_KEY || !env.MAIL_FROM) return { ok: false, aviso: 'El correo todavía no está configurado (faltan RESEND_API_KEY y MAIL_FROM).' };
-  const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: env.MAIL_FROM, to: [to], subject, html }) });
-  if (!r.ok) { console.error('resend', r.status, await r.text()); return { ok: false, aviso: 'No se pudo enviar el correo (error ' + r.status + ').' }; }
-  return { ok: true };
-}
-function mailShell(env, req, cuerpo, boton, url, pie) {
-  const o = origin(env, req);
-  return `<!doctype html><html lang="es"><body style="margin:0;background:#fbf6e9;font-family:Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#fffdf8;border:1px solid #efe5cd;border-radius:16px;overflow:hidden"><tr><td align="center" style="background:#3b2c1c;padding:22px"><img src="${o}/logo.png" width="84" alt="" style="display:block"><div style="font:700 24px Georgia,serif;color:#e8c23a;margin-top:8px">Las Tribulaciones de Sara</div></td></tr><tr><td style="padding:26px;color:#33261a;font-size:15px;line-height:1.6">${cuerpo}<p style="text-align:center;margin:26px 0"><a href="${esc(url)}" style="background:#e8c23a;color:#3b2c1c;font-weight:bold;text-decoration:none;padding:13px 26px;border-radius:99px;display:inline-block">${esc(boton)}</a></p><p style="font-size:12px;color:#8a7a68;margin:0">${pie}</p></td></tr></table></td></tr></table></body></html>`;
-}
-const mailBienvenida = (env, req, nombre, url, msg) => mailShell(env, req,
-  `<h2 style="margin:0 0 12px;font-family:Georgia,serif">Bienvenida a nuestra web, ${esc(nombre)}</h2><p>Ya tienes acceso a la Zona hermana, el espacio privado del cuartel. Poco a poco irás encontrando ahí la confirmación de asistencia a los sábados, tus cuotas, las actas y las convocatorias.</p>${msg ? `<p style="font-style:italic">${esc(msg)}</p>` : ''}<p><b>Cómo empezar</b></p><ol style="padding-left:20px"><li>Pulsa el botón de abajo.</li><li>La primera vez que accedas, crea tu contraseña.</li><li>Desde entonces entras con tu correo y tu contraseña, o con Google si usas este mismo correo.</li></ol>`,
-  'Crear mi contraseña', url, 'El enlace es personal y caduca en 7 días. Si no lo esperabas, puedes ignorar este correo.');
-const mailReset = (env, req, nombre, url) => mailShell(env, req,
-  `<h2 style="margin:0 0 12px;font-family:Georgia,serif">Hola, ${esc(nombre)}</h2><p>Has pedido crear una contraseña nueva para la Zona hermana de Las Tribulaciones de Sara. Pulsa el botón para elegirla.</p>`,
-  'Crear contraseña nueva', url, 'El enlace es personal y caduca en 24 horas. Si no lo has pedido tú, puedes ignorar este correo: tu contraseña actual sigue funcionando.');
-async function enviarEnlace(env, req, h, tipo) {
-  const tok = rand(32), horas = tipo === 'reset' ? 24 : 168;
-  await env.DB.prepare('DELETE FROM tokens WHERE hermana_id=?').bind(h.id).run();
-  await env.DB.prepare('INSERT INTO tokens VALUES(?,?,?,?)').bind(await sha(tok), h.id, tipo, Date.now() + horas * 36e5).run();
-  const link = `${origin(env, req)}/zona/#/clave/${tok}`, cfg = await getCfg(env);
-  const res = tipo === 'reset'
-    ? await sendMail(env, h.email, 'Crea una contraseña nueva', mailReset(env, req, h.nombre, link))
-    : await sendMail(env, h.email, cfg.mail_asunto, mailBienvenida(env, req, h.nombre, link, cfg.mail_mensaje));
-  if (tipo === 'invitacion' && res.ok) await env.DB.prepare("UPDATE hermanas SET invitada=datetime('now') WHERE id=?").bind(h.id).run();
-  return res;
-}
-
 /* ---------- imágenes ---------- */
 async function guardarImagen(env, dataUrl) {
   const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ''));
@@ -366,16 +322,6 @@ async function admin(req, env, me, m, p, b) {
   if (m === 'GET' && p === '/api/admin/cargos') return J((await env.DB.prepare('SELECT c.id,c.nombre,c.permiso,(SELECT COUNT(*) FROM hermanas h WHERE h.cargo_id=c.id) usos FROM cargos c ORDER BY c.orden,c.id').all()).results);
   if (m === 'POST' && p === '/api/admin/cargos') return cargoGuardar(env, null, b);
   if ((m === 'PUT' || m === 'DELETE') && (r = p.match(/^\/api\/admin\/cargos\/(\d+)$/))) return m === 'PUT' ? cargoGuardar(env, +r[1], b) : cargoBorrar(env, +r[1]);
-  if (m === 'GET' && p === '/api/admin/correo') return J(await getCfg(env));
-  if (m === 'PUT' && p === '/api/admin/correo') {
-    const a = String(b.mail_asunto || '').trim().slice(0, 150) || 'Bienvenida a la web de Las Tribulaciones de Sara', t = String(b.mail_mensaje || '').trim().slice(0, 600);
-    await env.DB.batch([env.DB.prepare('INSERT OR REPLACE INTO config VALUES(?,?)').bind('mail_asunto', a), env.DB.prepare('INSERT OR REPLACE INTO config VALUES(?,?)').bind('mail_mensaje', t)]);
-    return J({ ok: true });
-  }
-  if (m === 'POST' && p === '/api/admin/correo/prueba') {
-    const cfg = await getCfg(env), res = await sendMail(env, me.email, cfg.mail_asunto, mailBienvenida(env, req, me.nombre, origin(env, req) + '/zona/', cfg.mail_mensaje));
-    return J({ ok: true, enviado: res.ok, aviso: res.aviso });
-  }
   if (m === 'GET' && p === '/api/admin/noticias') return J((await env.DB.prepare('SELECT id,titulo,texto,fecha,imagen_id imagen,url,tipo FROM noticias ORDER BY fecha DESC,id DESC').all()).results);
   if (m === 'POST' && p === '/api/admin/noticias') return noticiaGuardar(env, me, null, b);
   if ((m === 'PUT' || m === 'DELETE') && (r = p.match(/^\/api\/admin\/noticias\/(\d+)$/))) {
@@ -457,9 +403,13 @@ async function enviarA(env, req, id, que) {
     const mensaje = `¡Hola, ${h.nombre}! Te damos la bienvenida a la Zona hermana de Las Tribulaciones de Sara. Desde aquí podrás consultar la información y realizar las gestiones del cuartel. Para activar tu acceso y crear tu contraseña, entra en este enlace personal (válido durante 7 días): ${link}`;
     return J({ ok:true, whatsapp:`https://wa.me/${h.telefono}?text=${encodeURIComponent(mensaje)}` });
   }
-  if (!h.email) return E('Añade primero el correo electrónico de esta hermana');
-  const res = await enviarEnlace(env, req, h, 'reset');
-  return J({ ok:true,enviado:res.ok,aviso:res.aviso||null });
+  if (!h.telefono) return E('Añade primero el teléfono de WhatsApp de esta hermana');
+  const tok = rand(32), horas = 24;
+  await env.DB.prepare('DELETE FROM tokens WHERE hermana_id=?').bind(h.id).run();
+  await env.DB.prepare('INSERT INTO tokens VALUES(?,?,?,?)').bind(await sha(tok), h.id, 'reset', Date.now() + horas * 36e5).run();
+  const link = `${origin(env, req)}/zona/#/clave/${tok}`;
+  const mensaje = `¡Hola, ${h.nombre}! Te enviamos un enlace para crear una nueva contraseña de acceso a la Zona hermana de Las Tribulaciones de Sara. El enlace es personal y caduca en 24 horas: ${link}`;
+  return J({ ok:true, whatsapp:`https://wa.me/${h.telefono}?text=${encodeURIComponent(mensaje)}` });
 }
 async function cargoGuardar(env, id, b) {
   const nombre = String(b.nombre || '').trim(), permiso = b.permiso || 'none';
