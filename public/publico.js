@@ -77,7 +77,7 @@ fetch('/api/cronicas').then(r => {
     <div class="home-news-body">
       <small class="home-news-meta">CRÓNICA · ${esc(fecha(n.fecha))}</small>
       <h3>${esc(n.titulo)}</h3>
-      <p>${esc(String(n.texto || '').replace(/\\s+/g, ' ').trim().slice(0, 165))}${String(n.texto || '').trim().length > 165 ? '…' : ''}</p>
+      <p>${esc(String(n.texto || '').replace(/\s+/g, ' ').trim().slice(0, 165))}${String(n.texto || '').trim().length > 165 ? '…' : ''}</p>
       <div class="home-news-actions"><a class="home-news-read" href="/cronicas/${encodeURIComponent(n.id)}/">Leer crónica</a></div>
     </div>
   </article>`).join('');
