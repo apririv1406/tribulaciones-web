@@ -15,9 +15,8 @@ function d1() {
   });
   return { prepare: s => stm(s), batch: async a => a.map(s => { const r=s._run(); return { meta: { last_row_id: Number(r.lastInsertRowid), changes: r.changes }, changes: r.changes }; }) };
 }
-const correos = [];
-globalThis.fetch = async (url, opt) => { if (String(url).includes('resend')) { correos.push({ ...JSON.parse(opt.body) }); return new Response('{}', { status: 200 }); } throw new Error('fetch inesperado ' + url); };
-const env = { DB: d1(), ASSETS: { fetch: () => new Response('asset') }, ADMIN_EMAIL: 'Alba@Ejemplo.com', ADMIN_NAME: 'Alba', SETUP_KEY: 'clave-de-prueba', SITE_URL: 'https://ejemplo.es', RESEND_API_KEY: 'k', MAIL_FROM: 'Cuartel <hola@ejemplo.es>' };
+globalThis.fetch = async url => { throw new Error('No debe realizarse ningún envío externo: ' + url); };
+const env = { DB: d1(), ASSETS: { fetch: () => new Response('asset') }, ADMIN_EMAIL: 'Alba@Ejemplo.com', ADMIN_NAME: 'Alba', SETUP_KEY: 'clave-de-prueba', SITE_URL: 'https://ejemplo.es' };
 const call = async (method, path, body, cookie) => {
   const r = await worker.fetch(new Request('https://ejemplo.es' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch', ...(cookie ? { cookie } : {}) }, body: body ? JSON.stringify(body) : undefined }), env);
   const sc = r.headers.get('set-cookie'); let data = null; try { data = await r.clone().json(); } catch {}
@@ -66,13 +65,12 @@ r = await call('GET', '/api/admin/hermanas', null, adm); assert.equal(r.data.fin
 // 6 permisos
 r = await call('GET', '/api/admin/hermanas', null, lau); assert.equal(r.status, 403);
 r = await call('GET', '/api/admin/hermanas'); assert.equal(r.status, 401); ok('una hermana normal no entra en administración');
-// 7 olvido de contraseña
-const n0 = correos.length; r = await call('POST', '/api/auth/forgot', { email: 'laura@ejemplo.com' }); assert.equal(r.status, 200); assert.equal(correos.length, n0 + 1); assert.match(correos.at(-1).html, /Crear contraseña nueva/);
-r = await call('POST', '/api/auth/forgot', { email: 'noexiste@ejemplo.com' }); assert.equal(r.status, 200); assert.equal(correos.length, n0 + 1);
-r = await call('POST', `/api/admin/hermanas/${lid}/reset`, null, adm); assert.equal(r.data.enviado, true); const tok2 = /#\/clave\/([\w-]+)/.exec(correos.at(-1).html)[1];
+// 7 restablecimiento de contraseña solo por WhatsApp
+r = await call('POST', '/api/auth/forgot', { email: 'laura@ejemplo.com' }); assert.equal(r.status, 410);
+r = await call('POST', `/api/admin/hermanas/${lid}/reset`, null, adm); assert.equal(r.status, 200); assert.match(r.data.whatsapp, /^https:\/\/wa\.me\//); const tok2 = /#\/clave\/([\w-]+)/.exec(new URL(r.data.whatsapp).searchParams.get('text'))[1];
 r = await call('POST', '/api/auth/password/set', { token: tok2, password: 'Nueva-Clave-77' }); assert.equal(r.status, 200);
 r = await call('GET', '/api/me', null, lau); assert.equal(r.status, 401); // cambiar la contraseña cierra sesiones antiguas
-r = await call('POST', '/api/auth/login', { email: 'laura@ejemplo.com', password: 'Laura-2026-ok' }); assert.equal(r.status, 401); ok('olvido y restablecer (administradora): no revela si el correo existe, y cierra sesiones antiguas');
+r = await call('POST', '/api/auth/login', { email: 'laura@ejemplo.com', password: 'Laura-2026-ok' }); assert.equal(r.status, 401); ok('restablecimiento por WhatsApp y cierre de sesiones antiguas');
 // 8 foto en la hermana → aparece en público
 r = await call('PUT', `/api/admin/hermanas/${lid}`, { cargo_id: 1, anio_entrada: 2010, visible_web: false, foto }, adm); assert.equal(r.status, 200); const fid = r.data.foto; assert.ok(fid);
 r = await call('GET', '/api/public'); assert.equal(r.data.hermanas.length, 0);
@@ -100,14 +98,14 @@ r = await call('PUT', '/api/admin/hitos', { hitos: [{ anio: '2007', texto: 'Inic
 // 14 bloqueo por intentos
 for (let i = 0; i < 8; i++) await call('POST', '/api/auth/login', { email: 'bloqueo@ejemplo.com', password: 'x' });
 r = await call('POST', '/api/auth/login', { email: 'bloqueo@ejemplo.com', password: 'x' }); assert.equal(r.status, 429); ok('bloqueo tras demasiados intentos');
-// 15 sin correo configurado
-const e2 = { ...env, RESEND_API_KEY: undefined };
+// 15 invitación por WhatsApp sin servicios de correo
+const e2 = { ...env };
 const w = await worker.fetch(new Request('https://ejemplo.es/api/admin/hermanas/' + aid + '/invitar', { method: 'POST', headers: { 'X-Requested-With': 'fetch', cookie: adm, 'Content-Type': 'application/json' } }), e2);
-console.log('  ·', w.status, 'sin Resend:', (await w.json()).error ?? 'responde con aviso');
+assert.equal(w.status, 200); assert.match((await w.json()).whatsapp, /^https:\/\/wa\.me\//);
 // 16 parámetros configurables, sorteo equilibrado y presupuesto automático de cocina
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 1', email: 'prueba1@ejemplo.com', telefono: '+34600111223' }, adm); assert.equal(r.status, 200); const hermanaInvitadasId = r.data.id;
 r = await call('POST', '/api/admin/hermanas', { nombre: 'Hermana de prueba 2', email: 'prueba2@ejemplo.com' }, adm); assert.equal(r.status, 200); const hermanaDosId = r.data.id;
-r = await call('POST', '/api/modulos/actas/juntas', { fecha: '2099-01-02', hora: '12:00', lugar: 'Cuartel', convocatoria: 'Junta de prueba', orden_dia: 'Tesorería y organización' }, adm); assert.equal(r.status, 200); const juntaPruebaId = r.data.id; assert.ok(r.data.correos_enviados >= 3);
+r = await call('POST', '/api/modulos/actas/juntas', { fecha: '2099-01-02', hora: '12:00', lugar: 'Cuartel', convocatoria: 'Junta de prueba', orden_dia: 'Tesorería y organización' }, adm); assert.equal(r.status, 200); const juntaPruebaId = r.data.id; assert.equal(r.data.correos_enviados, undefined);
 r = await call('PUT', '/api/modulos/actas/juntas/'+juntaPruebaId+'/asistencia', { hermanas: [aid, hermanaInvitadasId, hermanaDosId] }, adm); assert.equal(r.status, 200); assert.equal(r.data.total, 3);
 r = await call('GET', '/api/modulos/actas', null, adm); assert.equal(r.status, 200); assert.equal(r.data.juntas.find(x => x.id === juntaPruebaId).asistentes, 3);
 r = await call('PUT', '/api/modulos/actas/juntas/'+juntaPruebaId+'/acta', { texto: 'Acta de prueba con acuerdos adoptados.', acuerdos: 'Revisar tesorería.' }, adm); assert.equal(r.status, 200);
