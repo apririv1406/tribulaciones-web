@@ -13,6 +13,7 @@ const menuItems = [
   { group:'Historia', items:[['Nuestra historia','/historia/'],['Hermandad','/#hermandad']] },
   { label:'Cuaresma', href:'/#cuaresma' },
   { group:'Publicaciones', items:[['Noticias','/noticias/'],['Crónicas','/cronicas/']] },
+  { label:'Instalar en móvil', href:'/#instalar' },
   { label:'Zona hermana', href:'/zona/' }
 ];
 function menu(abrir) {
