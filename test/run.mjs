@@ -150,6 +150,8 @@ assert.ok(r.data.cargos_pendientes.some(c=>c.hermana_id===aid&&c.concepto==='Apo
 assert.ok(!r.data.cargos_pendientes.some(c=>[hermanaInvitadasId,hermanaDosId].includes(c.hermana_id)&&c.concepto==='Aportación de Cuaresma'));
 assert.equal(await env.DB.prepare("SELECT id FROM cargos_hermanas WHERE source_key=?").bind('extra:prueba-pasiva:'+hermanaInvitadasId).first(),null);
 ok('tesorería: cuotas extraordinarias de pago único solo para hermanas activas; pasivas y bajas excluidas');
+r = await call('PUT', '/api/admin/hermanas/'+hermanaInvitadasId, { estado: 'Activa' }, adm); assert.equal(r.status, 200);
+r = await call('PUT', '/api/admin/hermanas/'+hermanaDosId, { estado: 'Activa' }, adm); assert.equal(r.status, 200);
 r = await call('POST', '/api/modulos/tesoreria/gastos-fijos', { concepto: 'Alquiler de prueba', categoria: 'Local', importe: 25, periodicidad: 'mensual', dia: 1, cuenta: 'Caja fuerte', variable: true, mes: 1 }, adm); assert.equal(r.status, 200); const gastoFijoId = r.data.id;
 let tareaProgramada;
 await worker.scheduled({ scheduledTime: Date.UTC(2099, 0, 1, 1, 0, 0) }, env, { waitUntil: p => { tareaProgramada=p; } });
