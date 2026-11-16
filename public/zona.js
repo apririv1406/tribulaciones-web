@@ -7,10 +7,45 @@ const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA433
 let LARDERO_TIMER = null;
 let CAL_MES = new Date(new Date().getFullYear(), new Date().getMonth(), 1), ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_HIST_PAGE = 1, TES_HIST_PAGE_SIZE = 20, TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_FROM = '2026-08-01', TES_REPORT_TO = fechaHoyLocal(), TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_EDIT_MOV_ID = null, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', COCINA_SORTEO_RESULTADO = [], COMPRAS_LISTA_ID = null, COMPRAS_EDITANDO_ID = null, TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
 
+let TES_DATA_CACHE = null, TES_DATA_CACHE_AT = 0, TES_DATA_CACHE_PROMISE = null;
+let TES_HIST_CACHE = null, TES_HIST_CACHE_PROMISE = null;
+const TES_CACHE_TTL = 10000;
+function invalidarCacheTesoreria() {
+  TES_DATA_CACHE = null;
+  TES_DATA_CACHE_AT = 0;
+  TES_DATA_CACHE_PROMISE = null;
+  TES_HIST_CACHE = null;
+  TES_HIST_CACHE_PROMISE = null;
+}
+async function cargarDatosTesoreria() {
+  if (TES_DATA_CACHE && Date.now() - TES_DATA_CACHE_AT < TES_CACHE_TTL) return TES_DATA_CACHE;
+  if (!TES_DATA_CACHE_PROMISE) {
+    TES_DATA_CACHE_PROMISE = api('GET', '/modulos/tesoreria').then(d => {
+      TES_DATA_CACHE = d;
+      TES_DATA_CACHE_AT = Date.now();
+      return d;
+    }).finally(() => { TES_DATA_CACHE_PROMISE = null; });
+  }
+  return TES_DATA_CACHE_PROMISE;
+}
+async function cargarHistoricoTesoreria() {
+  if (TES_HIST_CACHE) return TES_HIST_CACHE;
+  if (!TES_HIST_CACHE_PROMISE) {
+    TES_HIST_CACHE_PROMISE = Promise.all([
+      fetch('/tesoreria-historico.json').then(r => { if (!r.ok) throw new Error('No se ha podido cargar el archivo histórico'); return r.json(); }),
+      api('GET', '/modulos/tesoreria/historico/cuadres')
+    ]).then(([archivo, registro]) => {
+      TES_HIST_CACHE = { archivo, cuadres: registro.cuadres || [] };
+      return TES_HIST_CACHE;
+    }).finally(() => { TES_HIST_CACHE_PROMISE = null; });
+  }
+  return TES_HIST_CACHE_PROMISE;
+}
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error(d.error || 'Ha ocurrido un error'), { status: r.status });
+  if (String(method).toUpperCase() !== 'GET') invalidarCacheTesoreria();
   return d;
 }
 function mostrarPopup(titulo, contenido, err = false) {
@@ -688,14 +723,12 @@ async function vResumenMensual() {
 try { const n=Number(localStorage.getItem('lts-tes-hist-page-size')); if([10,20,50].includes(n)) TES_HIST_PAGE_SIZE=n; } catch(e) {}
 
 async function vTesoreria() {
-  const d = await api('GET', '/modulos/tesoreria');
+  const d = await cargarDatosTesoreria();
   let historico=null, cuadres=[];
   if(['his','inf','res','mov'].includes(TES_TAB)) {
-    const [archivo,registro]=await Promise.all([
-      fetch('/tesoreria-historico.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('No se ha podido cargar el archivo histórico');return r.json();}),
-      api('GET','/modulos/tesoreria/historico/cuadres')
-    ]);
-    historico=archivo; cuadres=registro.cuadres||[];
+    const datosHistoricos = await cargarHistoricoTesoreria();
+    historico = datosHistoricos.archivo;
+    cuadres = datosHistoricos.cuadres;
   }
   const ingresos=d.totales.ingresos, gastos=d.totales.gastos, saldo=d.totales.saldo_centimos;
   const normalizarConceptoLista=x=>String(x||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('es').replace(/[^a-z0-9]+/g,' ').trim();
