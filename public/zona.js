@@ -690,7 +690,7 @@ try { const n=Number(localStorage.getItem('lts-tes-hist-page-size')); if([10,20,
 async function vTesoreria() {
   const d = await api('GET', '/modulos/tesoreria');
   let historico=null, cuadres=[];
-  if(['his','inf'].includes(TES_TAB)) {
+  if(['his','inf','res'].includes(TES_TAB)) {
     const [archivo,registro]=await Promise.all([
       fetch('/tesoreria-historico.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('No se ha podido cargar el archivo histórico');return r.json();}),
       api('GET','/modulos/tesoreria/historico/cuadres')
@@ -701,13 +701,20 @@ async function vTesoreria() {
   const aniosMov=[...new Set(d.movimientos.map(x=>String(x.fecha||'').slice(0,4)).filter(Boolean))].sort().reverse();
   const categoriasBase=d.categorias_gastos||['Comida y bebida','Limpieza','Material y decoración','Mantenimiento y reparaciones','Actividades y eventos','Cofradía y hermandad','Otros'];
   const categoriasMov=[...new Set([...categoriasBase,...d.movimientos.map(x=>x.categoria).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'es'));
-  const movimientosVisibles=d.movimientos.filter(x=>(TES_FILTRO.tipo==='todos'||x.tipo===TES_FILTRO.tipo)&&(!TES_FILTRO.cuenta||x.cuenta===TES_FILTRO.cuenta)&&(!TES_FILTRO.hermana||String(x.hermana_id)===TES_FILTRO.hermana)&&(!TES_FILTRO.anio||String(x.fecha||'').slice(0,4)===TES_FILTRO.anio)&&(!TES_FILTRO.categoria||x.categoria===TES_FILTRO.categoria)&&(!TES_FILTRO.desde||x.fecha>=TES_FILTRO.desde)&&(!TES_FILTRO.hasta||x.fecha<=TES_FILTRO.hasta)&&(!TES_FILTRO.texto||(x.concepto+' '+(x.categoria||'')+' '+(x.hermana||'')).toLowerCase().includes(TES_FILTRO.texto.toLowerCase())));
+  const movimientosVisibles=d.movimientos.filter(x=>(TES_FILTRO.tipo==='todos'||x.tipo===TES_FILTRO.tipo)&&(!TES_FILTRO.cuenta||x.cuenta===TES_FILTRO.cuenta)&&(!TES_FILTRO.hermana||String(x.hermana_id)===TES_FILTRO.hermana)&&(!TES_FILTRO.anio||String(x.fecha||'').slice(0,4)===TES_FILTRO.anio)&&(!TES_FILTRO.categoria||x.categoria===TES_FILTRO.categoria)&&(!TES_FILTRO.desde||x.fecha>=TES_FILTRO.desde)&&(!TES_FILTRO.hasta||x.fecha<=TES_FILTRO.hasta)&&(!TES_FILTRO.texto||(x.concepto+' '+(x.categoria||'')+' '+(x.hermana||'')).toLowerCase().includes(TES_FILTRO.texto.toLowerCase()))).slice().sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||''))||Number(b.id||0)-Number(a.id||0));
   const periodoActual=fechaHoyLocal().slice(0,7);
   const movimientosMes=d.movimientos.filter(x=>x.afecta_resultado!==0&&String(x.fecha||'').startsWith(periodoActual));
   const ingresosMes=movimientosMes.filter(x=>x.tipo==='ingreso').reduce((n,x)=>n+Number(x.importe_centimos||0),0);
   const gastosMes=movimientosMes.filter(x=>x.tipo==='gasto').reduce((n,x)=>n+Number(x.importe_centimos||0),0);
   const pendienteCobro=(d.cuotas_pendientes||[]).reduce((n,x)=>n+Number(x.restante_centimos||0),0)+(d.cargos_pendientes||[]).reduce((n,x)=>n+Number(x.restante_centimos||0),0);
   const pendientesRevision=(d.pagos_pendientes||[]).length+(d.movimientos_pendientes||[]).length+(d.tickets||[]).filter(x=>x.estado==='pendiente'||(!x.estado&&!x.movimiento_id)).length;
+   const movimientosPeriodoInforme=(d.movimientos||[]).filter(x=>x.fecha>=TES_REPORT_FROM&&x.fecha<=TES_REPORT_TO);
+   const contabilizadosActualesInforme=movimientosPeriodoInforme.filter(x=>x.afecta_resultado!==0&&!x.traspaso_id&&(x.tipo==='ingreso'||x.tipo==='gasto'));
+   const firmaMovimientoInforme=x=>[x.fecha,x.tipo,Number(x.importe_centimos||0),String(x.concepto||'').trim().toLocaleLowerCase('es'),String(x.cuenta||'').trim().toLocaleLowerCase('es')].join('|');
+   const firmasActualesInforme=new Set(contabilizadosActualesInforme.map(firmaMovimientoInforme));
+   const historicosPeriodoInforme=(historico?.movimientos||[]).filter(x=>x[1]>=TES_REPORT_FROM&&x[1]<=TES_REPORT_TO&&['ingreso','gasto'].includes(x[5])).map(x=>({id:'historico-'+x[0],fecha:x[1],hermana:x[2],categoria:x[3]||'Sin categoría',concepto:x[4],tipo:x[5],importe_centimos:Number(x[6]||0),cuenta:x[7]||'Cuenta sin indicar',origen_historico:true,afecta_resultado:1})).filter(x=>!firmasActualesInforme.has(firmaMovimientoInforme(x)));
+   const movimientosSituacion=[...contabilizadosActualesInforme,...historicosPeriodoInforme].sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||''))||String(b.id||'').localeCompare(String(a.id||'')));
+   const listaMovimientosSituacion=movimientosSituacion.length?'<div class="monthly-list">'+movimientosSituacion.map(x=>'<div class="monthly-row"><span><b>'+esc(x.concepto)+'</b><small>'+fechaBonita(x.fecha)+' · '+(x.origen_historico?'Histórico Excel':'Contabilidad')+' · '+esc(x.categoria||'Sin categoría')+'</small></span><strong class="'+(x.tipo==='ingreso'?'positive':'negative')+'">'+(x.tipo==='ingreso'?'+':'−')+euros(x.importe_centimos)+'</strong></div>').join('')+'</div>':'<p class="mu">No hay movimientos en este periodo.</p>';
   const moneyParam=k=>Number(d.parametros?.[k]||0)/100;
   const mensual=d.estadisticas?.mensuales||[], maxMes=Math.max(1,...mensual.flatMap(x=>[Number(x.ingresos||0),Number(x.gastos||0)]));
   const pal=['#e8c23a','#c9971a','#8b6b45','#b8956a','#6b4f2f','#f0d878','#a07f4f','#d7b98c','#3b2c1c'];
@@ -720,6 +727,7 @@ async function vTesoreria() {
   };
   let contenido='';
   if(TES_TAB==='res') contenido=`<section class="tes-overview"><div class="tes-overview-head"><div><div class="tag">Seguimiento del mes</div><h3>Situación económica · ${new Date(periodoActual+'-01T12:00:00').toLocaleDateString('es-ES',{month:'long',year:'numeric'})}</h3><p class="mu">Cifras contabilizadas y tareas que necesitan atención.</p></div><div class="tes-overview-actions"><button class="chip on" data-a="module-tab" data-module="tesoreria" data-tab="pun">Revisar pendientes · ${pendientesRevision}</button><button class="chip" data-a="module-tab" data-module="tesoreria" data-tab="mov">Ver movimientos</button></div></div><div class="tes-overview-kpis"><article><span>Ingresos del mes</span><b class="positive">${euros(ingresosMes)}</b></article><article><span>Gastos del mes</span><b class="negative">${euros(gastosMes)}</b></article><article><span>Pendiente de cobro</span><b>${euros(pendienteCobro)}</b></article></div></section><section class="kp tes-stats-kp"><div class="card"><span class="tag">Ingresos</span><b style="color:var(--ok)">${euros(ingresos)}</b></div><div class="card"><span class="tag">Gastos</span><b style="color:var(--ko)">${euros(gastos)}</b></div><div class="card"><span class="tag">Resultado</span><b>${euros(saldo)}</b></div></section>
+  <section class="card tes-situation-movements"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><div class="tag">Actividad económica</div><h3 style="margin:3px 0">Movimientos del periodo</h3><p class="mu" style="margin:0">Desde ${fechaBonita(TES_REPORT_FROM)} hasta ${fechaBonita(TES_REPORT_TO)} · Más recientes primero.</p></div><button class="chip" data-a="module-tab" data-module="tesoreria" data-tab="inf">Ver informe completo</button></div>${listaMovimientosSituacion}</section>
   <div class="card tes-month-chart"><h3>Ingresos y gastos por mes</h3>${mensual.length?`<div class="cols">${mensual.map(x=>{const i=Number(x.ingresos||0),g=Number(x.gastos||0);return `<div class="col"><small><b>${euros(i-g)}</b></small><div class="pair"><i style="height:${Math.max(2,i/maxMes*100)}%;background:var(--go)"></i><i style="height:${Math.max(2,g/maxMes*100)}%;background:var(--br)"></i></div><span class="mu">${esc(x.periodo)}</span></div>`;}).join('')}</div><p class="mu">Dorado: ingresos · Marrón: gastos · Cifra: resultado del mes</p>`:'<p class="mu">Todavía no hay movimientos registrados.</p>'}</div>
   <div class="grid tes-donuts"><div class="card"><h3>¿En qué gastamos?</h3>${donut('gasto')}</div><div class="card"><h3>¿De dónde ingresamos?</h3>${donut('ingreso')}</div></div>`;
   if(TES_TAB==='mov') contenido=`<div class="tes-mov-toolbar"><div><div class="tag">Contabilidad</div><h3>Movimientos registrados</h3><p class="mu">Consulta, filtra y revisa los ingresos, gastos y traspasos del cuartel.</p></div><div class="wr"><button class="btn" data-a="tes-mov-open">＋ Nuevo apunte</button><button class="chip" data-a="tes-transfer-open">↔ Traspaso</button></div></div>
@@ -809,14 +817,9 @@ async function vTesoreria() {
   if(TES_TAB==='inf') {
     const desde=TES_REPORT_FROM, hasta=TES_REPORT_TO, anchor=d.saldo_inicial?.fecha;
     const todos=d.movimientos||[];
-    const movimientosPeriodo=todos.filter(x=>x.fecha>=desde&&x.fecha<=hasta);
-    const contabilizadosActuales=movimientosPeriodo.filter(x=>x.afecta_resultado!==0&&!x.traspaso_id&&(x.tipo==='ingreso'||x.tipo==='gasto'));
-    const firmaMovimiento=x=>[x.fecha,x.tipo,Number(x.importe_centimos||0),String(x.concepto||'').trim().toLocaleLowerCase('es'),String(x.cuenta||'').trim().toLocaleLowerCase('es')].join('|');
-    const firmasActuales=new Set(contabilizadosActuales.map(firmaMovimiento));
-    const historicosPeriodo=(historico?.movimientos||[]).filter(x=>x[1]>=desde&&x[1]<=hasta&&['ingreso','gasto'].includes(x[5])).map(x=>({
-      id:'historico-'+x[0],fecha:x[1],hermana:x[2],categoria:x[3]||'Sin categoría',concepto:x[4],tipo:x[5],
-      importe_centimos:Number(x[6]||0),cuenta:x[7]||'Cuenta sin indicar',origen_historico:true,afecta_resultado:1
-    })).filter(x=>!firmasActuales.has(firmaMovimiento(x)));
+    const movimientosPeriodo=movimientosPeriodoInforme;
+    const contabilizadosActuales=contabilizadosActualesInforme;
+    const historicosPeriodo=historicosPeriodoInforme;
     const contabilizados=[...contabilizadosActuales,...historicosPeriodo];
     const totalIngresos=contabilizados.filter(x=>x.tipo==='ingreso').reduce((n,x)=>n+Number(x.importe_centimos||0),0);
     const totalGastos=contabilizados.filter(x=>x.tipo==='gasto').reduce((n,x)=>n+Number(x.importe_centimos||0),0);
@@ -834,7 +837,7 @@ async function vTesoreria() {
     const filasCategorias=(arr,total)=>arr.map(x=>'<tr><td>'+esc(x[0])+'</td><td class="r">'+euros(x[1])+'</td><td class="r">'+(total?Math.round(x[1]/total*100)+' %':'—')+'</td></tr>').join('');
     const tabla=(titulo,cabeceras,filas,pie='')=>'<div class="card wrap"><h3>'+titulo+'</h3><table class="rt"><thead><tr>'+cabeceras.map((x,i)=>'<th class="'+(i?'r':'')+'">'+x+'</th>').join('')+'</tr></thead><tbody>'+(filas||'<tr><td colspan="'+cabeceras.length+'">Sin movimientos en este periodo.</td></tr>')+'</tbody>'+(pie?'<tfoot><tr>'+pie+'</tr></tfoot>':'')+'</table></div>';
     const ingresosCats=agrupar('ingreso'), gastosCats=agrupar('gasto');
-    const detalle=contabilizados.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)||String(a.id||'').localeCompare(String(b.id||''))).map(x=>'<tr><td>'+fechaBonita(x.fecha)+'</td><td>'+ (x.origen_historico?'Histórico Excel':'Contabilidad')+'</td><td>'+(x.tipo==='ingreso'?'Ingreso':'Gasto')+'</td><td>'+esc(x.concepto)+'</td><td>'+esc(x.categoria||'Sin categoría')+'</td><td>'+esc(x.cuenta||'—')+'</td><td class="r">'+(x.tipo==='ingreso'?'+':'−')+euros(x.importe_centimos)+'</td></tr>').join('');
+    const detalle=contabilizados.slice().sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||''))||String(b.id||'').localeCompare(String(a.id||''))).map(x=>'<tr><td>'+fechaBonita(x.fecha)+'</td><td>'+ (x.origen_historico?'Histórico Excel':'Contabilidad')+'</td><td>'+(x.tipo==='ingreso'?'Ingreso':'Gasto')+'</td><td>'+esc(x.concepto)+'</td><td>'+esc(x.categoria||'Sin categoría')+'</td><td>'+esc(x.cuenta||'—')+'</td><td class="r">'+(x.tipo==='ingreso'?'+':'−')+euros(x.importe_centimos)+'</td></tr>').join('');
     const saldos=saldosConfigurados?'<tr><td>Banco</td><td class="r">'+euros(saldoBancoInicio)+'</td><td class="r">'+euros(saldoBancoFin)+'</td></tr><tr><td>Caja fuerte</td><td class="r">'+euros(saldoCajaInicio)+'</td><td class="r">'+euros(saldoCajaFin)+'</td></tr><tr><td><b>Total disponible</b></td><td class="r"><b>'+euros(saldoBancoInicio+saldoCajaInicio)+'</b></td><td class="r"><b>'+euros(saldoBancoFin+saldoCajaFin)+'</b></td></tr>':'<tr><td colspan="3">Saldos iniciales pendientes de configurar. No se muestran saldos de banco ni caja hasta introducir los importes reales.</td></tr>';
     contenido='<div class="pr tes-report-brand"><img src="/logo.png" style="height:48px"><h2 style="margin:6px 0 0">Las Tribulaciones de Sara</h2><p>Informe de Tesorería · '+fechaBonita(desde)+' – '+fechaBonita(hasta)+'</p></div>'+
       '<div class="tes-report-heading"><div><div class="tag">Tesorería · Presentación en junta</div><h2>Informe económico</h2><p>Consulta los ingresos, gastos y saldos correspondientes al periodo seleccionado.</p></div><div class="tes-report-period"><span>Periodo del informe</span><b>'+fechaBonita(desde)+' – '+fechaBonita(hasta)+'</b></div></div>'+
