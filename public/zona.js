@@ -687,6 +687,14 @@ async function vResumenMensual() {
 
 async function vTesoreria() {
   const d = await api('GET', '/modulos/tesoreria');
+  let historico=null, cuadres=[];
+  if(TES_TAB==='his') {
+    const [archivo,registro]=await Promise.all([
+      fetch('/tesoreria-historico.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('No se ha podido cargar el archivo histórico');return r.json();}),
+      api('GET','/modulos/tesoreria/historico/cuadres')
+    ]);
+    historico=archivo; cuadres=registro.cuadres||[];
+  }
   const ingresos=d.totales.ingresos, gastos=d.totales.gastos, saldo=d.totales.saldo_centimos;
   const aniosMov=[...new Set(d.movimientos.map(x=>String(x.fecha||'').slice(0,4)).filter(Boolean))].sort().reverse();
   const categoriasBase=d.categorias_gastos||['Comida y bebida','Limpieza','Material y decoración','Mantenimiento y reparaciones','Actividades y eventos','Cofradía y hermandad','Otros'];
@@ -830,6 +838,42 @@ async function vTesoreria() {
       tabla('Detalle de movimientos',['Fecha','Tipo','Concepto','Categoría','Cuenta','Importe'],detalle)+'</div>'+
       '<p class="mu tes-report-note">El informe recoge ingresos y gastos confirmados. Los traspasos entre Banco y Caja no se consideran ingresos ni gastos, aunque sí se reflejan en los saldos de cada cuenta. El saldo inicial se calcula con los saldos de partida configurados y los movimientos anteriores al periodo.</p>';
   }
+  if(TES_TAB==='his') {
+    const movs=(historico?.movimientos||[]).slice().sort((a,b)=>b[1].localeCompare(a[1])||b[0]-a[0]);
+    const ingresosH=movs.filter(x=>x[5]==='ingreso').reduce((n,x)=>n+Number(x[6]||0),0);
+    const gastosH=movs.filter(x=>x[5]==='gasto').reduce((n,x)=>n+Number(x[6]||0),0);
+    const formatoCentimos=n=>euros(Number(n||0));
+    const fechaCorta=x=>fechaBonita(x);
+    const cuadreCards=cuadres.map(q=>{
+      const detalle=q.detalle||{};
+      return `<article class="card tes-historical-close">
+        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:10px"><div><div class="tag">Cierre histórico</div><h3>${esc(q.titulo)}</h3><p class="mu">${fechaCorta(q.fecha)}</p></div><b class="amt">${formatoCentimos(q.diferencia_centimos)}</b></div>
+        <div class="kp"><div class="card"><small class="mu">Banco real</small><b>${formatoCentimos(q.banco_centimos)}</b></div><div class="card"><small class="mu">Caja real</small><b>${formatoCentimos(q.caja_centimos)}</b></div><div class="card"><small class="mu">Total según libro</small><b>${formatoCentimos(q.saldo_libro_centimos)}</b></div></div>
+        ${detalle.total_real_centimos!==undefined?'<p class="mu">Total contado: <b>'+formatoCentimos(detalle.total_real_centimos)+'</b></p>':''}
+        ${detalle.caja_nuria_centimos!==undefined?'<p class="mu">Caja Nuria: '+formatoCentimos(detalle.caja_nuria_centimos)+' · Caja Alejandra: '+formatoCentimos(detalle.caja_alejandra_centimos)+' <span class="pill">'+(detalle.caja_alejandra_estado==='estimacion'?'Estimación pendiente de recuento':'Recuento')+'</span></p>':''}
+        ${detalle.nota?'<p class="mu">'+esc(detalle.nota)+'</p>':''}
+      </article>`;
+    }).join('');
+    const filasHistoricas=movs.map(x=>`<tr><td>${fechaCorta(x[1])}</td><td>${esc(x[2])}</td><td>${esc(x[4])}<small class="mu" style="display:block">Fila ${x[0]} · ${esc(x[3])}</small></td><td>${esc(x[7]||'Cuenta sin indicar')}</td><td class="r"><b class="${x[5]==='gasto'?'negative':x[5]==='ingreso'?'positive':''}">${x[5]==='gasto'?'−':x[5]==='ingreso'?'+':'↔'}${formatoCentimos(x[6])}</b></td></tr>`).join('');
+    contenido=`<section class="tes-section-intro"><div><div class="tag">Archivo histórico · Excel 2026</div><h3>Movimientos y cuadres anteriores</h3><p class="mu">Se han incorporado ${movs.length} apuntes del Excel corregido. Este archivo es independiente de la contabilidad actual: no duplica movimientos ni modifica los saldos.</p></div></section>
+      <div class="kp tes-stats-kp"><div class="card"><span class="tag">Ingresos del histórico</span><b class="positive">${formatoCentimos(ingresosH)}</b></div><div class="card"><span class="tag">Gastos del histórico</span><b class="negative">${formatoCentimos(gastosH)}</b></div><div class="card"><span class="tag">Saldo inicial anotado</span><b>${formatoCentimos(historico?.saldo_inicial?.total_centimos)}</b><small class="mu">${esc(historico?.saldo_inicial?.fecha||'')}</small></div></div>
+      <div class="card" style="margin-top:14px"><div class="row" style="justify-content:space-between;align-items:center"><div><div class="tag">Movimientos originales</div><h3>Libro de ingresos y gastos</h3></div><span class="pill">${movs.length} apuntes</span></div>
+      <p class="mu">Incluye los ingresos, gastos y el traspaso de 1.000 € de caja a banco. Los dos apuntes de Cruz de Mayo no tenían cuenta indicada en el Excel y aparecen señalados como pendientes de asignar.</p>
+      <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Persona</th><th>Concepto</th><th>Cuenta</th><th class="r">Importe</th></tr></thead><tbody>${filasHistoricas}</tbody></table></div></div>
+      <section class="sec"><div class="tag">Recuentos de tesorería</div><h3>Cuadres guardados</h3><p class="mu">Cada cuadre conserva los importes comprobados en esa fecha. No se recalcula aunque después se corrijan movimientos.</p><div class="g2">${cuadreCards||'<div class="card"><p class="mu">Todavía no hay cuadres guardados.</p></div>'}</div></section>
+      <section class="card" style="margin-top:14px"><div class="tag">Nuevo cierre</div><h3>Guardar un nuevo cuadre</h3><p class="mu">Introduce lo que se ha contado ese día. El registro quedará guardado como una fotografía histórica y no modificará los movimientos ni los saldos actuales.</p>
+      <form data-f="tes-cuadre-new" class="two formgrid">
+        <div><label class="fl">Fecha del recuento</label><input class="t" type="date" name="fecha" required value="${fechaHoyLocal()}"></div>
+        <div><label class="fl">Título</label><input class="t" name="titulo" maxlength="140" required placeholder="Ej.: Recuento de cierre"></div>
+        <div><label class="fl">Saldo real Banco (€)</label><input class="t" type="number" name="banco" min="0" step="0.01" required></div>
+        <div><label class="fl">Efectivo real Caja (€)</label><input class="t" type="number" name="caja" min="0" step="0.01" required></div>
+        <div><label class="fl">Saldo total según el libro (€)</label><input class="t" type="number" name="saldo_libro" min="0" step="0.01" required></div>
+        <div><label class="fl">Caja de Nuria (€) · opcional</label><input class="t" type="number" name="caja_nuria" min="0" step="0.01"></div>
+        <div><label class="fl">Caja de Alejandra (€) · opcional</label><input class="t" type="number" name="caja_alejandra" min="0" step="0.01"></div>
+        <div style="grid-column:1/-1"><label class="fl">Observaciones</label><textarea class="t" name="observaciones" rows="2" maxlength="1000" placeholder="Incidencias, cantidades pendientes de confirmar…"></textarea></div>
+        <div class="row" style="grid-column:1/-1;justify-content:flex-end"><button class="btn">Guardar cuadre histórico</button></div>
+      </form></section>`;
+  }
   if(TES_TAB==='cat') {
      contenido=`<div class="tes-section-intro"><div><div class="tag">Organización de gastos</div><h3>Categorías de gastos</h3><p class="mu">Añade categorías para clasificar los movimientos, los justificantes y los gastos futuros. Las categorías ya utilizadas se conservarán en el histórico.</p></div></div><div class="card"><div class="tes-fixed-list">${categoriasBase.slice().sort((a,b)=>a.localeCompare(b,'es')).map(c=>`<div class="mv"><div class="x"><b>${esc(c)}</b></div><span class="pill">Disponible</span></div>`).join('')}</div><form data-f="tes-categorias" class="two formgrid" style="margin-top:16px">${categoriasBase.map(c=>`<input type="hidden" name="categoria" value="${esc(c)}">`).join('')}<div>${campo('nueva_categoria','Nueva categoría','required maxlength="60" placeholder="Ej.: Papelería"')}</div><div class="row" style="align-items:flex-end"><button class="btn">Añadir categoría</button></div></form></div>`;
    }
@@ -860,12 +904,13 @@ async function vTesoreria() {
   </section>`;
   if(TES_TAB==='cfg') contenido+=`<section class="card" style="margin-top:14px"><div class="tag">Punto de partida</div><h3>Saldos iniciales de Tesorería</h3><p class="mu">Indica cuánto dinero había realmente en Banco y en Caja en una fecha de corte. No se utilizará un saldo de cero por defecto.</p><form data-f="tes-saldos" class="two formgrid"><div><label class="fl">Fecha de referencia</label><input class="t" type="date" name="fecha" required value="${esc(d.saldo_inicial?.fecha||'')}"></div><div><label class="fl">Saldo en Banco (€)</label><input class="t" type="number" name="banco" min="0" step="0.01" required value="${d.saldos_configurados?(Number(d.saldo_inicial.banco_centimos)/100).toFixed(2):''}"></div><div><label class="fl">Saldo en Caja (€)</label><input class="t" type="number" name="caja" min="0" step="0.01" required value="${d.saldos_configurados?(Number(d.saldo_inicial.caja_centimos)/100).toFixed(2):''}"></div><div class="row" style="align-items:flex-end"><button class="btn">Guardar saldos iniciales</button></div></form></section>`;
   const pendientesTotal=pendientesRevision;
-  const grupoActual=['res','inf'].includes(TES_TAB)?'res':['mov','rec'].includes(TES_TAB)?'ops':['pun','gp','pen'].includes(TES_TAB)?'pend':'cfg';
-  const grupos=[['res','Resumen'],['mov','Operaciones'],['pun','Pendientes'+(pendientesTotal?' · '+pendientesTotal:'')],['cfg','Configuración']];
+  const grupoActual=['res','inf'].includes(TES_TAB)?'res':['mov','rec'].includes(TES_TAB)?'ops':['pun','gp','pen'].includes(TES_TAB)?'pend':TES_TAB==='his'?'his':'cfg';
+  const grupos=[['res','Resumen'],['mov','Operaciones'],['pun','Pendientes'+(pendientesTotal?' · '+pendientesTotal:'')],['his','Histórico'],['cfg','Configuración']];
   const subpaginas={
     res:[['res','Situación económica'],['inf','Informe económico']],
     ops:[['mov','Movimientos'],['rec','Gastos fijos']],
     pend:[['pun','Por validar ('+pendientesTotal+')'],['gp','Justificantes de gastos'],['pen','Cuotas pendientes']],
+    his:[['his','Movimientos y cuadres']],
     cfg:[['cfg','Cuotas y precios'],['cat','Categorías de gastos']]
   };
   return shell(`<div class="tesoreria"><div class="top tes-heading"><div><div class="tag">Gestión económica</div><h2>Tesorería</h2><p class="mu" style="margin:0">Control económico del cuartel · movimientos, pagos e informes.</p></div><div class="tes-pending-summary"><b>${pendientesTotal}</b><span>elementos por revisar</span></div></div>
@@ -1053,6 +1098,7 @@ const FORM = {
   async 'tes-mov-edit'(f,d) { await api('PUT','/modulos/tesoreria/movimientos/'+f.dataset.id,{tipo:d.get('tipo'),fecha:d.get('fecha'),concepto:d.get('concepto'),categoria:d.get('categoria'),cuenta:d.get('cuenta'),importe:d.get('importe')}); TES_EDIT_MOV_ID=null; toast('Movimiento actualizado'); render(); },
   async 'tes-traspaso'(f,d) { await api('POST','/modulos/tesoreria/traspasos',{fecha:d.get('fecha'),importe:d.get('importe'),origen:d.get('origen'),destino:d.get('destino')}); TES_TRANSFER_MODAL=false; toast('Traspaso registrado'); render(); },
   async 'tes-saldos'(f,d) { await api('PUT','/modulos/tesoreria/config',{saldo_inicial:{fecha:d.get('fecha'),banco:d.get('banco'),caja:d.get('caja')}}); toast('Saldos iniciales guardados'); render(); },
+  async 'tes-cuadre-new'(f,d) { const detalle={}; if(d.get('caja_nuria')!=='')detalle.caja_nuria_centimos=Math.round(Number(d.get('caja_nuria'))*100); if(d.get('caja_alejandra')!=='')detalle.caja_alejandra_centimos=Math.round(Number(d.get('caja_alejandra'))*100); detalle.nota=d.get('observaciones')||''; await api('POST','/modulos/tesoreria/historico/cuadres',{fecha:d.get('fecha'),titulo:d.get('titulo'),banco:d.get('banco'),caja:d.get('caja'),saldo_libro:d.get('saldo_libro'),detalle}); toast('Cuadre guardado en el histórico'); render(); },
   async 'tes-fijo'(f,d) { await api('POST','/modulos/tesoreria/gastos-fijos',{concepto:d.get('concepto'),categoria:d.get('categoria'),importe:d.get('importe'),periodicidad:d.get('periodicidad'),dia:d.get('dia'),mes:d.get('mes'),cuenta:d.get('cuenta'),variable:d.has('variable')}); TES_NEW_FIXED_MODAL=false; toast('Gasto fijo añadido'); render(); },
   async 'tes-fijo-edit'(f,d) { await api('PUT','/modulos/tesoreria/gastos-fijos/'+f.dataset.id,{concepto:d.get('concepto'),categoria:d.get('categoria'),importe:d.get('importe'),periodicidad:d.get('periodicidad'),dia:d.get('dia'),mes:d.get('mes'),cuenta:d.get('cuenta'),variable:d.has('variable'),activo:d.has('activo')}); toast('Gasto fijo actualizado'); render(); },
   async 'tes-fijo-registrar'(f,d) { await api('POST','/modulos/tesoreria/gastos-fijos/'+f.dataset.id+'/registrar',{periodo:d.get('periodo'),importe:d.get('importe')}); toast('Gasto fijo enviado a validación'); render(); },
