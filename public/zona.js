@@ -1344,6 +1344,8 @@ document.addEventListener('input', e => {
   if(contador) contador.textContent=texto ? visibles+' de '+filas.length+' hermanas' : filas.length+' hermanas registradas';
 });
 document.addEventListener('change', e => {
+  const historicoSize=e.target.closest('[data-tes-hist-size]');
+  if(historicoSize) { const n=Number(historicoSize.value); if([10,20,50].includes(n)) { TES_HIST_PAGE_SIZE=n; TES_HIST_PAGE=1; try { localStorage.setItem('lts-tes-hist-page-size',String(n)); } catch(err) {} render(); } return; }
   const compraSelect=e.target.closest('#compras-lista');
   if(compraSelect) { COMPRAS_LISTA_ID=Number(compraSelect.value); render(); return; }
   const alergia=e.target.closest('input[name="alergia_perfil"]');
