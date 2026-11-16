@@ -616,6 +616,21 @@ export async function routeModulos(req, env, me, method, path, body) {
   // TESORERÍA: todo el módulo queda protegido por permiso real del servidor.
   if (path.startsWith('/api/modulos/tesoreria')) {
     if (!tes(me)) return E('No tienes permiso para acceder a tesorería', 403);
+    if (path === '/api/modulos/tesoreria/historico/cuadres' && method === 'GET') {
+      const cuadres = await rows(env.DB.prepare('SELECT id,fecha,titulo,banco_centimos,caja_centimos,saldo_libro_centimos,diferencia_centimos,detalle_json,creado FROM tesoreria_cuadres ORDER BY fecha DESC,id DESC'));
+      return J({cuadres:cuadres.map(x=>({...x,detalle:(()=>{try{return JSON.parse(x.detalle_json||'{}')}catch{return {}}})()}))});
+    }
+    if (path === '/api/modulos/tesoreria/historico/cuadres' && method === 'POST') {
+      const fecha=isoDate(body.fecha)?body.fecha:null, titulo=txt(body.titulo,140);
+      const banco=money(body.banco), caja=money(body.caja), libro=money(body.saldo_libro);
+      if(!fecha||!titulo||!Number.isInteger(banco)||banco<0||!Number.isInteger(caja)||caja<0||!Number.isInteger(libro)||libro<0) return E('Revisa la fecha, el título y los importes del cuadre');
+      const detalle=body.detalle&&typeof body.detalle==='object'&&!Array.isArray(body.detalle)?JSON.stringify(body.detalle):'{}';
+      if(detalle.length>4000) return E('El detalle del cuadre es demasiado largo');
+      const diferencia=banco+caja-libro;
+      const r=await env.DB.prepare('INSERT INTO tesoreria_cuadres(fecha,titulo,banco_centimos,caja_centimos,saldo_libro_centimos,diferencia_centimos,detalle_json,creado_por) VALUES(?,?,?,?,?,?,?,?)')
+        .bind(fecha,titulo,banco,caja,libro,diferencia,detalle,me.id).run();
+      return J({ok:true,id:r.meta.last_row_id,diferencia_centimos:diferencia});
+    }
     if (path === '/api/modulos/tesoreria' && method === 'GET') {
       await syncCargosHermanas(env.DB);
       const [movimientos, pagos, gastosFijos, cuotas, tickets, pendientes, informes, totales, cfg, movimientosPendientes] = await Promise.all([
