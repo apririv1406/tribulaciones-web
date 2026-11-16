@@ -1694,3 +1694,11 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
  .zona #app .tes-historical-view .tes-historical-page-size{width:100%;justify-content:flex-start}
  .zona #app .tes-historical-view .tes-historical-pagination>span{width:100%}
 }
+
+
+/* Tesorería: buscador visible y cómodo */
+.zona #app .tes-search-wrap{grid-column:1/-1;min-width:0}
+.zona #app .tes-search-wrap .fl{display:block;font-size:12px;font-weight:700;margin:0 0 6px}
+.zona #app .tes-search-input{display:block;width:100%;min-width:0;box-sizing:border-box;padding:12px 14px!important;font-size:14px!important;border:1px solid #c9a85f!important;background:#fffdf8}
+.zona #app .tes-search-input:focus{outline:none;border-color:var(--gd)!important;box-shadow:0 0 0 3px rgba(201,151,26,.16)}
+.zona #app .tes-search-input::placeholder{color:#887e70;opacity:1}
