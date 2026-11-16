@@ -1785,3 +1785,38 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
     font-size:11px;
   }
 }
+
+
+/* Tesorería en escritorio: navegación principal y subapartados en una sola fila */
+@media(min-width:561px){
+  .zona #app .tes-main-nav{
+    display:flex;
+    flex-wrap:nowrap;
+    align-items:stretch;
+    gap:7px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    scrollbar-width:thin;
+  }
+  .zona #app .tes-main-nav button{
+    flex:1 0 auto;
+    white-space:nowrap;
+    padding:10px 16px;
+  }
+  .zona #app .tesoreria>.sub{
+    display:flex;
+    flex-wrap:nowrap;
+    align-items:center;
+    gap:20px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    white-space:nowrap;
+    margin:8px 0 14px;
+    scrollbar-width:thin;
+  }
+  .zona #app .tesoreria>.sub button{
+    flex:0 0 auto;
+    white-space:nowrap;
+    padding:9px 2px;
+  }
+}
