@@ -264,6 +264,30 @@ export const MIGRATIONS = [
     // Conceptos independientes de las cuotas mensuales.
     "INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)\n    SELECT id,'Semana Santa','PAPELETAS + CUARESMA + SEMANA SANTA',15000,'importacion:cuotas-2026:cristina-leyva:extraordinaria','importacion_extraordinaria'\n    FROM hermanas WHERE lower(trim(nombre))=lower('Cristina Leyva Celemín')\n    ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo=excluded.grupo",
     "INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)\n    SELECT id,'Semana Santa','4 invitadas · Semana Santa',10000,'importacion:cuotas-2026:alejandra-logrono:invitadas','importacion_invitadas'\n    FROM hermanas WHERE lower(trim(nombre))=lower('Alejandra Logroño Neto')\n    ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo=excluded.grupo"
+  ]},,
+
+  { v: 23, sql: [
+    `CREATE TABLE IF NOT EXISTS tesoreria_cuadres(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha TEXT NOT NULL,
+      titulo TEXT NOT NULL,
+      banco_centimos INTEGER,
+      caja_centimos INTEGER,
+      saldo_libro_centimos INTEGER,
+      diferencia_centimos INTEGER,
+      detalle_json TEXT NOT NULL DEFAULT '{}',
+      creado_por INTEGER REFERENCES hermanas(id),
+      creado TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
+    `CREATE INDEX IF NOT EXISTS ix_tesoreria_cuadres_fecha ON tesoreria_cuadres(fecha DESC,id DESC)`,
+    `INSERT INTO tesoreria_cuadres(fecha,titulo,banco_centimos,caja_centimos,saldo_libro_centimos,diferencia_centimos,detalle_json)
+      SELECT '2026-08-02','Junta · 2 de agosto de 2026',829866,129607,977574,-18101,
+      '{"total_real_centimos":959473,"descuadre_libro_menos_real_centimos":18101,"nota":"El libro reflejaba 181,01 € más que el saldo contado en la junta. Diferencia histórica pendiente de explicar."}'
+      WHERE NOT EXISTS(SELECT 1 FROM tesoreria_cuadres WHERE fecha='2026-08-02' AND titulo='Junta · 2 de agosto de 2026')`,
+    `INSERT INTO tesoreria_cuadres(fecha,titulo,banco_centimos,caja_centimos,saldo_libro_centimos,diferencia_centimos,detalle_json)
+      SELECT '2026-11-15','Recuento · 15 de noviembre de 2026',1020091,76197,1099316,-3028,
+      '{"total_real_centimos":1096288,"caja_nuria_centimos":56197,"caja_alejandra_centimos":20000,"caja_alejandra_estado":"estimacion","caja_esperada_centimos":79225,"diferencia_caja_centimos":15073,"efectivo_alejandra_para_cuadrar_centimos":23028,"nota":"Los 200,00 € de Alejandra son una estimación pendiente de recuento. El importe de 230,28 € es el necesario para cuadrar, no un efectivo confirmado."}'
+      WHERE NOT EXISTS(SELECT 1 FROM tesoreria_cuadres WHERE fecha='2026-11-15' AND titulo='Recuento · 15 de noviembre de 2026')`
   ]},
 ];
 
