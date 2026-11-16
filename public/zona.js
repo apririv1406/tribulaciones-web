@@ -921,11 +921,11 @@ async function vTesoreria() {
   if(TES_TAB==='cfg') contenido+=`<section class="card" style="margin-top:14px"><div class="tag">Punto de partida</div><h3>Saldos iniciales de Tesorería</h3><p class="mu">Indica cuánto dinero había realmente en Banco y en Caja en una fecha de corte. No se utilizará un saldo de cero por defecto.</p><form data-f="tes-saldos" class="two formgrid"><div><label class="fl">Fecha de referencia</label><input class="t" type="date" name="fecha" required value="${esc(d.saldo_inicial?.fecha||'')}"></div><div><label class="fl">Saldo en Banco (€)</label><input class="t" type="number" name="banco" min="0" step="0.01" required value="${d.saldos_configurados?(Number(d.saldo_inicial.banco_centimos)/100).toFixed(2):''}"></div><div><label class="fl">Saldo en Caja (€)</label><input class="t" type="number" name="caja" min="0" step="0.01" required value="${d.saldos_configurados?(Number(d.saldo_inicial.caja_centimos)/100).toFixed(2):''}"></div><div class="row" style="align-items:flex-end"><button class="btn">Guardar saldos iniciales</button></div></form></section>`;
   const pendientesTotal=pendientesRevision;
   const grupoActual=['res','inf'].includes(TES_TAB)?'res':['mov','rec'].includes(TES_TAB)?'ops':['pun','gp','pen'].includes(TES_TAB)?'pend':TES_TAB==='his'?'his':'cfg';
-  const grupos=[['res','Resumen'],['mov','Movimientos'],['pun','Por revisar'+(pendientesTotal?' · '+pendientesTotal:'')],['his','Histórico'],['cfg','Ajustes']];
+  const grupos=[['res','Resumen'],['mov','Movimientos'],['pun','Pendientes'+(pendientesTotal?' · '+pendientesTotal:'')],['his','Histórico'],['cfg','Configuración']];
   const subpaginas={
     res:[['res','Situación económica'],['inf','Informe económico']],
     ops:[['mov','Todos los movimientos'],['rec','Gastos fijos']],
-    pend:[['pun','Pagos y movimientos por revisar ('+pendientesTotal+')'],['gp','Justificantes de gastos'],['pen','Cuotas pendientes']],
+    pend:[['pun','Pagos pendientes de revisar ('+pendientesTotal+')'],['gp','Justificantes de gastos'],['pen','Cuotas pendientes']],
     his:[['his','Histórico y cierres de caja']],
     cfg:[['cfg','Cuotas y precios'],['cat','Categorías']]
   };
