@@ -1709,3 +1709,35 @@ nav .nav-menu:before{content:"";position:absolute;left:0;right:0;top:-8px;height
 .zona #app .tes-search-input{min-height:46px;padding:12px 14px!important;font-size:15px!important;border:1px solid #c9a85f!important;background:#fff!important}
 .zona #app .tes-search-help{font-size:11px;color:var(--mu);line-height:1.4}
 @media(max-width:560px){.zona #app .tes-search-wrap{padding:12px}.zona #app .tes-filter-grid{grid-template-columns:1fr}}
+
+
+/* Ajuste de navegación en móvil: menos altura y menú lateral más compacto */
+@media(max-width:760px){
+  body.zona{padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))}
+  .zona #bottom-nav .admin-bottom-nav{
+    min-height:58px;
+    padding:5px 5px calc(5px + env(safe-area-inset-bottom,0px));
+    gap:2px;
+  }
+  .zona #bottom-nav .admin-bottom-nav a,
+  .zona #bottom-nav .admin-bottom-nav button{
+    min-height:46px;
+    padding:3px 1px;
+    gap:3px;
+    font-size:10px;
+  }
+  .zona #bottom-nav .admin-bottom-nav a span,
+  .zona #bottom-nav .admin-bottom-nav button span{font-size:19px}
+  .zona .mn{
+    width:min(310px,86vw);
+    max-width:86vw;
+  }
+  .zona .mn-head{padding:12px 14px}
+  .zona .mn-user>img,
+  .zona .mn-user>span:first-child{width:38px;height:38px;font-size:16px}
+  .zona .mn-scroll{padding:4px 12px calc(14px + env(safe-area-inset-bottom,0px))}
+  .zona .mn-group{padding:7px 0 5px}
+  .zona .mn-group>span{padding:2px 9px 4px;font-size:9px}
+  .zona .mn-group>a{margin:1px 0;padding:8px 10px;font-size:13px}
+  .zona .mn-footer{padding:10px 14px}
+}
