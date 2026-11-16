@@ -5,7 +5,7 @@ const iniciales = n => esc(String(n).split(' ').map(w => w[0]).slice(0, 2).join(
 const fechaHoyLocal = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const GSVG = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.600 2.400 30.200 0 24 0 14.600 0 6.500 5.400 2.600 13.200l7.800 6.100C12.300 13.600 17.700 9.500 24 9.500z"/><path fill="#4285F4" d="M46.500 24.500c0-1.600-.1-3.100-.4-4.500H24v9h12.700c-.6 3-2.300 5.500-4.800 7.200l7.500 5.800c4.400-4.100 7.100-10.100 7.100-17.500z"/><path fill="#FBBC05" d="M10.400 28.700A14.500 14.500 0 0 1 9.500 24c0-1.600.3-3.200.9-4.700l-7.800-6.100A24 24 0 0 0 0 24c0 3.900.9 7.500 2.600 10.800l7.800-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.700-4.100-13.600-9.800l-7.800 6.100C6.500 42.600 14.600 48 24 48z"/></svg>';
 let LARDERO_TIMER = null;
-let CAL_MES = new Date(new Date().getFullYear(), new Date().getMonth(), 1), ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_HIST_PAGE = 1, TES_HIST_PAGE_SIZE = 20, TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_FROM = fechaHoyLocal().slice(0,7) + '-01', TES_REPORT_TO = fechaHoyLocal(), TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_EDIT_MOV_ID = null, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', COCINA_SORTEO_RESULTADO = [], COMPRAS_LISTA_ID = null, COMPRAS_EDITANDO_ID = null, TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
+let CAL_MES = new Date(new Date().getFullYear(), new Date().getMonth(), 1), ME = null, ME_REAL = null, VISTA_HERMANA = false, NOTICIA_EDITANDO = null, MENU = false, LAST = '', PAGO_MODAL = false, SAB_TAB = 'prox', CUENTA_TAB = 'deb', COCINA_TAB = 'mis', TES_TAB = 'res', TES_HIST_PAGE = 1, TES_HIST_PAGE_SIZE = 20, TES_CFG_TAB = 'pre', TES_REC_TAB = 'mes', TES_REPORT_FROM = '2026-08-01', TES_REPORT_TO = fechaHoyLocal(), TES_IMPORT_FILE = '', TES_NEW_FIXED_MODAL = false, TES_MOV_MODAL = false, TES_EDIT_MOV_ID = null, TES_TRANSFER_MODAL = false, ADMIN_HERM_TAB = 'her', ACTAS_TAB = 'conv', COCINA_SORTEO_RESULTADO = [], COMPRAS_LISTA_ID = null, COMPRAS_EDITANDO_ID = null, TES_FILTRO = { tipo:'todos', desde:'', hasta:'', texto:'', cuenta:'', hermana:'', anio:'', categoria:'' };
 
 async function api(method, path, body) {
   const r = await fetch('/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
@@ -690,7 +690,7 @@ try { const n=Number(localStorage.getItem('lts-tes-hist-page-size')); if([10,20,
 async function vTesoreria() {
   const d = await api('GET', '/modulos/tesoreria');
   let historico=null, cuadres=[];
-  if(TES_TAB==='his') {
+  if(['his','inf'].includes(TES_TAB)) {
     const [archivo,registro]=await Promise.all([
       fetch('/tesoreria-historico.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('No se ha podido cargar el archivo histórico');return r.json();}),
       api('GET','/modulos/tesoreria/historico/cuadres')
@@ -810,7 +810,14 @@ async function vTesoreria() {
     const desde=TES_REPORT_FROM, hasta=TES_REPORT_TO, anchor=d.saldo_inicial?.fecha;
     const todos=d.movimientos||[];
     const movimientosPeriodo=todos.filter(x=>x.fecha>=desde&&x.fecha<=hasta);
-    const contabilizados=movimientosPeriodo.filter(x=>x.afecta_resultado!==0&&!x.traspaso_id&&(x.tipo==='ingreso'||x.tipo==='gasto'));
+    const contabilizadosActuales=movimientosPeriodo.filter(x=>x.afecta_resultado!==0&&!x.traspaso_id&&(x.tipo==='ingreso'||x.tipo==='gasto'));
+    const firmaMovimiento=x=>[x.fecha,x.tipo,Number(x.importe_centimos||0),String(x.concepto||'').trim().toLocaleLowerCase('es'),String(x.cuenta||'').trim().toLocaleLowerCase('es')].join('|');
+    const firmasActuales=new Set(contabilizadosActuales.map(firmaMovimiento));
+    const historicosPeriodo=(historico?.movimientos||[]).filter(x=>x[1]>=desde&&x[1]<=hasta&&['ingreso','gasto'].includes(x[5])).map(x=>({
+      id:'historico-'+x[0],fecha:x[1],hermana:x[2],categoria:x[3]||'Sin categoría',concepto:x[4],tipo:x[5],
+      importe_centimos:Number(x[6]||0),cuenta:x[7]||'Cuenta sin indicar',origen_historico:true,afecta_resultado:1
+    })).filter(x=>!firmasActuales.has(firmaMovimiento(x)));
+    const contabilizados=[...contabilizadosActuales,...historicosPeriodo];
     const totalIngresos=contabilizados.filter(x=>x.tipo==='ingreso').reduce((n,x)=>n+Number(x.importe_centimos||0),0);
     const totalGastos=contabilizados.filter(x=>x.tipo==='gasto').reduce((n,x)=>n+Number(x.importe_centimos||0),0);
     const netoCuenta=(lista,cuenta)=>lista.filter(x=>x.cuenta===cuenta).reduce((n,x)=>n+(x.tipo==='ingreso'?1:-1)*Number(x.importe_centimos||0),0);
@@ -827,7 +834,7 @@ async function vTesoreria() {
     const filasCategorias=(arr,total)=>arr.map(x=>'<tr><td>'+esc(x[0])+'</td><td class="r">'+euros(x[1])+'</td><td class="r">'+(total?Math.round(x[1]/total*100)+' %':'—')+'</td></tr>').join('');
     const tabla=(titulo,cabeceras,filas,pie='')=>'<div class="card wrap"><h3>'+titulo+'</h3><table class="rt"><thead><tr>'+cabeceras.map((x,i)=>'<th class="'+(i?'r':'')+'">'+x+'</th>').join('')+'</tr></thead><tbody>'+(filas||'<tr><td colspan="'+cabeceras.length+'">Sin movimientos en este periodo.</td></tr>')+'</tbody>'+(pie?'<tfoot><tr>'+pie+'</tr></tfoot>':'')+'</table></div>';
     const ingresosCats=agrupar('ingreso'), gastosCats=agrupar('gasto');
-    const detalle=contabilizados.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)||Number(a.id||0)-Number(b.id||0)).map(x=>'<tr><td>'+fechaBonita(x.fecha)+'</td><td>'+(x.tipo==='ingreso'?'Ingreso':'Gasto')+'</td><td>'+esc(x.concepto)+'</td><td>'+esc(x.categoria||'Sin categoría')+'</td><td>'+esc(x.cuenta||'—')+'</td><td class="r">'+(x.tipo==='ingreso'?'+':'−')+euros(x.importe_centimos)+'</td></tr>').join('');
+    const detalle=contabilizados.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)||String(a.id||'').localeCompare(String(b.id||''))).map(x=>'<tr><td>'+fechaBonita(x.fecha)+'</td><td>'+ (x.origen_historico?'Histórico Excel':'Contabilidad')+'</td><td>'+(x.tipo==='ingreso'?'Ingreso':'Gasto')+'</td><td>'+esc(x.concepto)+'</td><td>'+esc(x.categoria||'Sin categoría')+'</td><td>'+esc(x.cuenta||'—')+'</td><td class="r">'+(x.tipo==='ingreso'?'+':'−')+euros(x.importe_centimos)+'</td></tr>').join('');
     const saldos=saldosConfigurados?'<tr><td>Banco</td><td class="r">'+euros(saldoBancoInicio)+'</td><td class="r">'+euros(saldoBancoFin)+'</td></tr><tr><td>Caja fuerte</td><td class="r">'+euros(saldoCajaInicio)+'</td><td class="r">'+euros(saldoCajaFin)+'</td></tr><tr><td><b>Total disponible</b></td><td class="r"><b>'+euros(saldoBancoInicio+saldoCajaInicio)+'</b></td><td class="r"><b>'+euros(saldoBancoFin+saldoCajaFin)+'</b></td></tr>':'<tr><td colspan="3">Saldos iniciales pendientes de configurar. No se muestran saldos de banco ni caja hasta introducir los importes reales.</td></tr>';
     contenido='<div class="pr tes-report-brand"><img src="/logo.png" style="height:48px"><h2 style="margin:6px 0 0">Las Tribulaciones de Sara</h2><p>Informe de Tesorería · '+fechaBonita(desde)+' – '+fechaBonita(hasta)+'</p></div>'+
       '<div class="tes-report-heading"><div><div class="tag">Tesorería · Presentación en junta</div><h2>Informe económico</h2><p>Consulta los ingresos, gastos y saldos correspondientes al periodo seleccionado.</p></div><div class="tes-report-period"><span>Periodo del informe</span><b>'+fechaBonita(desde)+' – '+fechaBonita(hasta)+'</b></div></div>'+
@@ -837,8 +844,8 @@ async function vTesoreria() {
       tabla('Saldos de banco y caja',['Cuenta','Saldo inicial','Saldo final'],saldos)+
       tabla('Ingresos por categoría',['Categoría','Importe','%'],filasCategorias(ingresosCats,totalIngresos),'<td>Total ingresos</td><td class="r">'+euros(totalIngresos)+'</td><td class="r">100 %</td>')+
       tabla('Gastos por categoría',['Categoría','Importe','%'],filasCategorias(gastosCats,totalGastos),'<td>Total gastos</td><td class="r">'+euros(totalGastos)+'</td><td class="r">100 %</td>')+
-      tabla('Detalle de movimientos',['Fecha','Tipo','Concepto','Categoría','Cuenta','Importe'],detalle)+'</div>'+
-      '<p class="mu tes-report-note">El informe recoge ingresos y gastos confirmados. Los traspasos entre Banco y Caja no se consideran ingresos ni gastos, aunque sí se reflejan en los saldos de cada cuenta. El saldo inicial se calcula con los saldos de partida configurados y los movimientos anteriores al periodo.</p>';
+      tabla('Detalle de movimientos',['Fecha','Origen','Tipo','Concepto','Categoría','Cuenta','Importe'],detalle)+'</div>'+
+      '<p class="mu tes-report-note">El informe integra los movimientos confirmados de la contabilidad y los apuntes del archivo histórico desde el 1 de agosto de 2026, evitando coincidencias exactas. Los traspasos no se consideran ingresos ni gastos. Los saldos de Banco y Caja se calculan con la contabilidad actual; los apuntes del archivo histórico se incorporan al resultado y al detalle, pero no alteran esos saldos.</p>';
   }
   if(TES_TAB==='his') {
     const movs=(historico?.movimientos||[]).slice().sort((a,b)=>b[1].localeCompare(a[1])||b[0]-a[0]);
