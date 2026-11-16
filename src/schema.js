@@ -264,7 +264,7 @@ export const MIGRATIONS = [
     // Conceptos independientes de las cuotas mensuales.
     "INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)\n    SELECT id,'Semana Santa','PAPELETAS + CUARESMA + SEMANA SANTA',15000,'importacion:cuotas-2026:cristina-leyva:extraordinaria','importacion_extraordinaria'\n    FROM hermanas WHERE lower(trim(nombre))=lower('Cristina Leyva Celemín')\n    ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo=excluded.grupo",
     "INSERT INTO cargos_hermanas(hermana_id,categoria,concepto,importe_centimos,source_key,grupo)\n    SELECT id,'Semana Santa','4 invitadas · Semana Santa',10000,'importacion:cuotas-2026:alejandra-logrono:invitadas','importacion_invitadas'\n    FROM hermanas WHERE lower(trim(nombre))=lower('Alejandra Logroño Neto')\n    ON CONFLICT(source_key) DO UPDATE SET categoria=excluded.categoria,concepto=excluded.concepto,importe_centimos=excluded.importe_centimos,grupo=excluded.grupo"
-  ]},,
+    ]},
 
   { v: 23, sql: [
     `CREATE TABLE IF NOT EXISTS tesoreria_cuadres(
